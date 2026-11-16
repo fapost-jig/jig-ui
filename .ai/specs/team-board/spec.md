@@ -55,7 +55,8 @@ The maintainer's words, translated from Russian, in the order they were said:
 
 - Hidden assumptions — "this holds only if …":
   - only if a GitHub App can both sign a person in and tell whether they may write to a repository,
-    with no access to code (see "Assumptions left untested");
+    with no access to code — it can, with Metadata (read) only, if the App is public and the server
+    keeps its own allow-list (checked: `research.md`);
   - only if every teammate runs the client: a teammate who never connected looks like an empty
     backlog;
   - only if the reflection's JSON stays readable across Jig and Jig UI versions: a private state
@@ -136,22 +137,45 @@ The maintainer's words, translated from Russian, in the order they were said:
 - **Sync.** A full snapshot per project on connect, then changes. A task closed or removed locally
   leaves the board at the next sync. The client sends the version of the contract it speaks; the
   server refuses a version it cannot read rather than guess at its states.
-- **Sign-in through a GitHub App.** The server creates its App on first start through GitHub's app
-  manifest flow — a button, GitHub fills in the fields, an organisation admin confirms. One App is
-  installed on several accounts — a person's own and the team's organisation — so one server holds
-  all of a person's projects. Rejected: an OAuth app — it needs the `repo` scope, full access to a
-  person's code, and organisations block it. Rejected: one App shared by several servers — one
-  private key in several hands and only one webhook address.
+- **Sign-in through a GitHub App that asks only for Metadata (read).** It signs a person in and
+  tells whether they may write to a repository, and it cannot read code, which needs the Contents
+  permission (checked against GitHub's documentation on 2026-11-16: `research.md`). The server
+  creates its App on first start through GitHub's app manifest flow — a button, GitHub fills in the
+  fields; under an organisation, an owner or an App manager registers it. The default name carries a
+  suffix unique to the server, since App names are unique across GitHub. Rejected: an OAuth app — it
+  needs the `repo` scope, full access to a person's code, and organisations block it. Rejected: one
+  App shared by several servers — one private key in several hands and only one webhook address.
+- **The App is public, and the server keeps its own allow-list.** One App is installed on several
+  accounts — a person's own and the team's organisation — so one server holds all of a person's
+  projects, and only a public App installs on accounts other than its owner's. Anyone can install a
+  public App, so having it installed is not access: the server takes an installation only from an
+  account its admin approved, and a person only through such an installation. Rejected: a private
+  App owned by the organisation — only its members could sign in, but it installs on the
+  organisation alone, so no personal repository could be on the server (the user, 2026-11-16).
+- **People are known by their forge user id.** A login is shown, never a key: logins change. A
+  person's user token is used at sign-in, to find who they are and which installations they reach,
+  and is not kept, so the server's database holds no forge credentials of its people.
 - **Several forge accounts per person.** A person on the server may link several forge accounts;
-  they see the union of what those accounts can write to. A task's owner is the forge login its
-  clone pushes as — `github.account`, which Jig already records per clone.
+  they see the union of what those accounts can write to. A task's owner is the forge account its
+  clone pushes as — `github.account`, which Jig already records per clone as a login; the server
+  resolves it to the account's user id once and follows renames by that id.
 - **Taking part means write access.** A person sees a project only if the forge says they may write
   to its repository, never read: read access would open a public repository's board to anyone.
-  Access is checked against the forge and cached for minutes, not for a session. When access is
-  lost, that person's copies are hidden at once and deleted after 30 days.
-- **A project is a repository by its forge id**, not by its URL. Tasks from a fork belong to the
-  repository it was forked from. Clones and machines of one person merge into one owner; a
-  disagreement between them is marked, not hidden.
+  Access is checked with the App's installation token, not once per session: the server polls each
+  repository's writers (`GET /repos/{owner}/{repo}/collaborators?permission=push`) every few minutes
+  with conditional requests, which cost nothing while the answer is unchanged. Webhooks hide a
+  project at once when the App loses it (`installation`, `installation_repositories`) and sign a
+  person out when they revoke the App (`github_app_authorization`); no webhook reports a changed
+  collaborator to an App with Metadata only. When access is lost, that person's copies are hidden at
+  once and deleted after 30 days. Rejected: the Members (read) permission, for the `member`,
+  `membership` and `team` webhooks — it is an organisation permission, so only an organisation owner
+  could install the App, never a repository admin on their own repositories (the user, 2026-11-16).
+- **A project is a repository by its forge id**, not by its URL. Tasks from a fork belong to its
+  `parent`, the repository it was forked from, when the server's App covers that repository;
+  otherwise the fork is a project of its own. Clones and machines of one person merge into one
+  owner; a disagreement between them is marked, not hidden. Rejected: the root of the fork network
+  (`source`) — a personal fork of a team repository that is itself a fork of an open-source project
+  would land on the open-source project (the user, 2026-11-16).
 - **What the team sees.** Teammates see tasks in the backlog (filed, not started), tasks a person
   put on pause, and specs. Tasks in progress, waiting for a person, in review or in testing are seen
   only by their owner. Nobody's presence is shown. A copy from a client that is not connected
@@ -181,7 +205,15 @@ The maintainer's words, translated from Russian, in the order they were said:
 ## Open questions
 
 - How an organisation admin is led through installing the team's GitHub App on the organisation —
-  the first-run experience of a team depends on it.
+  the first-run experience of a team depends on it. Behind SAML SSO a person must start an SSO
+  session before signing in, or the organisation's repositories are missing from that sign-in.
+- What a real App answers where GitHub's documentation is silent (`research.md`, "What this changes
+  in the spec"): whether a manifest asking only for Metadata registers; whether
+  `GET /repos/{owner}/{repo}` hands such an App a `temp_clone_token` for a private repository — a
+  short-lived credential for Git, which the server then never stores or logs; whether
+  `permission=push` means push or higher; whether SAML SSO limits installation tokens; whether a
+  repository's id survives a rename and a transfer. Each is a short test with a real App, at the
+  start of the team server's task.
 - How GitLab's membership check and sign-in fit the same server — Phase 4 depends on it.
 
 ## Set aside
@@ -199,8 +231,6 @@ The maintainer's words, translated from Russian, in the order they were said:
 
 ## Assumptions left untested
 
-- A GitHub App gives both sign-in and the write-access check, without access to code — taken at
-  deep; checked against GitHub's documentation before Phase 1 is designed.
 - A claim releasing itself when the reflection shows the spec closed or its epic finished is enough
   — taken at deep; the first claim left behind tests it.
 - Teammates accept a board that shows only what can be taken — taken at deep; a week of a real team

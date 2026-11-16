@@ -11,9 +11,10 @@ own tasks on one server, from any device. Done when: the maintainer's server hol
 projects and the team's, his phone shows his tasks in progress, and closing the laptop leaves the
 last copy on the board marked "as of".
 
-- [ ] team server — one Docker image with SQLite on a volume; the GitHub App created on first start
-  through the app manifest flow; sign-in through the App; several forge accounts per person;
-  projects by forge id, membership by write access re-checked within minutes
+- [ ] team server — one Docker image with SQLite on a volume; a public GitHub App with Metadata
+  (read) only, created on first start through the app manifest flow; installations taken only from
+  accounts the server's admin approved; sign-in through the App; several forge accounts per person,
+  known by user id; projects by forge id, membership by write access polled within minutes
 - [ ] background client — Jig UI as a service started at sign-in on macOS, Linux and Windows;
   `jig-ui connect <url>` once per person, to one or more servers; `jig-ui` opens the team board while
   a server is connected, the local page keeps a link to it (after: team server — there is nothing to
