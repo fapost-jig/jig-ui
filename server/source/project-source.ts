@@ -252,6 +252,19 @@ export interface Task {
   parked: {
     reason: 'review' | 'signal';
     hint: 'landing' | null;
+    /** For `review`, from Jig 0.46.0: the review as the forge cache last heard it, and whom it still waits for; `null` when not known. */
+    review: {
+      state: 'approved' | 'changes' | 'waiting' | 'none';
+      waitingFor: string[];
+    } | null;
+  } | null;
+  /** The project is on Jig's staging flow, where a task has `staging` and `parked` (Jig 0.45.0). */
+  stagingFlow: boolean;
+  /** On the staging flow, the pull request from the task's branch into its base, `null` before there is one; its url from Jig 0.46.0. */
+  promotion: {
+    url: string | null;
+    state: string | null;
+    ci: string | null;
   } | null;
   started: boolean;
   gate: string | null;

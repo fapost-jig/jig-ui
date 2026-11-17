@@ -175,7 +175,8 @@ A project on an older Jig shows the pull request as the run left it, until Jig U
 ## The board
 
 The project's name or **Board** on a readable project's card, or the project in the dropdown at the top, shows its live tasks in five columns: Needs
-you, In progress, Ready, Backlog, Paused — what waits for you first. Jig UI works the column out
+you, In progress, Ready, Backlog, Paused — what waits for you first. On Jig's staging flow two more stand between In
+progress and Ready, **Review** and **On staging** ([Tasks on staging](#tasks-on-staging)). Jig UI works the column out
 from the task's state in Jig every time it reads it, and stores it nowhere; the first rule that
 fits wins:
 
@@ -184,7 +185,9 @@ fits wins:
 | Paused | it is paused (`jig task pause`) |
 | Backlog | it is filed but not started (`jig task start` not run yet) |
 | Needs you | its design waits at its gate, or changed after approval, or its autopilot run stopped with a question |
-| Ready | its work is done (`status ready`); the card says whether a pull request is open, its CI, or merged — on Jig's staging flow, why it waits at the staging branch ([Tasks on staging](#tasks-on-staging)) |
+| Review | on Jig's staging flow: its pull request into the staging branch waits for a review, or for you to land it |
+| On staging | on Jig's staging flow: its work is on the staging branch and waits for "prepare for prod" |
+| Ready | its work is done (`status ready`); the card says whether a pull request is open, its CI, or merged — on Jig's staging flow, whether its fix is on staging yet, or its promotion's state ([Tasks on staging](#tasks-on-staging)) |
 | In progress | anything else that is live |
 
 A card shows the task's id, class and goal, its priority (`P0`, the most urgent, to `P5`) when it
@@ -205,8 +208,8 @@ sees merged, stays. The history of finished work is the project's merged pull re
 **Board / List** switches between the columns side by side and a list: the same columns as groups of
 rows, each group folding away; **Specs** shows the project's specs ([Specs](#specs)); **Knowledge**,
 the knowledge waiting for your decision ([Deciding knowledge](#deciding-knowledge)). The browser
-remembers the choice. Above the list a strip counts all five columns — Needs you, In progress,
-Ready, Backlog, Paused —, a zero included. Each row shows the task's whole id with its class and
+remembers the choice. Above the list a strip counts every column — Needs you, In progress,
+Ready, Backlog, Paused, and on the staging flow Review and On staging —, a zero included. Each row shows the task's whole id with its class and
 priority, its goal under it (or *no goal yet*), and under that what it waits for. An empty group is
 its header alone, except In progress, which says how a task gets there.
 
@@ -337,17 +340,27 @@ recorded knowledge decision has no ✕, and its item no **Close task**: record i
 A project on Jig's staging flow (`git.flow: staging`, from Jig 0.45.0) ships each task's pull request
 into a staging branch first. The task waits there, *parked*, while it is tested, and reaches the main
 branch through a second pull request once someone says "prepare for prod"
-([Test on staging first](https://jig.fapost.in/staging-flow)). A parked task stays in **Ready**, and
-its card says why it waits instead of what its pull request did:
+([Test on staging first](https://jig.fapost.in/staging-flow)). On this flow the board has two more columns. A task
+whose pull request into staging is open is in **Review**, and its card says where the review stands; one whose work is
+on the staging branch, waiting for "prepare for prod", is in **On staging**:
 
-| The card says | The task |
-| --- | --- |
-| Pull request into staging waits for review | its pull request into the staging branch is open and waits for a review |
-| Pull request into staging — yours to land | the same, and landing it is yours: your `agent.git` is below `merge`, so merge it on the forge |
-| On staging, waits for prepare for prod | its work is on the staging branch; once it passed its test there, tell your agent "prepare for prod" |
-| Fix not on staging yet | you took it back for a fix, and the fix has commits the staging branch does not have yet |
-| Promotion open, CI green | its promotion, the pull request into the main branch, is open; the note follows its state and CI |
-| On staging | its work is on the staging branch, it does not wait there, and it has no promotion yet |
+| Column | The card says | The task |
+| --- | --- | --- |
+| Review | Waits for review from alice, bob | its pull request into the staging branch waits for the reviewers named |
+| Review | Changes requested | a reviewer asked for changes: take it back for a fix |
+| Review | Approved — yours to land | the review is approved and landing it is yours: your `agent.git` is below `merge`, so merge it on the forge |
+| Review | Pull request into staging — yours to land | the project asks for no review (`git.staging_review: none`), and landing it is yours |
+| Review | Approved | the review is approved; your agent lands it |
+| Review | No review requested yet | nobody was asked to review it |
+| Review | Pull request into staging waits for review | Jig does not know the review's state yet: it learns it at the next `jig housekeeping`, and Jig 0.45.0 never does |
+| On staging | On staging, waits for prepare for prod | once it passed its test there, tell your agent "prepare for prod" |
+| Ready | Promotion open, CI green | its promotion, the pull request into the main branch, is open; the note follows its state and CI and links to it (from Jig 0.46.0) |
+| Ready | Promotion opened | your agent just opened its promotion; its state and CI show after the next `jig housekeeping` |
+| Ready | Fix not on staging yet | you took it back for a fix, and the fix has commits the staging branch does not have yet |
+| Ready | On staging | its work is on the staging branch, it does not wait there, and it has no promotion yet |
+
+A task's details show its pull request into staging and its promotion apart, each with its own state, CI and link. On
+Jig 0.45.0 the promotion has no link, and the pull request into staging no state.
 
 **Take back for a fix** in a parked card's ⋯ menu, or a drag of the card onto **In progress**, runs
 `jig task resume <id>` with the revision of the board you saw: the task is active again, and once it

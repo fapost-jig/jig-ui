@@ -35,6 +35,8 @@ const inProgressFill = 'bg-sky-500';
 export const columnAccent: Record<string, string> = {
   'needs-you': 'bg-amber-500',
   'in-progress': inProgressFill,
+  review: 'bg-violet-500',
+  'on-staging': 'bg-teal-500',
   ready: 'bg-emerald-500',
   backlog: 'bg-slate-400',
   paused: 'bg-zinc-400',

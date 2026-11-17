@@ -35,6 +35,8 @@ const task = (id: string, more: Partial<Task>): Task => ({
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   resumesTo: null,
   started: true,
   gate: null,
@@ -129,33 +131,54 @@ export const tasks: Task[] = [
   // Jig's staging flow (0.45.0): parked at the staging branch for each of its reasons, and a fix taken back.
   task('staging-review', {
     status: 'ready',
-    parked: { reason: 'review', hint: null },
+    stagingFlow: true,
+    parked: { reason: 'review', hint: null, review: { state: 'waiting', waitingFor: ['alice', 'bob'] } },
     pullRequest: pr('open', 'green'),
     goal: 'Its pull request into staging waits for a review.',
   }),
   task('staging-landing', {
     status: 'ready',
-    parked: { reason: 'review', hint: 'landing' },
+    stagingFlow: true,
+    parked: { reason: 'review', hint: 'landing', review: { state: 'approved', waitingFor: [] } },
     pullRequest: pr('open', 'green'),
     goal: 'Its pull request into staging waits for the person to land it.',
   }),
   task('staging-signal', {
     status: 'ready',
     staging: 'on',
-    parked: { reason: 'signal', hint: null },
+    stagingFlow: true,
+    parked: { reason: 'signal', hint: null, review: null },
     resumable: true,
     resumesTo: 'in-progress',
     pullRequest: pr('merged', 'none'),
     goal: 'On staging, tested there, waiting for prepare for prod.',
   }),
   task('staging-fix', { staging: 'behind', pullRequest: pr('merged', 'none'), goal: 'Taken back from staging; the fix is not there yet.' }),
+  // Jig 0.46.0: changes asked on the pull request into staging, and a promotion into the base with its link.
+  task('staging-changes', {
+    status: 'ready',
+    stagingFlow: true,
+    parked: { reason: 'review', hint: null, review: { state: 'changes', waitingFor: [] } },
+    pullRequest: pr('open', 'red'),
+    goal: 'A reviewer asked for changes to its pull request into staging.',
+  }),
+  task('staging-promotion', {
+    status: 'ready',
+    stagingFlow: true,
+    staging: 'on',
+    pullRequest: pr('merged', 'green'),
+    promotion: { url: 'https://github.com/fapost-lab/jig-ui/pull/61', state: 'open', ci: 'pending' },
+    goal: 'Prepared for prod: its promotion into the base is open.',
+  }),
 ];
 
 /** The samples placed as the board places them: every column with cards. */
 export const board: Column[] = [
   { id: 'needs-you', title: 'Needs you', cards: tasks.slice(0, 3) },
   { id: 'in-progress', title: 'In progress', cards: [tasks[3]!, tasks[12]!, tasks[11]!, tasks[17]!] },
-  { id: 'ready', title: 'Ready', cards: [...tasks.slice(4, 9), ...tasks.slice(14, 17)] },
+  { id: 'review', title: 'Review', cards: [tasks[14]!, tasks[15]!, tasks[18]!] },
+  { id: 'on-staging', title: 'On staging', cards: [tasks[16]!] },
+  { id: 'ready', title: 'Ready', cards: [...tasks.slice(4, 9), tasks[19]!] },
   { id: 'backlog', title: 'Backlog', cards: [tasks[10]!] },
   { id: 'paused', title: 'Paused', cards: [tasks[9]!, tasks[13]!] },
 ];

@@ -15,6 +15,8 @@ const task = (more: Partial<Task> = {}): Task => ({
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   resumesTo: null,
   started: true,
   gate: null,
@@ -26,6 +28,13 @@ const task = (more: Partial<Task> = {}): Task => ({
 });
 
 const pr = (state: string | null, ci: string | null, url = 'https://github.com/o/r/pull/7') => ({ url, state, ci, fetchedAt: null });
+const promotion = (state: string, ci: string, url: string | null = 'https://github.com/o/r/pull/9') => ({ url, state, ci });
+const parked = (
+  reason: 'review' | 'signal',
+  hint: 'landing' | null = null,
+  state?: 'approved' | 'changes' | 'waiting' | 'none',
+  waitingFor: string[] = [],
+) => ({ reason, hint, review: state ? { state, waitingFor } : null });
 
 describe('waits', () => {
   it.each([
@@ -87,28 +96,48 @@ describe('waits', () => {
     ['a ready task without a pull request', { status: 'ready' as const }, { text: 'No pull request yet', tone: 'quiet' }],
     // On Jig's staging flow the pull request is the one into staging: merged, the task is still not in the base.
     [
-      'a pull request into staging waiting for review',
-      { status: 'ready' as const, staging: null, parked: { reason: 'review' as const, hint: null }, pullRequest: pr('open', 'green') },
+      'a pull request into staging whose review Jig cannot say yet',
+      { status: 'ready' as const, parked: parked('review'), pullRequest: pr('open', 'green') },
       { text: 'Pull request into staging waits for review', tone: 'quiet', url: 'https://github.com/o/r/pull/7' },
     ],
     [
-      'a pull request into staging the person lands',
-      {
-        status: 'ready' as const,
-        staging: null,
-        parked: { reason: 'review' as const, hint: 'landing' as const },
-        pullRequest: pr('open', 'green'),
-      },
+      'a pull request into staging the person lands, its review not known',
+      { status: 'ready' as const, parked: parked('review', 'landing'), pullRequest: pr('open', 'green') },
       { text: 'Pull request into staging — yours to land', tone: 'attention', url: 'https://github.com/o/r/pull/7' },
     ],
     [
+      'an approved pull request into staging the person lands',
+      { status: 'ready' as const, parked: parked('review', 'landing', 'approved'), pullRequest: pr('open', 'green') },
+      { text: 'Approved — yours to land', tone: 'attention', url: 'https://github.com/o/r/pull/7' },
+    ],
+    [
+      'a review waiting for the people named',
+      { status: 'ready' as const, parked: parked('review', null, 'waiting', ['alice', 'bob']), pullRequest: pr('open', 'green') },
+      { text: 'Waits for review from alice, bob', tone: 'quiet', url: 'https://github.com/o/r/pull/7' },
+    ],
+    [
+      'a review waiting with nobody named',
+      { status: 'ready' as const, parked: parked('review', null, 'waiting') },
+      { text: 'Waits for review', tone: 'quiet' },
+    ],
+    [
+      'changes requested',
+      { status: 'ready' as const, parked: parked('review', null, 'changes'), pullRequest: pr('open', 'red') },
+      { text: 'Changes requested', tone: 'attention', url: 'https://github.com/o/r/pull/7' },
+    ],
+    [
+      'an approved review the agent lands',
+      { status: 'ready' as const, parked: parked('review', null, 'approved') },
+      { text: 'Approved', tone: 'good' },
+    ],
+    [
+      'no review requested yet',
+      { status: 'ready' as const, parked: parked('review', null, 'none') },
+      { text: 'No review requested yet', tone: 'quiet' },
+    ],
+    [
       'work on staging waiting for prepare for prod',
-      {
-        status: 'ready' as const,
-        staging: 'on' as const,
-        parked: { reason: 'signal' as const, hint: null },
-        pullRequest: pr('merged', 'none'),
-      },
+      { status: 'ready' as const, staging: 'on' as const, parked: parked('signal'), pullRequest: pr('merged', 'none') },
       { text: 'On staging, waits for prepare for prod', tone: 'quiet' },
     ],
     [
@@ -116,27 +145,34 @@ describe('waits', () => {
       { staging: 'behind' as const, pullRequest: pr('merged', 'none') },
       { text: 'Fix not on staging yet', tone: 'quiet' },
     ],
+    // Jig 0.46.0: the pull request into staging merged says nothing of the promotion.
     [
-      'work on staging, not parked',
-      { status: 'ready' as const, staging: 'on' as const, pullRequest: pr(null, null) },
+      'work on staging, not parked, with no promotion',
+      { status: 'ready' as const, staging: 'on' as const, pullRequest: pr('merged', 'green') },
       { text: 'On staging', tone: 'quiet' },
     ],
-    // Jig reads the state and CI for the branch into the base: once there is a promotion they are its, the url is not.
     [
-      'a promotion with CI red',
-      { status: 'ready' as const, staging: 'on' as const, pullRequest: pr('open', 'red') },
-      { text: 'Promotion open, CI red', tone: 'bad' },
+      'a promotion with CI red, and its link',
+      { status: 'ready' as const, staging: 'on' as const, pullRequest: pr('merged', 'green'), promotion: promotion('open', 'red') },
+      { text: 'Promotion open, CI red', tone: 'bad', url: 'https://github.com/o/r/pull/9' },
     ],
     [
       'a merged promotion',
-      { status: 'ready' as const, staging: 'on' as const, pullRequest: pr('merged', 'none') },
-      { text: 'Promotion merged', tone: 'good' },
+      { status: 'ready' as const, staging: 'on' as const, promotion: promotion('merged', 'none') },
+      { text: 'Promotion merged', tone: 'good', url: 'https://github.com/o/r/pull/9' },
+    ],
+    // `jig task promote` records the link at once; the state comes with the next housekeeping run.
+    [
+      'a promotion just opened, its state not heard yet',
+      { status: 'ready' as const, staging: 'on' as const, promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null } },
+      { text: 'Promotion opened', tone: 'quiet', url: 'https://github.com/o/r/pull/9' },
     ],
     [
-      'a paused task parked at staging',
-      { paused: true, resumable: true, parked: { reason: 'signal' as const, hint: null } },
-      { text: 'Paused', tone: 'quiet' },
+      'a promotion on Jig 0.45.0, which has no link to it',
+      { status: 'ready' as const, staging: 'on' as const, promotion: promotion('open', 'green', null) },
+      { text: 'Promotion open, CI green', tone: 'good' },
     ],
+    ['a paused task parked at staging', { paused: true, resumable: true, parked: parked('signal') }, { text: 'Paused', tone: 'quiet' }],
     ['a running autopilot', { autopilot: 'on' }, { text: 'On autopilot', tone: 'quiet' }],
   ])('%s', (_, more, expected) => {
     expect(waits(task(more))).toEqual(expected);
@@ -154,16 +190,27 @@ describe('pullRequests', () => {
     expect(pullRequests(task())).toEqual([]);
   });
 
-  // On Jig 0.45.0's staging flow the link is the pull request into staging; the state and CI are the promotion's.
-  it('shows the pull request into staging apart from the promotion, the promotion only while the work is on staging', () => {
-    const into = { title: 'Pull request into staging', text: null, url: 'https://github.com/o/r/pull/7' };
-    expect(pullRequests(task({ staging: 'on', parked: null, pullRequest: pr('open', 'red') }))).toEqual([
+  it('shows the pull request into staging apart from the promotion, each with its state and link', () => {
+    const into = { title: 'Pull request into staging', text: 'merged, CI green', url: 'https://github.com/o/r/pull/7' };
+    expect(pullRequests(task({ staging: 'on', pullRequest: pr('merged', 'green'), promotion: promotion('open', 'red') }))).toEqual([
       into,
-      { title: 'Promotion', text: 'open, CI red', url: null },
+      { title: 'Promotion', text: 'open, CI red', url: 'https://github.com/o/r/pull/9' },
     ]);
-    expect(pullRequests(task({ staging: 'on', parked: { reason: 'signal', hint: null }, pullRequest: pr(null, null) }))).toEqual([into]);
-    expect(pullRequests(task({ parked: { reason: 'review', hint: null }, pullRequest: pr('open', 'green') }))).toEqual([into]);
-    expect(pullRequests(task({ staging: 'behind', pullRequest: pr('merged', 'green') }))).toEqual([into]);
+    expect(pullRequests(task({ staging: 'on', parked: parked('signal'), pullRequest: pr('merged', 'green') }))).toEqual([into]);
+    expect(pullRequests(task({ parked: parked('review'), pullRequest: pr('open', 'green') }))).toEqual([
+      { title: 'Pull request into staging', text: 'open, CI green', url: 'https://github.com/o/r/pull/7' },
+    ]);
+    // Jig 0.45.0, read into 0.46.0's shape: the pull request into staging has no state, the promotion no link.
+    expect(pullRequests(task({ staging: 'on', pullRequest: pr(null, null), promotion: promotion('open', 'green', null) }))).toEqual([
+      { title: 'Pull request into staging', text: null, url: 'https://github.com/o/r/pull/7' },
+      { title: 'Promotion', text: 'open, CI green', url: null },
+    ]);
+    expect(pullRequests(task({ staging: 'on', promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null } }))).toEqual([
+      { title: 'Promotion', text: 'state not known yet', url: 'https://github.com/o/r/pull/9' },
+    ]);
+    expect(pullRequests(task({ staging: 'on', promotion: promotion('open', 'green') }))).toEqual([
+      { title: 'Promotion', text: 'open, CI green', url: 'https://github.com/o/r/pull/9' },
+    ]);
   });
 });
 

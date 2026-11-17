@@ -6,7 +6,7 @@ domains: []
 paths:
   - "server/jig/**"
 summary: JigClient alone runs jig (execFile, bash on Windows) and validates its JSON; never reads Jig's files
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-17
 ---
 # JigClient — the only module that knows Jig
 
@@ -51,7 +51,11 @@ only, and read as `null` when absent (task `roadmap-from-page`). A task's `stagi
 printed on Jig 0.45.0's staging flow only, absent on any other; that absence is how the adapter tells
 the flow (task `tasks-on-staging`), and the schema names it once, as `stagingFlow`, reading both as
 `null` when absent — a check on `staging` itself would read every staging-flow task not on staging as
-direct (task `refactor-nits`).
+direct (task `refactor-nits`). Jig 0.46.0 adds `parked.review` and, on that flow, `promotion`, both read as `null` when
+absent; on 0.46.0 a staging task's `pull_request` carries the pull request into staging's own state and CI, where 0.45.0
+gave the promotion's. The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
+`promotion`, the state and CI become the promotion's, without a link — so nothing past `server/jig/` tells the two apart
+(adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns).
 
 A test that runs real processes — a stand-in `jig` script that starts a child, leaves its process
 group, or waits — waits for a marker file the process writes once it is where the test needs it,

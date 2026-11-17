@@ -15,7 +15,7 @@ paths:
   - web/lib/drop.ts
   - web/lib/refusal.ts
 summary: On Jig's staging flow a parked task's card says why it waits, its close waits for housekeeping's merge into the base, and Take back for a fix is Jig's resume.
-reviewed_at: 2026-11-13
+reviewed_at: 2026-11-17
 ---
 # A task parked at a staging branch is shown as waiting there, closed only once its work is in the base, and taken back with Jig's resume
 
@@ -54,7 +54,10 @@ The maintainer asked for the UI to follow the new flow (2026-11-13; task `tasks-
   A task on staging that is not parked reads "Fix not on staging yet" (`behind`), or, `on`, its
   promotion's state and CI ("Promotion open, CI green") without a link — the url is the pull request
   into staging — and "On staging" before there is one.
-  A parked task stays in Ready: the column rules are unchanged.
+  A parked task stays in Ready: the column rules are unchanged. *(Amended by
+  adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns, 2026-11-17, the owner's request: on the staging flow a
+  task parked for `review` is in Review and one parked for `signal` in On staging; a Review card says its review's state,
+  and a promotion's state and CI come from Jig 0.46.0's `promotion`, with its link.)*
 - **On the staging flow the close is narrower than Jig's offer.** When `staging` is there, a task is
   `closable` only when it is ready, its knowledge decision is recorded, it is not parked, and
   housekeeping flagged it `needs-consolidation`. Jig's `close` action and the fallback on the pull
@@ -82,6 +85,8 @@ The maintainer asked for the UI to follow the new flow (2026-11-13; task `tasks-
   as fapost-lab/jig#509.
 - **A column of its own for parked tasks.** A parked task is a `ready` one with a reason, and a column
   only staging projects have would change the board's grid, and its five-column layout, for every project.
+  *(Taken after all by adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns: the owner wants to see what is on
+  review and what is on staging at a glance; only a staging project's board has the two columns.)*
 - **Land and Prepare for prod buttons.** Jig offers `land` only at `agent.git: merge`, and neither
   `task land` nor `task promote` answers as JSON or takes a revision. "Prepare for prod" is a person's
   word to their agent, or CI's.

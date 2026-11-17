@@ -1,6 +1,6 @@
 import type { Task } from '../source/project-source.js';
 
-export type ColumnId = 'backlog' | 'in-progress' | 'needs-you' | 'paused' | 'ready';
+export type ColumnId = 'backlog' | 'in-progress' | 'needs-you' | 'paused' | 'ready' | 'review' | 'on-staging';
 
 /** A task on the board, with the column a resume would put it in: `null` unless it is resumable. */
 export type Card = Task & {
@@ -13,13 +13,18 @@ export interface Column {
   cards: Card[];
 }
 
-/** The board's order: what waits for the person first, then what moves, what is done, what is not begun, what is set aside. */
+/**
+ * The board's order: what waits for the person first, then what moves, what waits on other people at the staging
+ * branch, what is done, what is not begun, what is set aside. Review and On staging only on Jig's staging flow.
+ */
 const COLUMNS: {
   id: ColumnId;
   title: string;
 }[] = [
   { id: 'needs-you', title: 'Needs you' },
   { id: 'in-progress', title: 'In progress' },
+  { id: 'review', title: 'Review' },
+  { id: 'on-staging', title: 'On staging' },
   { id: 'ready', title: 'Ready' },
   { id: 'backlog', title: 'Backlog' },
   { id: 'paused', title: 'Paused' },
@@ -30,6 +35,8 @@ export function columnOf(task: Task): ColumnId {
   if (task.paused) return 'paused';
   if (!task.started) return 'backlog';
   if (task.gate === 'waiting' || task.gate === 'changed' || task.autopilot === 'stopped') return 'needs-you';
+  if (task.parked?.reason === 'review') return 'review';
+  if (task.parked?.reason === 'signal') return 'on-staging';
   if (task.status === 'ready') return 'ready';
   return 'in-progress';
 }
@@ -53,18 +60,22 @@ function byQueue(a: Task, b: Task): number {
 
 /**
  * What a resume changes, so the rules say where the task lands: a paused task's `paused` only; a task parked at the
- * staging branch is taken back for a fix, and Jig makes it `active` (0.45.0).
+ * staging branch is taken back for a fix, and Jig makes it `active` and parks it no more (0.45.0).
  */
-const resumed = (task: Task): Task => (task.paused ? { ...task, paused: false } : { ...task, status: 'active' });
+const resumed = (task: Task): Task => (task.paused ? { ...task, paused: false } : { ...task, status: 'active', parked: null });
 
 const card = (task: Task): Card => ({ ...task, resumesTo: task.resumable ? columnOf(resumed(task)) : null });
 
+const STAGING: ColumnId[] = ['review', 'on-staging'];
+
 /**
  * The board: every column, in a fixed order, its cards in Jig's queue order and the tasks not queued after them in the
- * order Jig listed them (the sort is stable). Computed on every read, never stored.
+ * order Jig listed them (the sort is stable). Computed on every read, never stored. Review and On staging are there when
+ * the project is on Jig's staging flow, which its tasks tell: a project with none shows the other five.
  */
 export function columns(tasks: Task[]): Column[] {
-  return COLUMNS.map((c) => ({
+  const staging = tasks.some((t) => t.stagingFlow);
+  return COLUMNS.filter((c) => staging || !STAGING.includes(c.id)).map((c) => ({
     ...c,
     cards: tasks
       .filter((t) => columnOf(t) === c.id)

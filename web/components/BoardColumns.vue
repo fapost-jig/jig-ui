@@ -42,7 +42,11 @@
 </script>
 
 <template>
-  <div class="grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(14rem,1fr))] gap-3 overflow-auto px-3 pb-3">
+  <!-- Seven columns on Jig's staging flow take 12rem each, so they fit a 1440px window; five keep 14rem. -->
+  <div
+    class="grid min-h-0 flex-1 grid-flow-col gap-3 overflow-auto px-3 pb-3"
+    :class="columns.length > 5 ? 'auto-cols-[minmax(12rem,1fr)]' : 'auto-cols-[minmax(14rem,1fr)]'"
+  >
     <GroupPanel
       v-for="column in columns"
       :key="column.id"

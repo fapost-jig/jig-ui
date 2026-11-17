@@ -594,6 +594,8 @@ describe('localSource', () => {
           closable: false,
           staging: null,
           parked: null,
+          stagingFlow: false,
+          promotion: null,
           started: true,
           gate: null,
           autopilot: null,
@@ -1411,7 +1413,11 @@ describe('localSource, writing the queue', () => {
       const shown = await source.tasks('staging-closables');
       const closable = shown?.state === 'ready' ? Object.fromEntries(shown.tasks.map((t) => [t.id, t.closable])) : {};
       expect(closable).toEqual({ 'on-staging': false, promoted: false, 'in-base': true, 'parked-flagged': false, undecided: false });
-      expect(shown?.state === 'ready' && shown.tasks.map((t) => [t.staging, t.parked])[0]).toEqual(['on', parked]);
+      expect(shown?.state === 'ready' && shown.tasks.map((t) => [t.staging, t.parked, t.stagingFlow])[0]).toEqual([
+        'on',
+        { ...parked, review: null },
+        true,
+      ]);
     });
 
     it('lists the same tasks on the project as the workspace shows it, with the revision a close carries', async () => {

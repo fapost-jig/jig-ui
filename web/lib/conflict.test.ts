@@ -15,6 +15,8 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   resumesTo: null,
   started: true,
   gate: null,
@@ -64,9 +66,35 @@ describe('conflict', () => {
   });
 
   it('marks a card whose note moved only on the staging flow: its pull request into staging landed', () => {
-    const then = board([], [queued('alpha', 100, { status: 'ready', staging: 'on', parked: { reason: 'review', hint: null } })]);
-    const now = board([], [queued('alpha', 100, { status: 'ready', staging: 'on', parked: { reason: 'signal', hint: null } })]);
+    const then = board(
+      [],
+      [queued('alpha', 100, { status: 'ready', staging: 'on', parked: { reason: 'review', hint: null, review: null } })],
+    );
+    const now = board(
+      [],
+      [queued('alpha', 100, { status: 'ready', staging: 'on', parked: { reason: 'signal', hint: null, review: null } })],
+    );
     expect(conflict(then, now, 'beta')).toMatchObject({ changed: ['alpha'] });
+  });
+
+  it('marks a card whose review or promotion changed, as its note did', () => {
+    const waiting = { reason: 'review' as const, hint: null, review: { state: 'waiting' as const, waitingFor: ['alice'] } };
+    const then = board(
+      [],
+      [queued('alpha', 100, { status: 'ready', parked: waiting }), queued('omega', 200, { status: 'ready', staging: 'on' })],
+    );
+    const now = board(
+      [],
+      [
+        queued('alpha', 100, { status: 'ready', parked: { ...waiting, review: { state: 'changes', waitingFor: [] } } }),
+        queued('omega', 200, {
+          status: 'ready',
+          staging: 'on',
+          promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null },
+        }),
+      ],
+    );
+    expect(conflict(then, now, 'beta')).toMatchObject({ changed: ['alpha', 'omega'] });
   });
 
   it('does not mark a card for what it does not show, such as when its pull request was last asked about', () => {
