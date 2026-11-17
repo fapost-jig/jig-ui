@@ -117,8 +117,9 @@ export class TeamStore {
     return new TeamStore(db);
   }
 
+  /** Closes the database once; closing it again does nothing. */
   close(): void {
-    this.db.close();
+    if (this.db.isOpen) this.db.close();
   }
 
   private run(sql: string, ...params: SQLInputValue[]): void {

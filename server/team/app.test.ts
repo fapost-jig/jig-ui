@@ -11,17 +11,21 @@ import { gitHub } from './github.js';
 import { pollAll, pollInstallation } from './poll.js';
 
 const BASE = 'https://board.test';
-const dirs: string[] = [];
+const cleanups: (() => void)[] = [];
 afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const cleanup of cleanups.splice(0)) cleanup();
 });
 
 /** A team server over a fake GitHub, with one browser's cookies, and the lines it logged. */
 function server() {
   const fake = fakeGitHub();
   const dir = mkdtempSync(join(tmpdir(), 'jig-ui-team-app-'));
-  dirs.push(dir);
   const store = TeamStore.open(dir);
+  // Windows refuses to remove a folder whose database is still open.
+  cleanups.push(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
   const secrets = new Secrets();
   const github = gitHub({ web: fake.web, api: fake.api }, fake.fetch);
   const lines: string[] = [];
