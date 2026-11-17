@@ -15,6 +15,8 @@ const task = (id: string, level?: string | null, position = 100): Task => ({
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   resumesTo: null,
   started: false,
   gate: null,

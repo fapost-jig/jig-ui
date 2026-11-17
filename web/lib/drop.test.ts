@@ -15,6 +15,8 @@ const task = (id: string, pauseRequestable: boolean, resumesTo: Task['resumesTo'
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   resumesTo,
   started: true,
   gate: null,

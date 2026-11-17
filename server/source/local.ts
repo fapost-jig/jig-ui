@@ -191,6 +191,8 @@ const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
   closable: closable(t),
   staging: t.staging,
   parked: t.parked,
+  stagingFlow: t.stagingFlow,
+  promotion: t.promotion,
   started: t.branch !== null,
   gate: t.gate?.state ?? null,
   autopilot: t.autopilot?.state ?? null,

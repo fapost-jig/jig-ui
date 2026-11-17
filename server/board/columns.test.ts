@@ -15,6 +15,8 @@ const task = (more: Partial<Task> = {}): Task => ({
   closable: false,
   staging: null,
   parked: null,
+  stagingFlow: false,
+  promotion: null,
   started: true,
   gate: null,
   autopilot: null,
@@ -23,6 +25,9 @@ const task = (more: Partial<Task> = {}): Task => ({
   queue: null,
   ...more,
 });
+
+const review = { reason: 'review' as const, hint: null, review: { state: 'waiting' as const, waitingFor: ['alice'] } };
+const signal = { reason: 'signal' as const, hint: null, review: null };
 
 describe('columnOf', () => {
   it.each([
@@ -42,6 +47,14 @@ describe('columnOf', () => {
     ['a paused task, whatever else holds', { paused: true, started: false, gate: 'waiting' }, 'paused'],
     ['a task not started with a gate', { started: false, gate: 'waiting' }, 'backlog'],
     ['a ready task whose autopilot stopped', { status: 'ready' as const, autopilot: 'stopped' }, 'needs-you'],
+    ['a pull request into staging', { status: 'ready' as const, parked: review }, 'review'],
+    ['work on staging, waiting for prepare for prod', { status: 'ready' as const, parked: signal }, 'on-staging'],
+    [
+      'an open promotion',
+      { status: 'ready' as const, staging: 'on' as const, promotion: { url: 'https://x/9', state: 'open', ci: 'pending' } },
+      'ready',
+    ],
+    ['a parked task that is paused', { status: 'ready' as const, parked: signal, paused: true }, 'paused'],
   ])('%s → %s', (_, more, column) => {
     expect(columnOf(task(more))).toBe(column);
   });
@@ -53,6 +66,23 @@ describe('columns', () => {
     const board = columns(tasks);
     expect(board.map((c) => c.id)).toEqual(['needs-you', 'in-progress', 'ready', 'backlog', 'paused']);
     expect(board.map((c) => c.cards.map((t) => t.id))).toEqual([[], ['b', 'c'], [], ['a'], ['d']]);
+  });
+
+  it('adds Review and On staging between In progress and Ready on the staging flow, and only there', () => {
+    const on = { stagingFlow: true, status: 'ready' as const };
+    const tasks = [task({ id: 'r', ...on, parked: review }), task({ id: 's', ...on, parked: signal }), task({ id: 'p', ...on })];
+    const board = columns(tasks);
+    expect(board.map((c) => [c.id, c.title])).toEqual([
+      ['needs-you', 'Needs you'],
+      ['in-progress', 'In progress'],
+      ['review', 'Review'],
+      ['on-staging', 'On staging'],
+      ['ready', 'Ready'],
+      ['backlog', 'Backlog'],
+      ['paused', 'Paused'],
+    ]);
+    expect(board.map((c) => c.cards.map((t) => t.id))).toEqual([[], [], ['r'], ['s'], ['p'], [], []]);
+    expect(columns([]).map((c) => c.id)).toEqual(['needs-you', 'in-progress', 'ready', 'backlog', 'paused']);
   });
 
   it("orders a column as Jig's queue does: the top level, then each epic's, then the tasks not queued in Jig's order", () => {
@@ -75,9 +105,11 @@ describe('columns', () => {
       task({ id: 'gated', paused: true, resumable: true, gate: 'waiting' }),
       task({ id: 'old-jig', paused: true }),
       task({ id: 'live' }),
-      // Parked at the staging branch: Jig 0.45.0's resume takes it back for a fix, as an active task.
-      task({ id: 'parked', status: 'ready', resumable: true, parked: { reason: 'signal', hint: null } }),
-      task({ id: 'parked-paused', status: 'ready', paused: true, resumable: true, parked: { reason: 'signal', hint: null } }),
+      // Parked at the staging branch: Jig 0.45.0's resume takes it back for a fix, as an active task; paused, it only
+      // loses `paused`, and Jig parks it again.
+      task({ id: 'parked', status: 'ready', resumable: true, parked: signal, stagingFlow: true }),
+      task({ id: 'in-review', status: 'ready', resumable: true, parked: review, stagingFlow: true }),
+      task({ id: 'parked-paused', status: 'ready', paused: true, resumable: true, parked: signal, stagingFlow: true }),
     ];
     const cards = columns(tasks).flatMap((c) => c.cards);
     expect(Object.fromEntries(cards.map((t) => [t.id, t.resumesTo]))).toEqual({
@@ -87,7 +119,8 @@ describe('columns', () => {
       'old-jig': null,
       live: null,
       parked: 'in-progress',
-      'parked-paused': 'ready',
+      'in-review': 'in-progress',
+      'parked-paused': 'on-staging',
     });
   });
 });

@@ -56,7 +56,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   fixtures in `server/jig/fixtures/` — Jig 0.29.0 for the reads it had, 0.31.0 for the queue,
   0.39.0 for a task's documents, 0.40.0 for the settings, a roadmap's edits and the knowledge, 0.41.0 for the
   knowledge's text, Drop and judged reads and for filing an item's new task in one write, 0.45.0 for a task
-  list on the staging flow, `jig refresh` and the clone against origin (convention-jig-client).
+  list on the staging flow, `jig refresh` and the clone against origin, 0.46.0 for a staging task's review and
+  promotion (convention-jig-client).
 - `server/source/` — the ProjectSource port (`project-source.ts`: the workspace, the connected ids
   (`connected`), one project as the workspace shows it (`project`), the Jig projects under a folder (`scan`, walked
   by `scan.ts`), a project's live tasks, its finished tasks on demand (`finished`), one task in full, a live task's documents (`artifacts`, `artifact`), the settings (`settings`), the knowledge waiting for a decision (`knowledge`, `knowledgeDiff`, `knowledgeText`), connect, disconnect, subscribe to changes, and the writes `move`,

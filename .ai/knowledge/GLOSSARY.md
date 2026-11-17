@@ -81,10 +81,19 @@ Use in: source code, API, documentation.
 ## Parked
 
 Jig's word for a ready task on its staging flow that waits at the staging branch — for a review of its
-pull request into staging, or, once there, for "prepare for prod"; not finished, and not a column.
+pull request into staging, or, once there, for "prepare for prod"; not finished. The board puts the first
+in Review and the second in On staging, columns only a staging project's board has.
 
 Informal synonyms: waiting at staging; landed (wrong: landed is only the merge into staging, and a
 landed task taken back for a fix is on staging but not parked).
+Use in: source code, documentation.
+
+## Promotion
+
+On Jig's staging flow, the pull request from a task's branch into its base, opened at "prepare for prod"
+once the work was tested on staging; a task whose promotion is open is no longer parked.
+
+Informal synonyms: the pull request (wrong: on the staging flow that is the one into staging).
 Use in: source code, documentation.
 
 ## Queue

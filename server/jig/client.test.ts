@@ -286,6 +286,7 @@ describe('readTasks', () => {
       stagingFlow: false,
       staging: null,
       parked: null,
+      promotion: null,
     });
     expect(read.tasks[0]?.actions.map((a) => a.id)).toEqual([
       'start',
@@ -360,14 +361,59 @@ describe('readTasks', () => {
     const read = await readTasks(answering('tasks-staging', 'task-list-staging.json'));
     expect(read.tasks.map((t) => [t.id, t.stagingFlow, t.staging, t.parked])).toEqual([
       ['fixing', true, 'behind', null],
-      ['tested', true, 'on', { reason: 'signal', hint: null }],
+      ['tested', true, 'on', { reason: 'signal', hint: null, review: null }],
       ['waiting', true, null, null],
     ]);
     // A pull request into staging waits for its review, which the person lands (their agent.git below merge).
     const review = changed('task-list-staging.json', (d) => (d.tasks[2].parked = { reason: 'review', hint: 'landing' }));
-    expect((await readTasks(answering(`case-${cases++}`, review))).tasks[2]?.parked).toEqual({ reason: 'review', hint: 'landing' });
+    expect((await readTasks(answering(`case-${cases++}`, review))).tasks[2]?.parked).toEqual({
+      reason: 'review',
+      hint: 'landing',
+      review: null,
+    });
     const direct = await readTasks(answering('tasks-direct', 'task-list.json'));
-    expect(direct.tasks.map((t) => [t.stagingFlow, t.staging, t.parked])).toEqual(direct.tasks.map(() => [false, null, null]));
+    expect(direct.tasks.map((t) => [t.stagingFlow, t.staging, t.parked, t.promotion])).toEqual(
+      direct.tasks.map(() => [false, null, null, null]),
+    );
+  });
+
+  // Jig 0.45.0 has no `promotion`: the state and CI it gave a task on the staging side were the promotion's.
+  it("reads Jig 0.45.0's promotion into the shape of 0.46.0's, with no link to it", async () => {
+    const promoted = changed('task-list-staging.json', (d) => {
+      d.tasks[1].parked = null;
+      d.tasks[1].pull_request = { url: 'https://github.com/o/r/pull/7', state: 'open', ci: 'green', fetched_at: '2026-11-13T07:00:00Z' };
+      d.tasks[2].pull_request = { url: 'https://github.com/o/r/pull/8', state: 'open', ci: 'pending', fetched_at: null };
+    });
+    const read = await readTasks(answering(`case-${cases++}`, promoted));
+    expect(read.tasks[1]?.pullRequest).toEqual({ url: 'https://github.com/o/r/pull/7', state: null, ci: null, fetchedAt: null });
+    expect(read.tasks[1]?.promotion).toEqual({ url: null, state: 'open', ci: 'green' });
+    // Neither on staging nor parked: its pull request is its own, as before.
+    expect(read.tasks[2]?.pullRequest?.state).toBe('open');
+    expect(read.tasks[2]?.promotion).toBeNull();
+  });
+
+  // task-list-staging-review.json is what Jig 0.46.0 printed in a scratch repository on the staging flow with a local
+  // origin: `on-stg` and `promo` merged into origin's staging branch, the rest pushed; the review states, `promo`'s open
+  // promotion and the pull requests into staging come from a forge cache written by hand, as housekeeping writes it.
+  it('reads the review of a pull request into staging, and the promotion, from Jig 0.46.0', async () => {
+    const read = await readTasks(answering('tasks-staging-review', 'task-list-staging-review.json'));
+    const by = Object.fromEntries(read.tasks.map((t) => [t.id, t]));
+    expect(by['rev-wait']?.parked).toEqual({ reason: 'review', hint: null, review: { state: 'waiting', waitingFor: ['alice', 'bob'] } });
+    expect(by['rev-ok']?.parked).toEqual({ reason: 'review', hint: 'landing', review: { state: 'approved', waitingFor: [] } });
+    expect(by['rev-changes']?.parked?.review?.state).toBe('changes');
+    expect(by['rev-unknown']?.parked).toEqual({ reason: 'review', hint: null, review: null });
+    expect(by['rev-wait']?.pullRequest).toEqual({
+      url: 'https://github.com/acme/stg/pull/1',
+      state: 'open',
+      ci: 'green',
+      fetchedAt: '2026-11-17T12:00:00Z',
+    });
+    expect(by['on-stg']?.parked).toEqual({ reason: 'signal', hint: null, review: null });
+    expect([by['promo']?.staging, by['promo']?.parked, by['promo']?.promotion]).toEqual([
+      'on',
+      null,
+      { url: 'https://github.com/acme/stg/pull/9', state: 'open', ci: 'pending' },
+    ]);
   });
 
   it.each([

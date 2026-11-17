@@ -14,16 +14,17 @@ paths:
   - web/lib/refusal.ts
   - web/lib/sift.ts
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-17
 ---
 # Board
 
 ## What
 
 A connected project's live tasks in five columns, shown in the order of `COLUMNS` — Needs you,
-In progress, Ready, Backlog, Paused — worked out from Jig's task list on every read by
-`server/board/columns.ts` (`columnOf`, first rule that fits wins: Paused, Backlog, Needs you,
-Ready, In progress) and served by `GET /api/projects/:id/board`. Cards are light: id, class, priority, goal,
+In progress, Ready, Backlog, Paused — or seven on Jig's staging flow, Review and On staging between In progress and
+Ready (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns) — worked out from Jig's task list on every
+read by `server/board/columns.ts` (`columnOf`, first rule that fits wins: Paused, Backlog, Needs you, Review, On
+staging, Ready, In progress) and served by `GET /api/projects/:id/board`. Cards are light: id, class, priority, goal,
 and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
 keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
@@ -31,7 +32,7 @@ keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
 `web/views/BoardView.vue` reads the board and shows it two ways, switched by the person and
 remembered by the browser (`localStorage` `jig-ui.board-view`): Board (`BoardColumns`), the
 columns side by side, where a click expands a card into its details; List (`BoardList`), the
-columns as folding groups of rows under a strip counting all five columns, a zero included, a selected
+columns as folding groups of rows under a strip counting every column, a zero included, a selected
 row's details in a pane on the right. A row (`TaskRow`) is the task's whole id, wrapped and never cut,
 with its class and priority; its goal under it, or a muted "no goal yet"; and under that what it waits
 for — the card's order, so Board and List read alike (task `list-view-sections`). Each
@@ -89,10 +90,13 @@ done, or moving.
   the paths cut out (`closeRefusal` in `web/lib/refusal.ts`) — because the reason (pull request not
   merged, knowledge decision not recorded) is what the person needs, and only Jig knows it.
 - On Jig's staging flow (0.45.0) a task's pull request goes into a staging branch and the task waits
-  there, parked, while it is tested (adr-20261113-a-task-parked-at-staging-is-not-done). A parked card
-  stays in Ready and says why it waits instead of what its pull request did — a review, the person's
-  landing, "prepare for prod" — and a task on staging that is not parked says whether its fix is there
-  yet, or its promotion's state and CI. **Take back for a fix** in its menu, or a drop on In progress, is the resume above. The ✕ waits
+  there, parked, while it is tested (adr-20261113-a-task-parked-at-staging-is-not-done). A task parked for
+  its review is in Review and says the review's state — whom it waits for, changes requested, approved and
+  the person's to land —, one parked for "prepare for prod" in On staging
+  (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns); a task on staging that is not
+  parked stays in Ready and says whether its fix is there yet, or its promotion's state and CI, with a link
+  to it from Jig 0.46.0. JigClient reads Jig 0.45.0, whose `pull_request` carried the promotion's state, into
+  0.46.0's shape. **Take back for a fix** in its menu, or a drop on In progress, is the resume above. The ✕ waits
   for housekeeping's `needs-consolidation`, the merge into the base: Jig 0.45.0's close command closes
   a task once its pull request into staging merged (fapost-lab/jig#509). Landing and "prepare for
   prod" have no button; Jig answers neither as JSON.

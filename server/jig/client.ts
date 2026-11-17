@@ -506,6 +506,11 @@ const TaskAction = z.object({
 });
 export type TaskAction = z.output<typeof TaskAction>;
 
+/** A pull request's review as the forge cache last heard it (Jig 0.46.0): who it still waits for, by login. */
+const Review = z
+  .object({ state: z.enum(['approved', 'changes', 'waiting', 'none']), waiting_for: z.array(text) })
+  .transform(({ state, waiting_for }) => ({ state, waitingFor: waiting_for }));
+
 /** A task as `jig task list --all --json` reports it, as far as Jig UI reads it; the statuses are Jig's (schemas/state.md). */
 const TaskRow = z
   .object({
@@ -539,42 +544,59 @@ const TaskRow = z
     staging: z.enum(['on', 'behind']).nullable().optional(),
     /** Beside `staging`: why the task waits at the staging branch — a pull request into it (`review`), or "prepare for prod". */
     parked: z
-      .object({ reason: z.enum(['review', 'signal']), hint: z.enum(['landing']).nullable() })
+      .object({
+        reason: z.enum(['review', 'signal']),
+        hint: z.enum(['landing']).nullable(),
+        /** From Jig 0.46.0: the review of its pull request into staging, `null` for `signal` and when the cache cannot say. */
+        review: Review.nullable().optional(),
+      })
       .nullable()
       .optional(),
+    /** From Jig 0.46.0, beside `staging`: the promotion, the pull request from the task's branch into its base. */
+    promotion: z.object({ url: maybe, state: maybe, ci: maybe }).nullable().optional(),
   })
-  .transform(({ autopilot: run, pull_request: pr, ...t }) => ({
-    id: t.id,
-    class: t.class,
-    status: t.status,
-    issue: t.issue,
-    goal: t.goal,
-    knowledgeConsolidated: t.knowledge_consolidated,
-    paused: t.paused,
-    pauseRequest: t.pause_request && { requestedAt: t.pause_request.requested_at },
-    createdAt: t.created_at,
-    updatedAt: t.updated_at,
-    branch: t.branch,
-    baseBranch: t.base_branch,
-    worktree: t.worktree,
-    gate: t.gate,
-    autopilot: run && {
-      state: run.state,
-      mode: run.mode,
-      stage: run.stage,
-      stageAt: run.stage_at,
-      stopReason: run.stop_reason,
-      stopAt: run.stop_at,
-      phase: run.phase,
-    },
-    pullRequest: pr && { url: pr.url, state: pr.state, ci: pr.ci, fetchedAt: pr.fetched_at },
-    housekeepingFlags: t.housekeeping_flags,
-    actions: t.actions.filter((a) => ACTIONS.has(a.id)),
-    /** Jig's staging flow, named once: only there are `staging` and `parked` given, `null` or not. */
-    stagingFlow: t.staging !== undefined,
-    staging: t.staging ?? null,
-    parked: t.parked ?? null,
-  }));
+  .transform(({ autopilot: run, pull_request: pr, ...t }) => {
+    // Jig 0.45.0 has no `promotion`: the state and CI of a task on the staging side were the promotion's, the url the
+    // pull request into staging's. Read into 0.46.0's shape, so the rest of Jig UI knows one.
+    const promoted = t.staging !== undefined && t.promotion === undefined && (t.staging !== null || !!t.parked);
+    return {
+      id: t.id,
+      class: t.class,
+      status: t.status,
+      issue: t.issue,
+      goal: t.goal,
+      knowledgeConsolidated: t.knowledge_consolidated,
+      paused: t.paused,
+      pauseRequest: t.pause_request && { requestedAt: t.pause_request.requested_at },
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+      branch: t.branch,
+      baseBranch: t.base_branch,
+      worktree: t.worktree,
+      gate: t.gate,
+      autopilot: run && {
+        state: run.state,
+        mode: run.mode,
+        stage: run.stage,
+        stageAt: run.stage_at,
+        stopReason: run.stop_reason,
+        stopAt: run.stop_at,
+        phase: run.phase,
+      },
+      pullRequest:
+        pr &&
+        (promoted
+          ? { url: pr.url, state: null, ci: null, fetchedAt: null }
+          : { url: pr.url, state: pr.state, ci: pr.ci, fetchedAt: pr.fetched_at }),
+      housekeepingFlags: t.housekeeping_flags,
+      actions: t.actions.filter((a) => ACTIONS.has(a.id)),
+      /** Jig's staging flow, named once: only there are `staging` and `parked` given, `null` or not, and from 0.46.0 `promotion`. */
+      stagingFlow: t.staging !== undefined,
+      staging: t.staging ?? null,
+      parked: t.parked ? { reason: t.parked.reason, hint: t.parked.hint, review: t.parked.review ?? null } : null,
+      promotion: promoted ? (pr?.state ? { url: null, state: pr.state, ci: pr.ci } : null) : (t.promotion ?? null),
+    };
+  });
 export type TaskSummary = z.output<typeof TaskRow>;
 
 /** `hidden` is what the selection left out; from Jig 0.37.0, which has `archived`, the archived ones among them. */
