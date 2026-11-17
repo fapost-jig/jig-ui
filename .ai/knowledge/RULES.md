@@ -17,6 +17,14 @@ are added as sections of this file.
   preference of one browser — the theme, Board or List — is that browser's `localStorage`, not
   a file. (adr-20261014-local-server-access-guard,
   adr-20261017-browser-opens-through-a-redirect-file, adr-20261018-page-built-from-shadcn-vue-with-router-and-canvas. Checked in review.)
+  The team server (`jig-ui team-server`) stores nothing but `team.db` in `JIG_UI_DATA`, created 0600
+  in a folder it creates 0700: its App's credentials, the installations and the admin's decision on each,
+  people by their forge id with their accounts' logins, the repositories of approved installations
+  and who may write to each, and sessions by the SHA-256 of their id. It keeps no person's forge
+  token, and never `temp_clone_token`, which its response schemas drop.
+  (adr-20261117-a-team-server-keeps-a-reflection-of-its-own,
+  adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app. Checked by
+  `server/team/app.test.ts` and `poll.test.ts`, which read the database file, and in review.)
 - A board column is computed from Jig's state on every read and never stored.
   (adr-20261014-board-columns-are-derived-from-jig-state. Checked in review.)
 - Only `server/jig/` runs `jig` or knows the shape of its output.
@@ -33,7 +41,10 @@ are added as sections of this file.
   about the person or their projects; `createApp` asks only when `main.ts` gives it the check, and
   `GET /api/instance`, the CLI's check that an instance is up, never waits on it.
   (adr-20261031-jig-ui-asks-npm-for-a-newer-release. Checked by `server/release.test.ts`; in review:
-  no other `fetch` or outbound request in `server/`.)
+  no other `fetch` or outbound request in `server/` outside `server/team/`.) The team server asks
+  only GitHub: its API as the App and its installations, and OAuth's token exchange, all in
+  `server/team/github.ts`. (adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app.
+  Checked in review: no other `fetch` in `server/team/`.)
 - The API and the page name connected projects by id; no path reaches `web/` but Find projects'
   answer — the folder it looked through and what it found there, under the folder the person named,
   with `~` for the home folder —, a task's documents, whose content is shown as its authors wrote it,
@@ -47,8 +58,13 @@ are added as sections of this file.
   as text, cleaned by DOMPurify.
   (adr-20261030-a-task-document-is-shown-as-written, adr-20261109-knowledge-text-and-drop-from-jig-0-41. Checked in review;
   `web/lib/markdown.test.ts` pins that every rendering goes through DOMPurify.)
-- The server binds 127.0.0.1 unless a guard other than the local token is in place, refuses a
-  foreign `Host` or `Origin`, and refuses every API call without the token.
+- The local server binds 127.0.0.1 unless a guard other than the local token is in place, refuses a
+  foreign `Host` or `Origin`, and refuses every API call without the token. The team server binds
+  `JIG_UI_HOST` (`0.0.0.0` by default) behind its own guard: it refuses a `Host` not the public
+  address's and an `Origin` not its origin, and a write that names none but GitHub's webhook, which
+  is held to its signature; every `/api/team/*` call needs a session but the state and the setup,
+  which needs the code and then the setup's cookie. (adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app.
+  Checked by `server/team/app.test.ts`.)
 - `jig-ui stop` never signals a pid read from `instance.json` on its own word: it asks the instance
   over `POST /api/instance/stop` with the token, and sends SIGTERM only to an older instance that
   answered the probe with its token and has no such route. A file whose port refuses is removed

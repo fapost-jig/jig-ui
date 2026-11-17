@@ -24,15 +24,19 @@ export type CliCommand =
       port: number;
     }
   | {
+      kind: 'team-server';
+      port: number;
+    }
+  | {
       kind: 'error';
       message: string;
     };
 
-const SUBCOMMANDS = ['start', 'stop', 'status', 'open', 'serve', 'reset-token'] as const;
+const SUBCOMMANDS = ['start', 'stop', 'status', 'open', 'serve', 'reset-token', 'team-server'] as const;
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
 /** Subcommands that listen on a port; the others only talk to the instance that does. */
-const TAKES_PORT: ReadonlySet<string> = new Set<Subcommand | 'run'>(['run', 'start', 'serve']);
+const TAKES_PORT: ReadonlySet<string> = new Set<Subcommand | 'run'>(['run', 'start', 'serve', 'team-server']);
 /** Commands that start an instance and open the browser on it unless told not to. */
 const OPENS: ReadonlySet<string> = new Set<Subcommand | 'run'>(['run', 'start']);
 
@@ -90,6 +94,8 @@ export function parseCliArgs(argv: string[]): CliCommand {
       return { kind: 'start', port, open: !values['no-open'] };
     case 'serve':
       return { kind: 'serve', port };
+    case 'team-server':
+      return { kind: 'team-server', port };
     case 'stop':
     case 'status':
     case 'open':

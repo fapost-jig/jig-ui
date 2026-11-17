@@ -45,6 +45,8 @@ describe('parseCliArgs', () => {
     expect(parseCliArgs(['status'])).toEqual({ kind: 'status' });
     expect(parseCliArgs(['open'])).toEqual({ kind: 'open' });
     expect(parseCliArgs(['reset-token'])).toEqual({ kind: 'reset-token' });
+    expect(parseCliArgs(['team-server'])).toEqual({ kind: 'team-server', port: DEFAULT_PORT });
+    expect(parseCliArgs(['team-server', '--port', '8080'])).toEqual({ kind: 'team-server', port: 8080 });
   });
 
   it('lets help and version win over any subcommand', () => {
@@ -64,6 +66,7 @@ describe('parseCliArgs', () => {
     expect(parseCliArgs(['reset-token', '--port', '5000']).kind).toBe('error');
     expect(parseCliArgs(['reset-token', '--no-open']).kind).toBe('error');
     expect(parseCliArgs(['serve', '--no-open']).kind).toBe('error');
+    expect(parseCliArgs(['team-server', '--no-open']).kind).toBe('error');
     expect(parseCliArgs(['stop', '--no-open']).kind).toBe('error');
   });
 

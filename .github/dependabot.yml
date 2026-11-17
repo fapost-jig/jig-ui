@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # The team server's base image, pinned by digest in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
   - package-ecosystem: npm
     directory: /
     schedule:
