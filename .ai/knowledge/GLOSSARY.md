@@ -36,7 +36,8 @@ Use in: source code, documentation.
 Jig UI's list of connected projects, kept in the user's config directory; the only data Jig UI
 owns besides interface settings.
 
-Informal synonyms: project list, database (wrong: there is none).
+Informal synonyms: project list, database (wrong: the local Jig UI has none; the team server's is
+`team.db`).
 Use in: source code, documentation.
 
 ## Workspace
@@ -150,3 +151,43 @@ by `.ai/config.yaml` and shared through git, or the person's own in a clone, ans
 
 Informal synonyms: config key, option.
 Use in: source code, API, documentation.
+
+## Team server
+
+Jig UI run once for a whole team (`jig-ui team-server`), on a server of theirs, where people sign in
+with GitHub and see the repositories they may write to; it keeps a reflection, never the truth.
+
+Informal synonyms: hosted Jig UI, the board, the server.
+Use in: source code, API, documentation.
+
+## Installation
+
+The team server's GitHub App installed on one account or organisation, by GitHub's installation id;
+it gives nothing until the admin approves it.
+
+Informal synonyms: install, org.
+Use in: source code, schema, API, documentation.
+
+## Allow-list
+
+The installations the team server's admin approved; only through them does anyone sign in or any
+repository reach the server.
+
+Informal synonyms: whitelist, approved orgs.
+Use in: source code, documentation.
+
+## Person
+
+Someone on the team server, with one or several linked forge accounts; they see what any of their
+accounts may write to.
+
+Informal synonyms: user (wrong: a GitHub user is an account).
+Use in: source code, schema, API, documentation.
+
+## Account
+
+One forge account of a person on the team server, known by its forge user id; its login is shown,
+never a key.
+
+Informal synonyms: GitHub user, login.
+Use in: source code, schema, API, documentation.

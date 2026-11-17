@@ -34,6 +34,28 @@ export default defineConfigWithVueTs(
     },
   },
   {
+    // The team server stands alone (adr-20261117-a-team-server-keeps-a-reflection-of-its-own): it runs no Jig, reads no project and
+    // keeps nothing in the local config folder, so nothing outside its folder is imported.
+    files: ['server/team/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['../*'], message: 'The team server imports nothing of the local server.' }] },
+      ],
+    },
+  },
+  {
+    // …and the local server knows nothing of it; only the command line starts one mode or the other.
+    files: ['server/**/*.ts'],
+    ignores: ['server/team/**', 'server/main.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['**/team/*'], message: 'The local server imports nothing of the team server.' }] },
+      ],
+    },
+  },
+  {
     // shadcn-vue names its components by one word (Button, Card); the rule is for components of our own.
     files: ['web/components/ui/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },

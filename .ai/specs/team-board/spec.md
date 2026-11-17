@@ -212,8 +212,10 @@ The maintainer's words, translated from Russian, in the order they were said:
   `GET /repos/{owner}/{repo}` hands such an App a `temp_clone_token` for a private repository — a
   short-lived credential for Git, which the server then never stores or logs; whether
   `permission=push` means push or higher; whether SAML SSO limits installation tokens; whether a
-  repository's id survives a rename and a transfer. Each is a short test with a real App, at the
-  start of the team server's task.
+  repository's id survives a rename and a transfer. Each is a short test with a real App. The team
+  server was built without one, on its maintainer's word, so its first real setup answers them; it
+  holds either way meanwhile: it never reads `temp_clone_token`, and if `permission=push` means push
+  alone, an admin misses a project rather than a stranger gaining one.
 - How GitLab's membership check and sign-in fit the same server — Phase 4 depends on it.
 
 ## Set aside

@@ -12,12 +12,14 @@ import { loadToken, resetToken } from './registry/token.js';
 import { mainCheckout } from './source/checkout.js';
 import { instanceStatus, startInstance, stopInstance } from './service.js';
 import { localSource } from './source/local.js';
+import { runTeamServer } from './team/main.js';
 
 const HOST = '127.0.0.1';
 
 const HELP = `Usage: jig-ui [options]
        jig-ui start [--port <n>] [--no-open]
        jig-ui stop | status | open | reset-token
+       jig-ui team-server [--port <n>]
 
 Run without a command, Jig UI runs in this terminal and opens the browser.
 
@@ -28,9 +30,11 @@ Commands:
   open           Open the running Jig UI in the browser
   reset-token    Make the next start use a new token: pages opened with the old one are refused
   serve          Run in this terminal without a browser or a folder: what start runs
+  team-server    Run the team server, for a container: settings from JIG_UI_PUBLIC_URL and the
+                 other variables in the team server's docs
 
 Options:
-  --port <n>     Port to listen on (default 4870); run, start and serve
+  --port <n>     Port to listen on (default 4870); run, start, serve and team-server
   --no-open      Print the link instead of opening the browser; run and start
   -v, --version  Print the version and exit
   -h, --help     Print this help and exit
@@ -261,6 +265,8 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // The team server keeps nothing in the local config folder: its data is JIG_UI_DATA's.
+  if (command.kind === 'team-server') return runTeamServer(command.port, readPackageVersion());
   const dir = configDir(process.env, process.platform, homedir());
   switch (command.kind) {
     case 'start':

@@ -11,7 +11,7 @@ own tasks on one server, from any device. Done when: the maintainer's server hol
 projects and the team's, his phone shows his tasks in progress, and closing the laptop leaves the
 last copy on the board marked "as of".
 
-- [ ] `team-server` — team server — one Docker image with SQLite on a volume; a public GitHub App
+- [x] `team-server` — team server — one Docker image with SQLite on a volume; a public GitHub App
   with Metadata (read) only, created on first start through the app manifest flow; installations
   taken only from accounts the server's admin approved; sign-in through the App; several forge
   accounts per person, known by user id; projects by forge id, membership by write access polled

@@ -17,6 +17,8 @@ of truth, and every change Jig UI makes goes through Jig's own commands.
   to do next, and the documents its workspace holds.
 - **Specs** — specifications and their roadmaps, epics in order, and a question for your agent about a
   spec.
+- **Team server** — Jig UI run once for a team: people sign in with GitHub and see the projects they
+  may write to. New; see [Team server](docs/team-server.mdx).
 
 ## Requirements
 
@@ -50,11 +52,16 @@ starts. Every merge to `main` is published under the `next` tag: `npx @fapost/ji
 The server listens on `127.0.0.1` only and checks `Host` and `Origin`. The link it opens carries a
 token kept in Jig UI's config folder, readable only by you; `jig-ui reset-token` makes a new one.
 
+The team server listens beyond this machine, behind HTTPS: a session after a sign-in with GitHub
+takes the token's place, and its own GitHub App asks for nothing but Metadata (read). See
+[Team server](docs/team-server.mdx).
+
 ## Documentation
 
 - [Requirements](docs/requirements.mdx)
 - [Installation](docs/installation.mdx) — options, background mode, the token, the development channel
 - [Projects](docs/projects.mdx) — connecting projects, upgrades, the board, tasks and specs
+- [Team server](docs/team-server.mdx) — running it, its GitHub App, approving installations, backups
 - [Changelog](docs/changelog.mdx)
 
 ## Development

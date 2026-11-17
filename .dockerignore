@@ -1,0 +1,11 @@
+# Only what `npm ci` and `npm run build` read reaches the build: no local state, no secrets, no history.
+.git
+.ai/workspace
+.ai/runtime
+.ai/config.local.yaml
+.claude
+.playwright-mcp
+node_modules
+dist
+docs
+*.log

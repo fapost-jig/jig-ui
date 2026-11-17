@@ -1,0 +1,143 @@
+---
+title: 'Team server'
+description: 'Run Jig UI once for a team: people sign in with GitHub and see the projects they may write to.'
+---
+
+The team server is Jig UI run once for a whole team, on a server of yours. People sign in with
+GitHub and see every project they may write to, personal and the team's alike. Jig UI on each
+person's own machine works as before and does not need it.
+
+<Note>
+  The team server is new. In this release it signs people in and lists their projects; their tasks arrive in a later release, sent by Jig UI
+  on each machine. It is on the [development channel](/installation#development-channel) until the next release.
+</Note>
+
+## What it needs
+
+- **Docker**, or Node.js 24 or later.
+- **An address with HTTPS**, such as `https://board.example.com`, served by a reverse proxy in
+  front of the server ([below](#https-in-front)). To try it on one machine, `http://localhost`
+  does instead.
+- **A GitHub account to own its App**: yours, or an organization in which you may create Apps.
+
+## Running it
+
+The image is not published yet: build it from the repository, then run it with a volume for its
+data and its public address.
+
+```bash
+docker build -t jig-ui-team https://github.com/fapost-lab/jig-ui.git#main
+docker volume create jig-ui-team
+docker run -d --name jig-ui-team --restart unless-stopped \
+  -p 127.0.0.1:4870:4870 -v jig-ui-team:/data \
+  -e JIG_UI_PUBLIC_URL=https://board.example.com \
+  jig-ui-team
+```
+
+It runs as the image's `node` user and keeps everything in `/data`. Without Docker, the same server
+runs from npm:
+
+```bash
+JIG_UI_PUBLIC_URL=https://board.example.com JIG_UI_DATA=/srv/jig-ui-team \
+  npx @fapost/jig-ui@next team-server
+```
+
+| Setting             | What it does                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JIG_UI_PUBLIC_URL` | The address people open, an origin only: `https://` and a host, with a port if it has one. Required: without it the server does not start and says so. Plain `http://` is taken only for `localhost`. |
+| `JIG_UI_DATA`       | The folder of its database, `team.db`. `/data` by default, the image's volume.                                                                                                                        |
+| `JIG_UI_HOST`       | The address it listens on, `0.0.0.0` by default. Outside Docker, `127.0.0.1` keeps it behind the proxy.                                                                                               |
+| `--port <n>`        | The port it listens on, 4870 by default.                                                                                                                                                              |
+
+The server runs no Jig and reads no project: it keeps only what the next sections name, in its
+database.
+
+## HTTPS in front
+
+The server speaks plain HTTP and expects a reverse proxy with HTTPS in front of it. It refuses a
+request whose `Host` is not the public address's, so the proxy passes `Host` through. With
+[Caddy](https://caddyserver.com), which does that and gets the certificate itself:
+
+```text
+board.example.com {
+  reverse_proxy 127.0.0.1:4870
+}
+```
+
+With nginx, add `proxy_set_header Host $http_host;` to the `location` that proxies to it.
+
+## Setting it up
+
+Until it has an admin, the server prints a setup code in its log at every start (`docker logs
+jig-ui-team`). The code lives only in the server's memory, and nothing can be set up without it.
+
+1. Open the public address and enter the code.
+2. Name the organization that will own the App, or leave the field empty for your personal account,
+   and press **Create the App on GitHub**. GitHub shows the App it is about to create: public, asking
+   for nothing but **Metadata (read)**. Create it.
+3. GitHub sends you back, and you sign in with GitHub: you are the server's admin. The setup code
+   works no more. If that sign-in does not finish — you press Cancel on GitHub, or ten minutes
+   pass — open the address again and enter the code: the page leads you to the admin's sign-in.
+4. Press **Install the App on an account** and install it on the accounts and organizations whose
+   repositories your team works in, then [approve each installation](#approving-installations).
+
+Each step after the code is taken within ten minutes of entering it, in the same browser.
+
+## What the App sees
+
+**Metadata (read)** gives the App a repository's name and who may write to it, and nothing else: no
+code, issues or pull requests. The server stores:
+
+- the App's credentials — its private key and client secret;
+- each installation of the App and your decision on it;
+- each person, by their GitHub account id, with the logins of their accounts;
+- the repositories of approved installations, and who may write to each;
+- sessions, by a hash of their id.
+
+It keeps no person's GitHub token: the one a sign-in gives is used for that sign-in and dropped.
+
+## Approving installations
+
+The App is public, so anyone may install it on their account. An installation does nothing until
+you approve it: nobody signs in through it, and the server keeps none of its repositories. Your
+page lists every installation as **waits for you**, **approved** or **refused**; **Approve** reads
+its repositories at once, **Refuse** takes them off the server. A refused installation stays
+ignored until you approve it.
+
+## Signing in
+
+Anyone whose GitHub account may push to a repository of an approved installation can sign in, and
+sees those repositories as their projects. A fork is shown under its parent when the App is
+installed on the parent too. Someone with nothing on the server is told so, gets no session, and
+nothing about them is stored.
+
+Who may write is read again every five minutes, so a person who lost write access loses the
+project by the next read. When GitHub can reach the server's webhook — on a public address, not on
+`localhost` — removing the App from a repository or an account hides its projects at once, and a
+person who revokes the App in their GitHub settings is signed out everywhere.
+
+A session lasts 30 days; **Sign out** ends it. The session cookie is kept for the public address
+only, over HTTPS, out of reach of the page's scripts.
+
+### Several GitHub accounts
+
+Someone with a work and a personal account links both and sees the projects of all of them
+together. GitHub signs in the account the browser is signed in to on github.com, so switch to the
+other account there first, then press **Link another account**. An account already linked to
+someone else on the server is not linked again.
+
+## Backing it up
+
+The volume holds `team.db`, and `team.db` holds the App's private key and client secret: whoever
+has a copy can act as the App. Keep a backup as you keep a secret. The database is readable by its
+owner only. To copy it, stop the server first, so the copy is whole:
+
+```bash
+docker stop jig-ui-team
+docker cp jig-ui-team:/data ./jig-ui-team-backup
+docker start jig-ui-team
+```
+
+To start over, stop the server, remove its volume, and delete the App on GitHub: **Settings →
+Developer settings → GitHub Apps**, the App, **Advanced**, **Delete GitHub App**. The next start
+prints a new setup code.

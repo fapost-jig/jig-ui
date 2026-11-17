@@ -16,7 +16,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
 - `server/cli.ts` — the `jig-ui` command. It imports nothing but the Node version check, so an
   old Node prints the requirement instead of a stack trace, then loads `server/main.ts`, which
   dispatches the commands parsed in `args.ts`: none (the start flow below), `serve`, and `start`,
-  `stop`, `status`, `open`, `reset-token`.
+  `stop`, `status`, `open`, `reset-token` — and `team-server`, handed to `server/team/` before the
+  config directory is read.
 - `server/service.ts` — the background instance: `start` runs the CLI itself as `serve` (the
   server with no browser and no folder) detached, output in `server.log`, and waits for it to
   answer, after which `main.ts` opens the browser on it unless `--no-open`; `stop` asks the instance over HTTP; `status` and `open` read and probe. A probe tells
@@ -116,6 +117,21 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   checks both sides (adr-20261017-one-typescript-for-server-and-web).
   Directions: `views/` → `components/` → `components/ui/`; `lib/` from any of them; `api.ts` →
   `server/http/` for types only — lint refuses a value import from `server/`.
+- `server/team/` — the team server, `jig-ui team-server`: one Jig UI for a team, on a server of
+  theirs, where people sign in with GitHub and see the repositories they may write to
+  (adr-20261117-a-team-server-keeps-a-reflection-of-its-own,
+  adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app). `config.ts` reads
+  `JIG_UI_PUBLIC_URL`, `JIG_UI_DATA` and `JIG_UI_HOST`; `db.ts` is `TeamStore`, `team.db` through
+  `node:sqlite`; `github.ts` is the only code that talks to GitHub — the App's JWT, installation
+  tokens, OAuth, the REST reads, each answer checked by a zod schema; `auth.ts` keeps what lives in
+  memory only (the setup code, setups, OAuth rounds) and sessions by hash; `access.ts` is the guard
+  (convention-access-guard); `poll.ts` reads approved installations again every five minutes;
+  `app.ts` is `createTeamApp` and the routes, typed as `TeamAppType`; `main.ts` starts it. It
+  imports nothing of `server/` outside it, and nothing outside it but `server/main.ts` imports it
+  (lint). Its page is the second Vite entry, `web/team.html` with `web/team/` (`TeamApp.vue`, the
+  admin's `AdminPanel.vue`, `api.ts` over `TeamAppType`), built from the same components and `lib/`.
+  The `Dockerfile` builds the package from source and runs `team-server` as `node`, its data on the
+  `/data` volume.
 - **Start flow.** `npx @fapost/jig-ui` checks Node 24+, finds a running instance through the
   config directory and checks it answers with its token — then opens it and exits — or starts one
   on 127.0.0.1 with the kept token and opens the browser on a link carrying it
@@ -181,7 +197,9 @@ One npm package with a server and a page
 (adr-20261014-project-source-port-keeps-hosting-open):
 
 - `server/http/` — the Hono app, the access guard and the built page; the only server module that
-  knows Hono, but for `main.ts` serving it (`@hono/node-server`); the page knows `hono/client`.
+  knows Hono, but for `main.ts` serving it (`@hono/node-server`) and the team server's own app in
+  `server/team/` (adr-20261117-a-team-server-keeps-a-reflection-of-its-own); the page knows
+  `hono/client`.
 
 ### Boundaries and dependency direction
 
@@ -195,7 +213,9 @@ The start flow, read-and-follow and change, with its conflict display, are built
 
 ### System-wide constraints and invariants
 
-- Jig's files are the source of truth; Jig UI keeps only its registry and interface settings.
+- Jig's files are the source of truth; Jig UI keeps only its registry and interface settings. The
+  team server keeps a reflection of its own, never the truth
+  (adr-20261117-a-team-server-keeps-a-reflection-of-its-own).
 - Board columns are derived, never stored; a drop on another column is a sticky request
   (adr-20261014-board-columns-are-derived-from-jig-state), except a drop out of Paused, which
   resumes the task at once (adr-20261026-a-drop-out-of-paused-resumes-at-once), and a drop of a task
