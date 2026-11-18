@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Column, Task } from '../api';
-import { filtered, fromQuery, reorders, sift, type Sift, toQuery } from './sift';
+import { filtered, fromQuery, reorders, sift, type Sift, specsOf, toQuery } from './sift';
 
 const task = (id: string, more: Partial<Task> = {}): Task => ({
   id,
@@ -16,6 +16,7 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
   staging: null,
   parked: null,
   stagingFlow: false,
+  spec: null,
   promotion: null,
   resumesTo: null,
   started: false,
@@ -29,7 +30,7 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
 
 const backlog = (...cards: Task[]): Column[] => [{ id: 'backlog', title: 'Backlog', cards }];
 const ids = (columns: Column[]) => columns.flatMap((c) => c.cards.map((t) => t.id));
-const view = (more: Partial<Sift> = {}): Sift => ({ sort: 'queue', classes: [], priorities: [], text: '', ...more });
+const view = (more: Partial<Sift> = {}): Sift => ({ sort: 'queue', classes: [], priorities: [], specs: [], text: '', ...more });
 
 const cards = [
   task('test-gaps', { class: 'T1', priority: 3, goal: 'From the triage tasks' }),
@@ -70,6 +71,18 @@ describe('sift', () => {
     expect(ids(sift(backlog(...cards), view({ classes: ['T1'], priorities: ['P4'] })))).toEqual([]);
   });
 
+  it('filters by the spec a task was filed from, `none` for a task of none', () => {
+    const of = (id: string, title: string | null = null) => ({ id, title, phase: 4, epic: false });
+    const board = backlog(
+      task('a', { spec: of('jig-ui') }),
+      task('b'),
+      task('c', { spec: of('team-board') }),
+      task('d', { spec: of('jig-ui') }),
+    );
+    expect(ids(sift(board, view({ specs: ['jig-ui'] })))).toEqual(['a', 'd']);
+    expect(ids(sift(board, view({ specs: ['team-board', 'none'] })))).toEqual(['b', 'c']);
+  });
+
   it('finds text in the id or the goal, in any case', () => {
     expect(ids(sift(backlog(...cards), view({ text: ' TRIAGE ' })))).toEqual(['test-gaps']);
     expect(ids(sift(backlog(...cards), view({ text: 'находил' })))).toEqual(['review-smells']);
@@ -89,9 +102,11 @@ describe('sift', () => {
 
 describe('the address', () => {
   it('reads a view and writes it back, defaults left out', () => {
-    const read = fromQuery({ sort: 'priority', class: 'T2,T0', priority: 'none,P1', q: 'login' });
-    expect(read).toEqual(view({ sort: 'priority', classes: ['T0', 'T2'], priorities: ['P1', 'none'], text: 'login' }));
-    expect(toQuery(read)).toEqual({ sort: 'priority', class: 'T0,T2', priority: 'P1,none', q: 'login' });
+    const read = fromQuery({ sort: 'priority', class: 'T2,T0', priority: 'none,P1', from: 'jig-ui,none', q: 'login', spec: 'team-board' });
+    expect(read).toEqual(
+      view({ sort: 'priority', classes: ['T0', 'T2'], priorities: ['P1', 'none'], specs: ['jig-ui', 'none'], text: 'login' }),
+    );
+    expect(toQuery(read)).toEqual({ sort: 'priority', class: 'T0,T2', priority: 'P1,none', from: 'jig-ui,none', q: 'login' });
     expect(toQuery(view())).toEqual({});
   });
 
@@ -109,5 +124,31 @@ describe('the address', () => {
     expect(filtered(view({ sort: 'class' }))).toBe(false);
     expect(filtered(view({ text: '  ' }))).toBe(false);
     expect(filtered(view({ priorities: ['P0'] }))).toBe(true);
+    expect(filtered(view({ specs: ['none'] }))).toBe(true);
+  });
+});
+
+describe('specsOf', () => {
+  const of = (id: string, title: string | null) => ({ id, title, phase: null, epic: false });
+
+  it('offers the specs of the board’s tasks by title, the id where Jig has none, then none for the rest', () => {
+    const board = backlog(
+      task('a', { spec: of('team-board', 'Team board') }),
+      task('b'),
+      task('c', { spec: of('jig-ui', 'Jig UI — a local control center') }),
+      task('d', { spec: of('team-board', 'Team board') }),
+      task('e', { spec: of('away', null) }),
+    );
+    expect(specsOf(board)).toEqual([
+      { id: 'away', title: 'away' },
+      { id: 'jig-ui', title: 'Jig UI — a local control center' },
+      { id: 'team-board', title: 'Team board' },
+      { id: 'none', title: 'None' },
+    ]);
+  });
+
+  it('offers nothing while no task names a spec', () => {
+    expect(specsOf(backlog(task('a'), task('b')))).toEqual([]);
+    expect(specsOf(backlog(task('a', { spec: of('jig-ui', 'Jig UI') })))).toEqual([{ id: 'jig-ui', title: 'Jig UI' }]);
   });
 });

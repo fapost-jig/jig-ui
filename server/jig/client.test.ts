@@ -281,6 +281,28 @@ describe('readTasks', () => {
     expect(read.tasks[0]).toMatchObject({ id: expect.any(String), status: expect.any(String), paused: expect.any(Boolean) });
   });
 
+  it('reads the spec a task was filed from, and whether it goes into the spec’s epic (Jig 0.46.0)', async () => {
+    const read = await readTasks(answering('tasks-spec', 'task-list-spec.json'));
+    expect(read.tasks.map((t) => [t.id, t.spec])).toEqual([
+      ['person-writes-nits', null],
+      ['spec-on-card', { id: 'jig-ui', title: 'Jig UI — a local control center for Jig projects', phase: 4, epic: false }],
+    ]);
+    // Nobody started it: it is cut from the epic. Started, it goes where its base is.
+    for (const [branch, base, into] of [
+      [null, 'main', true],
+      ['task/spec-on-card', 'epic/jig-ui', true],
+      ['task/spec-on-card', 'main', false],
+    ] as const) {
+      const answer = changed('task-list-spec.json', (d) => {
+        const task = d.tasks.find((t: { id: string }) => t.id === 'spec-on-card');
+        Object.assign(task, { branch, base_branch: base });
+        task.spec.epic = 'epic/jig-ui';
+      });
+      const { tasks } = await readTasks(answering(`case-${cases++}`, answer));
+      expect(tasks.find((t) => t.id === 'spec-on-card')?.spec?.epic).toBe(into);
+    }
+  });
+
   it('reads what a board and a task show: start, gate, autopilot run, pull request, flags, actions', async () => {
     const read = await readTasks(answering('tasks-states', 'task-list-states.json'));
     expect(read.tasks.map((t) => t.id)).toEqual(['backlog-item', 'design-waits', 'run-stopped', 'set-aside', 'shipped']);
@@ -307,6 +329,7 @@ describe('readTasks', () => {
       staging: null,
       parked: null,
       promotion: null,
+      spec: null,
     });
     expect(read.tasks[0]?.actions.map((a) => a.id)).toEqual([
       'start',

@@ -288,6 +288,16 @@ export interface Task {
     level: string | null;
     position: number;
   } | null;
+  /**
+   * The spec the task was filed from (Jig 0.46.0): its id, title (`null` when the spec is not in the checkout), the
+   * link's phase, and whether the task goes into the spec's epic. `null` for a task of no spec, and before 0.46.0.
+   */
+  spec: {
+    id: string;
+    title: string | null;
+    phase: number | null;
+    epic: boolean;
+  } | null;
 }
 
 /** One live task in full, as its details show it; never where its worktree is. */

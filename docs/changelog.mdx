@@ -8,6 +8,9 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- A board card or list row of a task filed from a spec names the spec and the phase, marked **epic** when the task
+  goes into the spec's epic; a click opens the spec on **Specs**, and the board's filter takes a spec (`?from=`), so one
+  epic's tasks are seen together. It reads `spec` from `jig task list --json` (Jig 0.46.0).
 - The page's header shows this machine's Jig and the newest Jig released beside Jig UI's version, and when the newest
   is newer, marks it with **Update…**, which runs `jig self-update` after asking. It reads `jig version --json` (Jig 0.46.0) from the `jig` on
   `PATH`; offline it shows the installed Jig only.

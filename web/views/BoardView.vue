@@ -46,7 +46,7 @@
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
   import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, writeRefusal } from '@/lib/refusal';
-  import { filtered, fromQuery, reorders, sift, type Sift, toQuery } from '@/lib/sift';
+  import { filtered, fromQuery, reorders, sift, type Sift, specsOf, toQuery } from '@/lib/sift';
   import { toneText } from '@/lib/tones';
 
   const props = defineProps<{
@@ -303,6 +303,17 @@
 
   function chooseSpec(spec: unknown): void {
     if (typeof spec === 'string') void router.replace({ query: { ...route.query, spec } });
+  }
+
+  /** The ids of the project's specs, once read: only a card's spec among them opens, or the Specs view would show another. */
+  const specIds = computed(() =>
+    typeof specs.value === 'object' && specs.value.state === 'ready' ? specs.value.specs.map((s) => s.id) : [],
+  );
+
+  /** A card's spec, opened on the Specs view as a press on Specs and a choice of its tab would: the board's view stays in the address. */
+  function openSpec(spec: string): void {
+    show('specs');
+    chooseSpec(spec);
   }
 
   /** The spec whose epic's or roadmap's change is on its way to Jig; the notice says what Jig refused, as for a task. */
@@ -652,6 +663,7 @@
       v-model="sifting"
       :shown="shownCount"
       :total="cards.length"
+      :specs="specsOf(board.columns)"
       class="shrink-0"
     />
 
@@ -674,12 +686,14 @@
       :details="details"
       :pending="pending"
       :changed="notice?.changed"
+      :specs="specIds"
       @toggle="(task) => (selected = selected === task ? undefined : task)"
       @move="move"
       @prioritise="prioritise"
       @pause="pause"
       @resume="resume"
       @close="close"
+      @open-spec="openSpec"
     />
 
     <div v-else-if="view === 'specs'" class="min-h-0 flex-1 overflow-y-auto">
@@ -764,12 +778,14 @@
       :details="details"
       :pending="pending"
       :changed="notice?.changed"
+      :specs="specIds"
       @select="(task) => (selected = task)"
       @move="move"
       @prioritise="prioritise"
       @pause="pause"
       @resume="resume"
       @close="close"
+      @open-spec="openSpec"
     />
   </div>
 </template>

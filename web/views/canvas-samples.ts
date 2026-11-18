@@ -36,6 +36,7 @@ const task = (id: string, more: Partial<Task>): Task => ({
   staging: null,
   parked: null,
   stagingFlow: false,
+  spec: null,
   promotion: null,
   resumesTo: null,
   started: true,
@@ -78,6 +79,7 @@ export const tasks: Task[] = [
     gate: 'waiting',
     priority: 0,
     queue: { level: null, position: 100 },
+    spec: { id: 'jig-ui', title: 'Jig UI — a local control center for Jig projects', phase: 2, epic: false },
     goal: 'shadcn-vue on Tailwind v4 with light and dark themes; #/canvas with every component in every variant; the three screens rebuilt on it.',
   }),
   task('registry-schema', {
@@ -94,6 +96,7 @@ export const tasks: Task[] = [
   task('specs-and-epics', {
     autopilot: 'on',
     queue: { level: null, position: 300 },
+    spec: { id: 'team-board', title: null, phase: 1, epic: true },
     goal: "Show each spec with its phases, progress and epic branch beside the board, from Jig's spec list.",
   }),
   task('task-details', { status: 'ready', closable: true, pullRequest: pr('open', 'green'), goal: "Open a task's details from its card." }),

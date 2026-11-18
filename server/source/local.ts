@@ -210,6 +210,7 @@ const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
   pullRequest: t.pullRequest,
   priority: q?.priority ?? null,
   queue: q ? { level: q.level, position: q.position } : null,
+  spec: t.spec,
 });
 
 /**

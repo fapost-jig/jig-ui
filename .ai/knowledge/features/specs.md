@@ -16,7 +16,7 @@ paths:
   - web/components/SpecBoard.vue
   - web/components/SpecItemCard.vue
 summary: "A project's specs from jig spec list as the Specs view: open epics in Jig's queue order with a menu to move and prioritise them, and from Jig 0.40.0 the roadmap edited on the card (add, move, file) on the spec's write branch; read with the board, no ref or path on the page"
-reviewed_at: 2026-11-10
+reviewed_at: 2026-11-18
 ---
 # Specs and epics
 
@@ -25,7 +25,8 @@ reviewed_at: 2026-11-10
 A connected project's specs as Jig's `jig spec list --json` reports them (`readSpecs` in
 `server/jig/client.ts`), served by `GET /api/projects/:id/specs` from `ProjectSource.specs(id)`, and
 shown as the third view of the project's page, Specs: one spec at a time — a tab for each when
-there are two or more, the choice kept in the address as `?spec=<id>` (`web/views/BoardView.vue`) —
+there are two or more, the choice kept in the address as `?spec=<id>` (`web/views/BoardView.vue`), which a board
+card's spec opens (feature-board) —
 as a roadmap board (`web/components/SpecBoard.vue`). Its head holds the progress, fog, epic (branch,
 open or finished, read as of the last fetch, branch missing) and release level; a step for each
 phase says ✓ or done/total, and the board opens on the first phase with an item not done

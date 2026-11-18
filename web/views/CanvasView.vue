@@ -31,6 +31,7 @@
   import QueueMenu from '@/components/QueueMenu.vue';
   import FileItemDialog from '@/components/FileItemDialog.vue';
   import SpecBoard from '@/components/SpecBoard.vue';
+  import SpecMark from '@/components/SpecMark.vue';
   import SpecItemCard from '@/components/SpecItemCard.vue';
   import SpecItemMenu from '@/components/SpecItemMenu.vue';
   import TaskBrief from '@/components/TaskBrief.vue';
@@ -51,6 +52,7 @@
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
   import { Toggle } from '@/components/ui/toggle';
   import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+  import { specsOf } from '@/lib/sift';
   import { itemStanding } from '@/lib/specs';
   import { columnAccent, laneAccent, toneRule, toneText } from '@/lib/tones';
   import UpgradePanel from '@/components/UpgradePanel.vue';
@@ -336,12 +338,22 @@
       <UpgradePanel v-for="(run, i) in runs" :key="`run-${i}`" project="legacy-shop" :run="run" :plan="undefined" />
     </CanvasSection>
 
-    <CanvasSection title="BoardFilter" note="Jig's order and no filter; sorted by priority with filters and text on">
-      <BoardFilter :model-value="{ sort: 'queue', classes: [], priorities: [], text: '' }" :shown="12" :total="12" />
+    <CanvasSection
+      title="BoardFilter"
+      note="Jig's order and no filter, no task of a spec; tasks of specs, one chosen; sorted by priority with filters and text on"
+    >
+      <BoardFilter :model-value="{ sort: 'queue', classes: [], priorities: [], specs: [], text: '' }" :shown="12" :total="12" :specs="[]" />
       <BoardFilter
-        :model-value="{ sort: 'priority', classes: ['T1', 'T2'], priorities: ['P0', 'none'], text: 'login' }"
+        :model-value="{ sort: 'queue', classes: [], priorities: [], specs: ['jig-ui'], text: '' }"
+        :shown="5"
+        :total="12"
+        :specs="specsOf(board)"
+      />
+      <BoardFilter
+        :model-value="{ sort: 'priority', classes: ['T1', 'T2'], priorities: ['P0', 'none'], specs: [], text: 'login' }"
         :shown="3"
         :total="12"
+        :specs="specsOf(board)"
       />
     </CanvasSection>
     <CanvasSection title="NewTaskForm" note="empty, on its way, the id taken">
@@ -462,7 +474,7 @@
 
     <CanvasSection
       title="TaskCard"
-      note="every note a card carries, a priority among them; with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open"
+      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open"
     >
       <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
         <TaskCard v-for="task in tasks" :key="task.id" project="jig-ui" :task="task" :open="false" />
@@ -483,8 +495,19 @@
     </CanvasSection>
 
     <CanvasSection
+      title="SpecMark"
+      note="a spec's title and phase, to open; going into the spec's epic; a spec not in the checkout — its id, nothing to open — and a link with no phase"
+    >
+      <div class="flex w-64 flex-col gap-2">
+        <SpecMark :spec="{ id: 'jig-ui', title: 'Jig UI — a local control center for Jig projects', phase: 4, epic: false }" openable />
+        <SpecMark :spec="{ id: 'release-2026-11-18', title: 'Release 0.8.0', phase: 1, epic: true }" openable />
+        <SpecMark :spec="{ id: 'team-board', title: null, phase: null, epic: false }" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection
       title="TaskRow"
-      note="each note and priority; selected; with its queue menu; while its change is on its way; changed since a refused change; ready and closable, asking before it closes"
+      note="each note and priority, the spec it was filed from; selected; with its queue menu; while its change is on its way; changed since a refused change; ready and closable, asking before it closes"
     >
       <div>
         <TaskRow v-for="(task, i) in tasks" :key="task.id" :task="task" :selected="i === 2" />

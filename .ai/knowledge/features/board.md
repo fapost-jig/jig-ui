@@ -13,6 +13,7 @@ paths:
   - web/lib/finished.ts
   - web/lib/refusal.ts
   - web/lib/sift.ts
+  - web/components/SpecMark.vue
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
 reviewed_at: 2026-11-18
 ---
@@ -29,7 +30,11 @@ staging, Ready, In progress) and served by `GET /api/projects/:id/board`. Cards 
 and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). A closed card with a goal names a
 task whose id starts with a tracker's key by that key alone (`SRD-2598`, `cardKey` in `web/lib/task-key.ts`), the goal
 saying the rest, so a long id is not squeezed beside the badges in a narrow column; any other id is broken at its
-hyphens. Finished
+hyphens. A task filed from a spec names it under its card or row, from Jig 0.46.0's `spec` on `jig task list`
+(`web/components/SpecMark.vue`): the spec's title, else its id, the phase, and *epic* when the task goes into the spec's
+epic. A press opens that spec on the Specs view as a press on Specs and its tab would, the sort and filters kept in
+the address; a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since
+the Specs view would show another. Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
 keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
 
@@ -120,8 +125,9 @@ done, or moving.
 - A bar above Board and List sorts and filters every column at once (`web/components/BoardFilter.vue`,
   the decisions in `web/lib/sift.ts`): sort by the queue's order (the default), priority or class,
   ties in the queue's order; show only chosen classes or priorities, or the tasks whose id or goal
-  holds a text. It is a view: nothing is written to Jig or stored; it lives in the board's address
-  (`#/projects/<id>?sort=priority&class=T1,T2&priority=P0,none&q=…`), so a reload or a link keeps
+  holds a text, and, while a task names one, only the specs chosen (`specsOf`: by title, then None for a task of
+  none) — one epic's tasks at a glance. It is a view: nothing is written to Jig or stored; it lives in the board's address
+  (`#/projects/<id>?sort=priority&class=T1,T2&priority=P0,none&from=jig-ui,none&q=…`), so a reload or a link keeps
   it. Sorted other than by the queue, a card offers no move within its column — no drop, and no
   To top, Up, Down or To bottom in its menu — since its place there is not the queue's; a drop on
   another column, the priority and the pause stay. A filter keeps the moves: a drop or Up anchors on
@@ -204,5 +210,12 @@ done, or moving.
   sort per column — rejected: one bar for all was asked. A "needs me" filter — rejected: the Needs
   you column is that already. Moves kept on a sorted board — rejected: "after the card above" names
   a queue position the person cannot see there.
+- A task's spec on its card (task `spec-on-card`, 2026-11-18): Jig names the spec on each task (0.46.0), so the
+  page reads no roadmap to find it. Only whether the task goes into the epic reaches the page, never the epic's branch
+  (feature-specs): a task nobody started is cut from the epic, a started one goes where its base is
+  (`server/jig/client.ts`). The filter's parameter is `from`, not `spec` — `?spec=` names the spec the Specs view
+  shows, and choosing one there must not hide tasks on the board. A spec's tasks taken from its roadmap's items —
+  rejected: an item names a task, a task's `Spec:` line is what Jig reads, and a task linked outside the roadmap
+  (`jig spec link`) has no item yet.
 - The view remembered in Jig UI's settings file — rejected: a preference of one browser need
   not survive it.
