@@ -3,6 +3,7 @@
   import { useRoute, useRouter } from 'vue-router';
   import { call, client, failure, type MachineJig as Jig, type Newer, onChange, type Project } from './api';
   import MachineJig from './components/MachineJig.vue';
+  import { jigReadKey } from './lib/upgrade';
   import ProjectSwitcher from './components/ProjectSwitcher.vue';
   import ThemeToggle from './components/ThemeToggle.vue';
   import { lastWins } from './lib/last-wins';
@@ -14,7 +15,7 @@
   const version = ref<string>();
   /** A newer Jig UI on npm, as the server last heard; asked once a day at most. */
   const newer = ref<Newer>(null);
-  /** This machine's Jig and the newest released, read again on every change: an upgrade panel may have updated it. */
+  /** This machine's Jig and the newest released, read with the first workspace read and again when `jigReadKey` moves. */
   const jig = ref<Jig>(null);
   /** What the header last read Jig for: the last self-update's end, the release Jig said, the connected projects. */
   let jigFor: string | undefined;
@@ -32,8 +33,7 @@
     async () => await (await call(() => client.api.workspace.$get()))?.json(),
     ({ projects: read, machine }) => {
       projects.value = byName(read);
-      const ended = machine.selfUpdate?.state === 'done' ? machine.selfUpdate.at : '';
-      const key = [ended, machine.release ?? '', ...read.map((p) => p.id).sort()].join(' ');
+      const key = jigReadKey(read, machine);
       if (key === jigFor) return;
       jigFor = key;
       void loadJig();

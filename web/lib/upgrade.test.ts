@@ -3,6 +3,7 @@ import type { Attention, Machine, Project } from '../api';
 import {
   agentRequest,
   jigNewer,
+  jigReadKey,
   landedLine,
   machineBusy,
   machineLine,
@@ -364,5 +365,26 @@ describe('jigNewer', () => {
   it('names none while the newest is unknown, or the machine’s Jig cannot be told', () => {
     expect(jigNewer({ installed: '0.46.0', latest: null })).toBeNull();
     expect(jigNewer(null)).toBeNull();
+  });
+});
+
+describe('jigReadKey', () => {
+  const quiet = { selfUpdate: null, release: null };
+  const key = jigReadKey([{ id: 'a' }, { id: 'b' }], quiet);
+
+  it('stays while nothing that changes the machine’s Jig did, in whatever order the projects come', () => {
+    expect(jigReadKey([{ id: 'b' }, { id: 'a' }], quiet)).toBe(key);
+    expect(jigReadKey([{ id: 'a' }, { id: 'b' }], { ...quiet, selfUpdate: { state: 'running', since: 't0' } })).toBe(key);
+    expect(jigReadKey([{ id: 'a' }, { id: 'b' }], { ...quiet, selfUpdate: { state: 'failed', at: 't1', reasons: ['no remote'] } })).toBe(
+      key,
+    );
+  });
+
+  it('moves when a self-update ends, a project hears of a release, or a project is connected or disconnected', () => {
+    const done = { state: 'done' as const, at: 't1', said: 'self-update: updated 0.46.0 -> 0.47.0' };
+    expect(jigReadKey([{ id: 'a' }, { id: 'b' }], { ...quiet, selfUpdate: done })).not.toBe(key);
+    expect(jigReadKey([{ id: 'a' }, { id: 'b' }], { ...quiet, release: '0.47.0' })).not.toBe(key);
+    expect(jigReadKey([{ id: 'a' }], quiet)).not.toBe(key);
+    expect(jigReadKey([{ id: 'a' }, { id: 'b' }, { id: 'c' }], quiet)).not.toBe(key);
   });
 });

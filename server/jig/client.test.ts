@@ -2008,6 +2008,17 @@ describe('readMachineJig', () => {
     if (process.platform !== 'win32') expect(readFileSync(join(bin, 'ran-in'), 'utf8').trim()).toBe(realpathSync(home));
   });
 
+  it('runs the jig on PATH without the GitHub token variables of Jig UI’s environment', async () => {
+    const { env, bin } = machine('machine-jig-tokens', 'version.json');
+    writeFileSync(
+      join(bin, 'jig'),
+      `#!/usr/bin/env bash\n[ -z "\${GH_TOKEN+x}\${GITHUB_TOKEN+x}\${GH_ENTERPRISE_TOKEN+x}\${GITHUB_ENTERPRISE_TOKEN+x}" ] || exit 1\ncat "${bin}/out.json"\n`,
+      { mode: 0o755 },
+    );
+    const tokens = { GH_TOKEN: 't', GITHUB_TOKEN: 't', GH_ENTERPRISE_TOKEN: 't', GITHUB_ENTERPRISE_TOKEN: 't' };
+    expect(await readMachineJig(process.platform, { ...env, ...tokens }, root)).toEqual({ installed: '0.46.0', latest: '0.47.0' });
+  });
+
   it('reads no newest release while Jig cannot tell it', async () => {
     const { env } = machine('machine-jig-offline', 'version-offline.json');
     expect(await readMachineJig(process.platform, env, root)).toEqual({ installed: '0.46.0', latest: null });
