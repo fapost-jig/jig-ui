@@ -8,6 +8,9 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- A board card no longer squeezes a long task id into a column of single letters beside its badges: an id that starts
+  with a tracker's key (`SRD-2598-…`) shows as the key while the card has a goal, and any other long id is broken at its
+  hyphens, the badges moving to the next line together when they do not fit.
 - With Jig 0.46.0 in the project, a task's page does what Jig offers a person there: **Approve the design** under the
   design as it was written, refused if anything changed since you read it; **Abandon…** with the reason the next agent
   reads, and **Archive**; and what the task waits for, **✕** to take a dependency away and **Add…** for another. The

@@ -91,6 +91,7 @@
     specItems,
     specs,
     tasks,
+    trackerTasks,
     waitingSpecs,
   } from './canvas-samples';
 
@@ -429,7 +430,7 @@
 
     <CanvasSection
       title="TaskCard"
-      note="every note a card carries, a priority among them; with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way"
+      note="every note a card carries, a priority among them; with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open"
     >
       <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
         <TaskCard v-for="task in tasks" :key="task.id" project="jig-ui" :task="task" :open="false" />
@@ -442,6 +443,10 @@
         <TaskCard project="jig-ui" :task="tasks[4]!" :open="false" :cards="tasks" />
         <TaskCard project="jig-ui" :task="tasks[7]!" :open="false" :cards="tasks" confirming />
         <TaskCard project="jig-ui" :task="tasks[6]!" :open="false" :cards="tasks" busy />
+      </div>
+      <div class="mt-2 grid w-[23rem] grid-cols-2 gap-2">
+        <TaskCard v-for="task in trackerTasks" :key="task.id" project="jig-ui" :task="task" :open="false" :cards="trackerTasks" />
+        <TaskCard project="jig-ui" :task="trackerTasks[0]!" :open="true" />
       </div>
     </CanvasSection>
 

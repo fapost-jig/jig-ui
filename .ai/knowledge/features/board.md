@@ -26,7 +26,10 @@ Ready (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns) — t
 with none listed, by its setting `git.flow` — worked out from Jig's task list on every
 read by `server/board/columns.ts` (`columnOf`, first rule that fits wins: Paused, Backlog, Needs you, Review, On
 staging, Ready, In progress) and served by `GET /api/projects/:id/board`. Cards are light: id, class, priority, goal,
-and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). Finished
+and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). A closed card with a goal names a
+task whose id starts with a tracker's key by that key alone (`SRD-2598`, `cardKey` in `web/lib/task-key.ts`), the goal
+saying the rest, so a long id is not squeezed beside the badges in a narrow column; any other id is broken at its
+hyphens. Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
 keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
 
