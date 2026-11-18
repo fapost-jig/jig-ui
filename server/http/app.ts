@@ -236,6 +236,9 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
       // A newer Jig UI on npm; the registry may take seconds (adr-20261031-jig-ui-asks-npm-for-a-newer-release).
       .get('/api/instance/newer', async (c) => c.json({ newer: (await newer?.()) ?? null }, 200))
 
+      // This machine's Jig and the newest Jig released, as that Jig says them; Jig may ask its origin, within 5 s.
+      .get('/api/instance/jig', async (c) => c.json({ jig: await source.machineJig() }, 200))
+
       .post('/api/instance/stop', (c) => {
         if (!stop) return refuse(c, 404, 'not-found', 'This instance cannot be stopped from here.');
         // After the reply is written, or the caller sees a cut connection instead of the 202.

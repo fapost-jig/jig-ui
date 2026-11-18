@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Attention, Machine, Project } from '../api';
 import {
   agentRequest,
+  jigNewer,
   landedLine,
   machineBusy,
   machineLine,
   mergeWaitOf,
   needsUpgrade,
+  older,
   releaseOf,
   upgradeAllPlan,
   upgradeLine,
@@ -339,5 +341,28 @@ describe('upgradeResult, a run Jig could not finish', () => {
     expect(said).toMatchObject({ tone: 'bad', reasons: ['pass --from <dir>'] });
     expect(said.text).toMatch(/Jig said:$/);
     expect(upgradeResult({ state: 'refused', at, code: 'failed', reasons: [] }).text).toMatch(/run jig upgrade in the project/);
+  });
+});
+
+describe('older', () => {
+  it('orders by the release numbers, a build of the source by its own', () => {
+    expect(older('0.46.0', '0.47.0')).toBe(true);
+    expect(older('0.46.0', '0.46.0')).toBe(false);
+    expect(older('0.46.0+abc1234', '0.47.0')).toBe(true);
+    expect(older('0.47.0+abc1234', '0.47.0')).toBe(false);
+    expect(older('0.10.0', '0.9.0')).toBe(false);
+  });
+});
+
+describe('jigNewer', () => {
+  it('names the newest release where it is newer than the machine’s Jig', () => {
+    expect(jigNewer({ installed: '0.46.0', latest: '0.47.0' })).toBe('0.47.0');
+    expect(jigNewer({ installed: '0.47.0+abc1234', latest: '0.47.0' })).toBeNull();
+    expect(jigNewer({ installed: '0.48.0', latest: '0.47.0' })).toBeNull();
+  });
+
+  it('names none while the newest is unknown, or the machine’s Jig cannot be told', () => {
+    expect(jigNewer({ installed: '0.46.0', latest: null })).toBeNull();
+    expect(jigNewer(null)).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
@@ -1541,6 +1542,63 @@ export async function refresh(root: string, platform: NodeJS.Platform = process.
 
 /** `jig self-update` pulls the framework source's git remote: a network round trip, never a prompt (Jig sets it so). */
 const SELF_UPDATE_TIMEOUT_MS = 2 * 60_000;
+
+/** `jig version --json` asks for the newest release within 5 s when its answer is older than 6 hours. */
+const MACHINE_VERSION_TIMEOUT_MS = 15_000;
+
+/**
+ * The first Jig whose `jig version --json` names the newest release beside its own version: Jig UI shows both in its
+ * header (task `jig-version-header`). An older one refuses `--json` there, and the header says nothing about Jig.
+ */
+export const MACHINE_VERSION_JIG_VERSION = '0.46.0';
+
+/** The Jig on this machine and the newest release, as `jig version --json` says them; `latest` is `null` while unknown. */
+export interface MachineJig {
+  installed: string;
+  latest: string | null;
+}
+
+const machineJigShape = z.object({ installed: text, latest: maybe });
+
+/**
+ * This machine's own Jig and the newest release (`jig version --json`): the `jig` on PATH, the one Jig itself calls the
+ * machine's (`jig_global_executable`), run in the home folder, outside any project — a project's `.ai/scripts/jig` would
+ * name that project's copy. Jig keeps the newest release for 6 hours and asks its origin itself, within 5 s, when it is
+ * older. `null` whatever goes wrong — no `jig` on PATH, a Jig older than 0.46.0, a shape this Jig UI does not read, no
+ * answer in time —: the header then says nothing about Jig.
+ */
+export async function readMachineJig(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+  home: string = homedir(),
+): Promise<MachineJig | null> {
+  if (stopping) return null;
+  const clean = withoutTokens(env, platform);
+  try {
+    // Fixed words, never a person's. On Windows Jig is sourced, as `ran` does, from where Git's bash finds it.
+    const running =
+      platform === 'win32'
+        ? run(await bash(platform), ['-c', '. "$(command -v jig)" version --json'], {
+            cwd: home,
+            timeout: MACHINE_VERSION_TIMEOUT_MS,
+            env: clean,
+          })
+        : leading(await bash(platform), ['-c', 'jig version --json'], home, clean, MACHINE_VERSION_TIMEOUT_MS);
+    runs.set(running.child, running);
+    let stdout: string;
+    try {
+      ({ stdout } = await running);
+    } finally {
+      runs.delete(running.child);
+    }
+    const envelope: unknown = JSON.parse(stdout);
+    if (!isObject(envelope) || envelope.schema !== 1 || !isObject(envelope.data)) return null;
+    const read = machineJigShape.safeParse(envelope.data);
+    return read.success ? read.data : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Moves this machine's Jig — the framework checkout every project upgrades from — to its newest release (`jig self-update`),

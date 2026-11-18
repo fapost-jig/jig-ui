@@ -44,6 +44,8 @@ import {
   undepend as undependOn,
   WRITES_JIG_VERSION,
   writeTask,
+  readMachineJig,
+  type MachineJig,
   readTasks,
   releaseNamed,
   pauseTask,
@@ -409,6 +411,8 @@ export interface LocalOptions {
   rescanMs?: number;
   quietMs?: number;
   maxWaitMs?: number;
+  /** How this machine's Jig is read; a test gives its own. */
+  readJig?: () => Promise<MachineJig | null>;
 }
 
 /**
@@ -416,7 +420,10 @@ export interface LocalOptions {
  * Watcher on each project's `.ai/` while someone listens. Then reads are served from what the
  * watch last read, and a change is signalled only when a new read differs from it.
  */
-export function localSource(configDir: string, { rescanMs = 60_000, quietMs, maxWaitMs }: LocalOptions = {}): ProjectSource {
+export function localSource(
+  configDir: string,
+  { rescanMs = 60_000, quietMs, maxWaitMs, readJig = readMachineJig }: LocalOptions = {},
+): ProjectSource {
   const entries = new Map<string, Entry>();
   /** The last upgrade start or disconnect: they run one at a time, each checking what the one before changed. */
   let changing: Promise<unknown> = Promise.resolve();
@@ -529,6 +536,9 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
    * The main checkout whose Jig hands `jig self-update` to the machine's: one whose last read says a release is out —
    * a Jig that knows the command — else the first connected project with a Jig.
    */
+  /** The machine's Jig being read, shared by every read asked meanwhile. */
+  let reading: Promise<(MachineJig & { updatable: boolean }) | null> | undefined;
+
   async function selfUpdateRoot(): Promise<string | undefined> {
     const projects = (await readProjects(configDir).catch(() => [])).filter((p) => hasJig(p.path));
     const saysRelease = (id: string): boolean => {
@@ -1290,6 +1300,13 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
     },
     machine() {
       return { ...machine, release: newestRelease(), landingAll };
+    },
+    machineJig() {
+      // Every tab reads it on its stream's open and after a self-update: one Jig run answers all of them at once.
+      reading ??= Promise.all([readJig(), selfUpdateRoot()])
+        .then(([jig, root]) => (jig ? { ...jig, updatable: root !== undefined } : null))
+        .finally(() => (reading = undefined));
+      return reading;
     },
     async selfUpdate() {
       // Started in turn with upgrade starts and disconnects, and awaited after it: a call meanwhile is refused, not queued.

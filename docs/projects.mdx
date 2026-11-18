@@ -104,6 +104,14 @@ project whose state is not readable shows why:
 
 ## Upgrading a project's Jig
 
+The page's header shows the Jig installed on this machine beside Jig UI's own version — the `jig` on your `PATH`, as
+`jig version` names it, from Jig 0.46.0 — and the newest Jig released: *jig 0.47.0 · newest 0.47.0*. When the newest
+is newer than yours, the header marks it, *jig 0.46.0 0.47.0 out*, with **Update…**: it asks first, then runs the same
+`jig self-update` as below and reads the version again. The update runs through a connected project's Jig, so without
+one the header shows the mark alone. Jig asks for the newest release itself, at most every six hours; offline, or
+before it has asked, the header shows only the installed one, and without a `jig` on `PATH` it says nothing about
+Jig.
+
 When Jig says a newer release is out and this machine's Jig is not on it yet, **Upgrade…** first
 asks to update this machine's Jig: **Update Jig on this machine** runs `jig self-update`, which
 moves the Jig installed here — the one every project upgrades from — to the newest release. It

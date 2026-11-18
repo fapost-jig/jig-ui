@@ -18,8 +18,9 @@ paths:
   - web/lib/scan.ts
   - web/components/ConnectForm.vue
   - web/components/AttentionItem.vue
+  - web/components/MachineJig.vue
 summary: "The workspace page: a list of the connected projects with search and the chosen one's card — Jig's attention items, the mark and count of projects whose Jig is older than the machine's, their upgrade from the card — and Find projects, which lists the Jig projects in a folder not connected yet"
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-18
 ---
 # Workspace — every connected project on one page
 
@@ -46,7 +47,9 @@ away (a colleague, 2026-10-30), and the Board button stays as the action people 
 is not offered while the project's Jig upgrades. Every page's header
 holds a dropdown with search over the projects (`web/components/ProjectSwitcher.vue`, in
 `App.vue`) that opens a project's board; the list and the dropdown mark each project with its
-count of attention items, or *!* when it cannot be read (`web/components/ProjectMark.vue`).
+count of attention items, or *!* when it cannot be read (`web/components/ProjectMark.vue`). Beside Jig UI's version
+it shows this machine's Jig and, when a newer one is released, that one marked with **Update…**, which asks and then
+runs the self-update the upgrade panel runs (`web/components/MachineJig.vue`, adr-20261118-the-header-shows-the-machines-jig).
 **Find projects** beside Connect looks for Jig projects in the folder typed, or the home folder, and
 lists the ones not connected yet by path, each with **Connect** (`web/components/FoundProjects.vue`,
 worded by `web/lib/scan.ts`; adr-20261029-finding-projects-shows-their-paths).
@@ -75,8 +78,9 @@ version in the header and one count are quicker to scan than an item inside each
 
 ## Constraints
 
-- The machine's Jig version is known only from the `upgrade-available` item: Jig UI never runs Jig
-  outside a project and never reads Jig's files (convention-jig-client). The project's own Jig
+- A card knows the machine's Jig version only from the `upgrade-available` item: Jig UI never reads Jig's files
+  (convention-jig-client), and runs Jig outside a project for one read only, the header's `jig version --json`
+  (adr-20261118-the-header-shows-the-machines-jig), whose version a card does not compare. The project's own Jig
   computes the item, from Jig 0.34.0, so a project on Jig 0.31–0.33 shows only its version;
   `docs/projects.mdx` says so.
 - The mark shows the item's `versions.from` and `.to`, never the card's version beside `.to`: the
