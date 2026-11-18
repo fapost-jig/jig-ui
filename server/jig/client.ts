@@ -54,6 +54,8 @@ export const FILE_NEW_JIG_VERSION = '0.41.0';
 export const FILED_JIG_VERSION = '0.42.0';
 /** The first Jig that brings the clone up to origin (`jig refresh`) and says how it stands against origin (`jig status`'s `origin`). */
 export const REFRESH_JIG_VERSION = '0.45.0';
+/** The first Jig with the staging flow (`git.flow: staging`): its setting, and a task row's `staging` and `parked`. */
+export const STAGING_JIG_VERSION = '0.45.0';
 
 const SCRIPT = '.ai/scripts/jig';
 /** A read's limit: 10 s ran out with several projects read at once, each four Jig runs (task `read-timeout`). */

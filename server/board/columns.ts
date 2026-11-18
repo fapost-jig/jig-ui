@@ -71,11 +71,10 @@ const STAGING: ColumnId[] = ['review', 'on-staging'];
 /**
  * The board: every column, in a fixed order, its cards in Jig's queue order and the tasks not queued after them in the
  * order Jig listed them (the sort is stable). Computed on every read, never stored. Review and On staging are there when
- * the project is on Jig's staging flow, which its tasks tell: a project with none shows the other five.
+ * the project is on Jig's staging flow (`stagingFlow` of its read), even before it has a task.
  */
-export function columns(tasks: Task[]): Column[] {
-  const staging = tasks.some((t) => t.stagingFlow);
-  return COLUMNS.filter((c) => staging || !STAGING.includes(c.id)).map((c) => ({
+export function columns(tasks: Task[], stagingFlow: boolean): Column[] {
+  return COLUMNS.filter((c) => stagingFlow || !STAGING.includes(c.id)).map((c) => ({
     ...c,
     cards: tasks
       .filter((t) => columnOf(t) === c.id)

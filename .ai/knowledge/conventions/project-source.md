@@ -7,7 +7,7 @@ paths:
   - "server/source/**"
   - "server/board/**"
 summary: "MAY/MUST/MUST NOT for the ProjectSource port: ids not paths, typed data, no files or processes leak"
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-18
 ---
 # ProjectSource — how the server reaches a project
 
@@ -51,7 +51,8 @@ Callers (`board/`, and `http/` for task details and the change stream) depend on
 The port is `ProjectSource` in `server/source/project-source.ts` — the workspace, the connected ids
 (`connected()`, read from the registry without running Jig) and one project as the workspace shows it
 (`project(id)`), for a page that lists the projects before their reads land, a project's
-live tasks and how many finished ones Jig still keeps (`tasks(id)`, for the board), those finished tasks (`finished(id)`,
+live tasks, how many finished ones Jig still keeps and whether it is on Jig's staging flow (`tasks(id)`, for the board;
+the flow from its tasks, or, with none listed, from `config keys`), those finished tasks (`finished(id)`,
 read through Jig at each call and kept nowhere, so a failure stays its own answer and never becomes the project's state), one live task in full (`task(id, taskId)`), a task's documents (`artifacts(id, taskId)`, and one as it
 is written, `artifact(id, taskId, kind)`, read through Jig at each call), its specs
 (`specs(id)`), its settings (`settings(id)`, as `jig config keys` lists them with a revision of their own,

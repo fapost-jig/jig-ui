@@ -102,7 +102,7 @@ function project(
     /** What `task artifacts` (once no file `hold-artifacts` is in the project) and `task artifact read` print: an envelope's `data`, or a refusal's code. */
     artifacts?: unknown;
     artifact?: unknown;
-    /** What `config keys` prints: an envelope's `data`. */
+    /** What `config keys` prints: an envelope's `data`, or a whole envelope as a string. */
     settings?: unknown;
     /** What `spec item add|move|file` prints once no file `hold` is in the project: an envelope's `data`, or a refusal's code. */
     item?: unknown;
@@ -155,7 +155,10 @@ function project(
       : envelope(data);
   writeFileSync(join(dir, 'abandoned.json'), answer(answers.abandoned ?? listed.abandoned));
   writeFileSync(join(dir, 'artifacts.json'), answer(answers.artifacts ?? { task: 'x', artifacts: [] }));
-  writeFileSync(join(dir, 'settings.json'), envelope(answers.settings ?? { keys: [] }));
+  writeFileSync(
+    join(dir, 'settings.json'),
+    typeof answers.settings === 'string' ? answers.settings : envelope(answers.settings ?? { keys: [] }),
+  );
   writeFileSync(join(dir, 'item.json'), answer(answers.item ?? { spec: 'x', item: {}, write: { note: null } }));
   writeFileSync(join(dir, 'artifact.json'), answer(answers.artifact ?? 'not-found'));
   const knowledge = answers.knowledge ?? {};
@@ -579,6 +582,7 @@ describe('localSource', () => {
     expect(await source.tasks('busy')).toEqual({
       state: 'ready',
       finishedCount: 2,
+      stagingFlow: false,
       revision: 7,
       tasks: [
         {
@@ -630,6 +634,7 @@ describe('localSource', () => {
     expect(await source.tasks('waiting')).toEqual({
       state: 'ready',
       finishedCount: 0,
+      stagingFlow: false,
       revision: 7,
       tasks: [
         expect.objectContaining({ id: 'f', started: false, gate: null, autopilot: null }),
@@ -1418,6 +1423,43 @@ describe('localSource, writing the queue', () => {
         { ...parked, review: null },
         true,
       ]);
+    });
+
+    it("takes the staging flow from the project's settings when Jig lists no task, and only then", async () => {
+      const flow = (value: string) => ({
+        keys: [
+          {
+            key: 'git.flow',
+            value,
+            set: true,
+            source: 'project',
+            scope: 'project',
+            kind: 'choice',
+            allowed: ['direct', 'staging'],
+            default: 'direct',
+            description: 'How a task travels.',
+            secret: false,
+          },
+        ],
+      });
+      const listed = (more: Record<string, unknown>) => ({ tasks: [task('a', 'active', false, more)], hidden: 0, housekeeping: null });
+      const read = async (name: string, version: string, answers: Parameters<typeof project>[2]) => {
+        const dir = project(name, version, answers);
+        await source.connect(dir);
+        const shown = await source.tasks(name);
+        return [shown?.state === 'ready' ? shown.stagingFlow : shown?.state, calls(dir).includes('config keys --json')];
+      };
+      expect(await read('empty-staging', '0.46.0', { settings: flow('staging') })).toEqual([true, true]);
+      expect(await read('empty-direct', '0.46.0', { settings: flow('direct') })).toEqual([false, true]);
+      // Before Jig 0.45.0 there is no staging flow to ask about.
+      expect(await read('empty-old', '0.44.0', { settings: flow('staging') })).toEqual([false, false]);
+      // A task listed tells the flow itself, with no more Jig run.
+      expect(await read('listed-direct', '0.46.0', { settings: flow('staging'), tasks: listed({}) })).toEqual([false, false]);
+      expect(await read('listed-staging', '0.46.0', { tasks: listed({ staging: null, parked: null }) })).toEqual([true, false]);
+      // A refused read of the settings leaves the two columns out, not the board; an answer it cannot read fails the read.
+      const refused = JSON.stringify({ schema: 1, revision: 7, generated_at: 'x', error: { code: 'failed', message: 'no' } });
+      expect(await read('settings-refused', '0.46.0', { settings: refused })).toEqual([false, true]);
+      expect(await read('settings-unread', '0.46.0', { settings: { keys: 'none' } })).toEqual(['incompatible', true]);
     });
 
     it('lists the same tasks on the project as the workspace shows it, with the revision a close carries', async () => {

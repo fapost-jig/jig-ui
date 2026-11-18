@@ -63,15 +63,15 @@ describe('columnOf', () => {
 describe('columns', () => {
   it("puts every task in exactly one column, the columns in a fixed order, Jig's order kept", () => {
     const tasks = [task({ id: 'b' }), task({ id: 'a', started: false }), task({ id: 'c' }), task({ id: 'd', paused: true })];
-    const board = columns(tasks);
+    const board = columns(tasks, false);
     expect(board.map((c) => c.id)).toEqual(['needs-you', 'in-progress', 'ready', 'backlog', 'paused']);
     expect(board.map((c) => c.cards.map((t) => t.id))).toEqual([[], ['b', 'c'], [], ['a'], ['d']]);
   });
 
-  it('adds Review and On staging between In progress and Ready on the staging flow, and only there', () => {
+  it('adds Review and On staging between In progress and Ready on the staging flow, a board with no task too, and only there', () => {
     const on = { stagingFlow: true, status: 'ready' as const };
     const tasks = [task({ id: 'r', ...on, parked: review }), task({ id: 's', ...on, parked: signal }), task({ id: 'p', ...on })];
-    const board = columns(tasks);
+    const board = columns(tasks, true);
     expect(board.map((c) => [c.id, c.title])).toEqual([
       ['needs-you', 'Needs you'],
       ['in-progress', 'In progress'],
@@ -82,7 +82,8 @@ describe('columns', () => {
       ['paused', 'Paused'],
     ]);
     expect(board.map((c) => c.cards.map((t) => t.id))).toEqual([[], [], ['r'], ['s'], ['p'], [], []]);
-    expect(columns([]).map((c) => c.id)).toEqual(['needs-you', 'in-progress', 'ready', 'backlog', 'paused']);
+    expect(columns([], true).map((c) => c.id)).toEqual(board.map((c) => c.id));
+    expect(columns([], false).map((c) => c.id)).toEqual(['needs-you', 'in-progress', 'ready', 'backlog', 'paused']);
   });
 
   it("orders a column as Jig's queue does: the top level, then each epic's, then the tasks not queued in Jig's order", () => {
@@ -95,7 +96,7 @@ describe('columns', () => {
       task({ id: 'epic-a', ...at('epic:alpha', 300) }),
       task({ id: 'top-1', ...at(null, 150) }),
     ];
-    expect(columns(tasks)[1]?.cards.map((t) => t.id)).toEqual(['top-1', 'top-2', 'epic-a', 'epic-z', 'loose-b', 'loose-a']);
+    expect(columns(tasks, false)[1]?.cards.map((t) => t.id)).toEqual(['top-1', 'top-2', 'epic-a', 'epic-z', 'loose-b', 'loose-a']);
   });
 
   it('names the column a resumable task lands in once resumed, and none for the rest', () => {
@@ -111,7 +112,7 @@ describe('columns', () => {
       task({ id: 'in-review', status: 'ready', resumable: true, parked: review, stagingFlow: true }),
       task({ id: 'parked-paused', status: 'ready', paused: true, resumable: true, parked: signal, stagingFlow: true }),
     ];
-    const cards = columns(tasks).flatMap((c) => c.cards);
+    const cards = columns(tasks, true).flatMap((c) => c.cards);
     expect(Object.fromEntries(cards.map((t) => [t.id, t.resumesTo]))).toEqual({
       moving: 'in-progress',
       unbegun: 'backlog',

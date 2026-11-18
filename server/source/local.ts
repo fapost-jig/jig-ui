@@ -38,6 +38,7 @@ import {
   readStatus,
   refresh as refreshClone,
   REFRESH_JIG_VERSION,
+  STAGING_JIG_VERSION,
   readFinishedTasks,
   readTasks,
   releaseNamed,
@@ -280,10 +281,12 @@ async function reading<T>({ id, path }: Project, read: (root: string, jigVersion
 async function readProject(project: Project): Promise<Read> {
   const read = await reading(project, async (root, jigVersion) => {
     const [status, list, queue, specs] = await Promise.all([readStatus(root), readTasks(root), readQueue(root), readSpecs(root)]);
-    return { status, list, queue, specs, jigVersion };
+    // Every task Jig lists on the staging flow says so; a project with none listed tells it only in its settings.
+    const stagingFlow = list.tasks.length > 0 ? list.tasks.some((t) => t.stagingFlow) : await settingsSayStaging(root, jigVersion);
+    return { status, list, queue, specs, stagingFlow, jigVersion };
   });
   if (!('list' in read)) return { view: read, tasks: read, details: [], specs: read, revision: null };
-  const { status, list, queue, specs, jigVersion } = read;
+  const { status, list, queue, specs, stagingFlow, jigVersion } = read;
   // Jig's own list holds the live ones; `finished` counts the closed and abandoned ones it left out, read on demand.
   const live = list.tasks.filter((t): t is Live => t.status === 'active' || t.status === 'ready');
   const queued = new Map(queue.items.map((q) => [q.id, q]));
@@ -307,7 +310,13 @@ async function readProject(project: Project): Promise<Read> {
       closable: live.filter(closable).map((t) => t.id),
       revision,
     },
-    tasks: { state: 'ready', tasks: live.map((t) => card(t, queued.get(t.id), takes)), finishedCount: list.finished, revision },
+    tasks: {
+      state: 'ready',
+      tasks: live.map((t) => card(t, queued.get(t.id), takes)),
+      finishedCount: list.finished,
+      stagingFlow,
+      revision,
+    },
     details: live.map((t) => details(t, queued.get(t.id), shownQueue, status.attention, takes)),
     // The specs are read beside the queue: a write of an epic carries the older of the two reads, or of the board's.
     specs: {
@@ -318,6 +327,20 @@ async function readProject(project: Project): Promise<Read> {
     },
     revision,
   };
+}
+
+/**
+ * Whether a project's settings put it on Jig's staging flow (`git.flow`, from Jig 0.45.0): one more Jig run, made only
+ * for a project with no task listed, so its board shows Review and On staging before its first task. A read Jig refuses
+ * leaves the two columns out, not the board; an answer in a shape JigClient does not read fails the read, as any does.
+ */
+async function settingsSayStaging(root: string, jigVersion: string): Promise<boolean> {
+  if (!supports(jigVersion, STAGING_JIG_VERSION)) return false;
+  const settings = await readSettings(root).catch((error: unknown) => {
+    if (error instanceof JigRefusal) return null;
+    throw error;
+  });
+  return settings?.keys.some((k) => k.key === 'git.flow' && k.value === 'staging') ?? false;
 }
 
 /** The specs as the page shows them (`ProjectSpecs`): the queued epics by position, then the other open epics, then the rest. */

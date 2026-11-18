@@ -8,7 +8,7 @@ paths:
   - server/source/local.ts
   - web/api.ts
 summary: Why the page follows projects by watching .ai/ and re-reading through Jig, what is ignored, and the measured debounce
-reviewed_at: 2026-11-05
+reviewed_at: 2026-11-18
 ---
 # Live updates
 
@@ -45,7 +45,8 @@ checkout or a hand edit (Jig's `schemas/json.md`). So the files are watched, and
   times (version 0.03 s, `status --json` 0.4 s, `task list --json` 0.2 s), so three busy projects
   cost about 0.8 of a core in Jig. With no writes, no Jig ran between rescans. A 250 ms quiet time
   read once per write — three times the cost. Since task `specs-and-epics` a read also runs
-  `spec list --json` (~0.1 s, feature-specs).
+  `spec list --json` (~0.1 s, feature-specs), and since task `staging-columns-without-tasks` a project with no task
+  listed, on Jig 0.45.0 or later, also `config keys --json`, for its flow.
 - **A rescan must come less often than a read takes.** A rescan that lands during a read sets it to
   run once more, so with `rescanMs` below a read's duration the reads never end and a caller
   waiting for the first read of a following waits for good. 60 s against a read of ~1–2 s (Windows'

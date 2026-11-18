@@ -344,6 +344,8 @@ export type ProjectTasks =
       state: 'ready';
       tasks: Task[];
       finishedCount: number;
+      /** The project is on Jig's staging flow: its tasks say so, or, with none listed, its setting `git.flow`. */
+      stagingFlow: boolean;
       revision: number;
     }
   | NotReady;
