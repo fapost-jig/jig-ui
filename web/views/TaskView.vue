@@ -1,8 +1,11 @@
 <script setup lang="ts">
   import { ArrowLeft } from '@lucide/vue';
-  import { computed, onUnmounted, ref } from 'vue';
+  import { computed, onUnmounted, ref, watch } from 'vue';
+  import { useRouter } from 'vue-router';
   import {
     type ArtifactKind,
+    call,
+    client,
     onChange,
     readAgain,
     readArtifact,
@@ -15,21 +18,30 @@
   import ActionList from '@/components/ActionList.vue';
   import AttentionItem from '@/components/AttentionItem.vue';
   import CopyButton from '@/components/CopyButton.vue';
+  import DependsEditor from '@/components/DependsEditor.vue';
+  import GateApproval from '@/components/GateApproval.vue';
   import GroupPanel from '@/components/GroupPanel.vue';
   import StateLine from '@/components/StateLine.vue';
   import TaskDocuments from '@/components/TaskDocuments.vue';
   import TaskFacts from '@/components/TaskFacts.vue';
+  import TaskWrites from '@/components/TaskWrites.vue';
   import { Badge } from '@/components/ui/badge';
   import { lastWins } from '@/lib/last-wins';
+  import { reasonsOf, writeRefusal } from '@/lib/refusal';
   import { columnAccent, toneRule } from '@/lib/tones';
   import { waits } from '@/lib/waits';
+  import { dependCandidates, DOING, gateDocuments, pageWrites } from '@/lib/writes';
 
   const props = defineProps<{
     project: string;
     task: string;
   }>();
 
+  const router = useRouter();
+  const param = computed(() => ({ id: encodeURIComponent(props.project) }));
+
   const details = ref<TaskDetails | 'not-connected' | 'not-found'>();
+  const ready = computed(() => (typeof details.value === 'object' && details.value.state === 'ready' ? details.value : undefined));
 
   const load = lastWins(
     () => readTask(props.project, props.task),
@@ -86,13 +98,158 @@
     listing.value = false;
   }
 
-  const note = computed(() => (typeof details.value === 'object' && details.value.state === 'ready' ? waits(details.value) : undefined));
+  const note = computed(() => (ready.value ? waits(ready.value) : undefined));
+
+  /** The actions Jig offers that this page runs as buttons; the rest stay commands. */
+  const runs = computed(() => (ready.value ? pageWrites(ready.value) : new Set<string>()));
+
+  /** The documents Jig approves at the gate, while it offers the approval. */
+  const gateKinds = computed(() => {
+    if (!ready.value || !runs.value.has('approve-gate')) return [];
+    const listed =
+      typeof documents.value === 'object' && documents.value.state === 'ready' ? documents.value.artifacts.map((a) => a.kind) : [];
+
+    return gateDocuments(ready.value.class, listed);
+  });
+
+  /** The design at its gate as read for the approval: each document with the revision it was read at, `null` when not read. */
+  const gate = ref<
+    {
+      kind: ArtifactKind;
+      content: string | null;
+      revision: number | null;
+    }[]
+  >();
+
+  const readGate = lastWins(
+    () =>
+      Promise.all(
+        gateKinds.value.map(async (kind) => {
+          const read = await readArtifact(props.project, props.task, kind);
+          return typeof read === 'object' && read.state === 'ready'
+            ? { kind, content: read.content, revision: read.revision }
+            : { kind, content: null, revision: null };
+        }),
+      ),
+    (read) => (gate.value = read.length > 0 ? read : undefined),
+  );
+
+  watch(
+    () => gateKinds.value.join(),
+    () => void readGate(),
+  );
+
+  /** The part of the page whose write is under way, and the refusal of the last write, where it was made. */
+  const busy = ref<'gate' | 'task' | 'depends'>();
+  const refused = ref<{
+    at: 'gate' | 'task' | 'depends';
+    text: string;
+  }>();
+
+  /** Sends one write and says whether Jig made it; a refusal is worded where the write was made. */
+  async function send(
+    at: 'gate' | 'task' | 'depends',
+    doing: string,
+    request: () => Promise<{
+      status: number;
+      json(): Promise<unknown>;
+    }>,
+  ): Promise<boolean> {
+    busy.value = at;
+    refused.value = undefined;
+    const res = await call(request);
+    const body =
+      res &&
+      ((await res.json()) as {
+        written?: true;
+        error?: {
+          code: string;
+        };
+      });
+
+    busy.value = undefined;
+    if (body?.error) refused.value = { at, text: writeRefusal(body.error.code, reasonsOf(body.error), doing, props.task) };
+    return body?.written === true;
+  }
+
+  /** Approves the design as shown, against the oldest of its documents' reads: one rewritten since is refused. */
+  async function approve(): Promise<void> {
+    const revisions = gate.value?.map((d) => d.revision);
+    if (!revisions?.every((r) => r !== null)) return;
+    const revision = Math.min(...revisions);
+    await send('gate', DOING['approve-gate'], () =>
+      client.api.projects[':id'].tasks.act.$post({ param: param.value, json: { task: props.task, action: 'approve-gate', revision } }),
+    );
+
+    await Promise.all([load(), list(), readGate()]);
+  }
+
+  /** Gives the task up or archives it; once Jig has, it is no longer live, and the board shows it among the finished. */
+  async function putAway(write: 'abandon' | 'archive', reason?: string): Promise<void> {
+    const shown = ready.value;
+    if (!shown) return;
+    const done = await send('task', DOING[write], () =>
+      client.api.projects[':id'].tasks.act.$post({
+        param: param.value,
+        json: { task: props.task, action: write, reason, revision: shown.revision },
+      }),
+    );
+
+    if (done) await router.push(`/projects/${encodeURIComponent(props.project)}`);
+    else await load();
+  }
+
+  /** What the task may be made to wait for, read when Add… opens: the board's live tasks and the specs' open epics. */
+  const candidates = ref<string[]>();
+  async function choose(): Promise<void> {
+    candidates.value = undefined;
+    const [board, specs] = await Promise.all([
+      call(() => client.api.projects[':id'].board.$get({ param: param.value })),
+      call(() => client.api.projects[':id'].specs.$get({ param: param.value })),
+    ]);
+
+    const shownBoard = board?.status === 200 ? (await board.json()).board : undefined;
+    const shownSpecs = specs?.status === 200 ? (await specs.json()).specs : undefined;
+    candidates.value = dependCandidates(
+      props.task,
+      shownBoard?.state === 'ready' ? shownBoard.columns.flatMap((c) => c.cards.map((t) => t.id)) : [],
+      shownSpecs?.state === 'ready' ? shownSpecs.specs.flatMap((s) => (s.epic?.state === 'open' ? [s.id] : [])) : [],
+      ready.value?.dependsOn ?? [],
+    );
+  }
+
+  const editor = ref<InstanceType<typeof DependsEditor>>();
+
+  async function depend(on: string, reason: string): Promise<void> {
+    const shown = ready.value;
+    if (!shown) return;
+    const done = await send('depends', DOING.depend, () =>
+      client.api.projects[':id'].queue.depend.$post({
+        param: param.value,
+        json: { task: props.task, on, reason, revision: shown.revision },
+      }),
+    );
+
+    if (done) editor.value?.done();
+    await load();
+  }
+
+  async function undepend(on: string): Promise<void> {
+    const shown = ready.value;
+    if (!shown) return;
+    await send('depends', DOING.undepend, () =>
+      client.api.projects[':id'].queue.undepend.$post({ param: param.value, json: { task: props.task, on, revision: shown.revision } }),
+    );
+
+    await load();
+  }
 
   onUnmounted(
     onChange((project) => {
       if (project !== undefined && project !== props.project) return;
       void load();
       void list();
+      void readGate();
       for (const kind of Object.keys(open.value) as ArtifactKind[]) void readDocument(kind);
     }),
   );
@@ -109,7 +266,7 @@
     <div class="flex items-center gap-3">
       <h1 class="font-mono text-lg font-semibold break-all">{{ task }}</h1>
       <CopyButton :text="task" label="copy id" />
-      <Badge v-if="typeof details === 'object' && details.state === 'ready' && details.class" variant="outline">{{ details.class }}</Badge>
+      <Badge v-if="ready?.class" variant="outline">{{ ready.class }}</Badge>
     </div>
     <p v-if="details === undefined" class="text-muted-foreground">Reading the task…</p>
     <p v-else-if="details === 'not-connected'" role="alert" class="text-destructive">No connected project is called {{ project }}.</p>
@@ -120,7 +277,33 @@
     <template v-else>
       <p v-if="details.goal" class="text-base">{{ details.goal }}</p>
       <p v-if="note" :class="toneRule[note.tone]">{{ note.text }}</p>
-      <GroupPanel><TaskFacts :details="details" class="px-4 py-3" /></GroupPanel>
+
+      <GateApproval
+        v-if="runs.has('approve-gate')"
+        :documents="gate"
+        :busy="busy === 'gate'"
+        :refusal="refused?.at === 'gate' ? refused.text : undefined"
+        @approve="approve"
+        @read-again="readGate"
+      />
+
+      <GroupPanel>
+        <TaskFacts :details="details" class="px-4 py-3">
+          <template v-if="details.writes" #waits>
+            <DependsEditor
+              ref="editor"
+              :task="task"
+              :depends-on="details.dependsOn"
+              :candidates="candidates"
+              :busy="busy === 'depends'"
+              :refusal="refused?.at === 'depends' ? refused.text : undefined"
+              @choose="choose"
+              @add="depend"
+              @remove="undepend"
+            />
+          </template>
+        </TaskFacts>
+      </GroupPanel>
 
       <TaskDocuments
         v-if="documents !== 'not-connected' && documents !== 'not-found'"
@@ -149,8 +332,17 @@
 
       <GroupPanel aria-labelledby="actions">
         <template #head><h2 id="actions" class="px-4 pt-3 pb-2 text-[15px] font-semibold">What Jig offers now</h2></template>
-        <div class="flex flex-col gap-2 px-4 pb-4">
-          <ActionList :actions="details.actions" />
+        <div class="flex flex-col gap-3 px-4 pb-4">
+          <TaskWrites
+            v-if="runs.has('abandon') || runs.has('archive')"
+            :task="task"
+            :offers="runs"
+            :busy="busy === 'task'"
+            :refusal="refused?.at === 'task' ? refused.text : undefined"
+            @abandon="(reason) => putAway('abandon', reason)"
+            @archive="putAway('archive')"
+          />
+          <ActionList :actions="details.actions" :project="project" :task="task" :runs="runs" :writes="details.writes" />
           <p class="text-[13px] text-muted-foreground">Run a command in the project; this page follows what changes.</p>
         </div>
       </GroupPanel>

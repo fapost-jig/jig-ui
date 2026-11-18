@@ -128,8 +128,9 @@ done, or moving.
 - The order of the columns is not the order of the rules: what waits for the person comes first
   (maintainer, task `design-system`, 2026-10-18).
 - The board's read holds only how many finished tasks there are (`hidden` of `jig task list`, less
-  `archived`), which keeps the toggle's number, and a project's change signal, without reading them.
-  The list holds what `jig task list --status consolidated` and `--status abandoned` return, read
+  `archived` below Jig 0.46.0), which keeps the toggle's number, and a project's change signal, without reading them.
+  The list holds what `jig task list --status consolidated` and `--status abandoned` return — from Jig 0.46.0
+  `--status archived` too — read
   through `GET /api/projects/:id/finished` when the person opens it and on each change while it is
   open; it is kept nowhere, and its failure is the list's own (a line and Read again), never the
   project's `unreadable`. A refresh on a change keeps a shown list over one torn read
@@ -139,10 +140,13 @@ done, or moving.
   the default branch — and moves its workspace to trash (one with no branch, or none seen merged,
   stays), an abandoned one for `housekeeping.abandoned_ttl` (14 days by default). An archived task
   (Jig 0.37.0: an abandoned one past that time, one nobody touched for `housekeeping.stale_after`,
-  or one put away by hand) is shown nowhere: Jig keeps it out of its own lists, and a board that
-  showed it would be the one place it still turns up. Each row is the
-  id, closed or abandoned, the goal, the pull request and the day Jig last changed the task, the
-  latest first; a finished task has no details and no actions. The list starts hidden on every
+  or one put away by hand) is shown below Jig 0.46.0 nowhere: Jig keeps it out of its own lists, and
+  a board that showed it would be the one place it still turns up. From Jig 0.46.0 it is in the list,
+  since the page can bring it back (adr-20261118-a-person-writes-on-a-task-from-its-page). Each row is the
+  id, closed, abandoned or archived, the goal, the pull request and the day Jig last changed the task, the
+  latest first; a finished task has no details. Its ⋯ menu holds what Jig offers on it from 0.46.0 —
+  **Bring back**, **Close its roadmap item**, **Archive** — sent with the revision of the list's read; the
+  notice says Jig's note or its refusal. The list starts hidden on every
   visit, and closes when the last finished task leaves; nothing remembers it. An empty read under
   a count above zero — housekeeping between the two reads — says Jig keeps none now.
 

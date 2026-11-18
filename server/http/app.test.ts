@@ -361,7 +361,9 @@ describe('/api/projects and /api/workspace', () => {
   });
 
   it("serves a project's finished tasks, its state when it is not readable, and 404 for an unknown id", async () => {
-    expect(await (await call('GET', '/api/projects/ready/finished')).json()).toEqual({ finished: { state: 'ready', tasks: [] } });
+    expect(await (await call('GET', '/api/projects/ready/finished')).json()).toEqual({
+      finished: { state: 'ready', tasks: [], revision: 1 },
+    });
     const unreadable = await (await call('GET', '/api/projects/broken/finished')).text();
     expect(JSON.parse(unreadable)).toEqual({ finished: { id: 'broken', state: 'unreadable', code: 'failed' } });
     expectNoPath(unreadable);
@@ -774,6 +776,71 @@ describe('/api/projects/:id/queue', () => {
     expect((await post(fake, '/api/projects/x/tasks/close', { task: 'a', revision: 3 }, {})).status).toBe(401);
   });
 
+  it("runs a person's write on a task through the port, an abandon's reason required, and answers Jig's note", async () => {
+    const asked: unknown[][] = [];
+    let outcome: Written = { state: 'written' };
+    const source: ProjectSource = {
+      ...localSource(join(webRoot, 'fake-config')),
+      act: (...args) => (asked.push(['act', ...args]), Promise.resolve(outcome)),
+      depend: (...args) => (asked.push(['depend', ...args]), Promise.resolve(outcome)),
+      undepend: (...args) => (asked.push(['undepend', ...args]), Promise.resolve(outcome)),
+    };
+    const fake = createApp({ port: PORT, token: TOKEN, source, webRoot });
+    const act = (body: object) => post(fake, '/api/projects/x/tasks/act', body);
+    expect(await (await act({ task: 'a', action: 'approve-gate', revision: 3 })).json()).toEqual({ written: true, note: null });
+    // A reason is an abandon's only: one sent with an archive is not passed on.
+    await act({ task: 'a', action: 'archive', reason: 'ignored', revision: 3 });
+    await act({ task: 'a', action: 'abandon', reason: 'lives elsewhere now', revision: 3 });
+    await post(fake, '/api/projects/x/queue/depend', { task: 'a', on: 'epic:shop', reason: 'needs the cart', revision: 3 });
+    await post(fake, '/api/projects/x/queue/undepend', { task: 'a', on: 'task:b', revision: 3 });
+    expect(asked).toEqual([
+      ['act', 'x', 'a', 'approve-gate', null, 3],
+      ['act', 'x', 'a', 'archive', null, 3],
+      ['act', 'x', 'a', 'abandon', 'lives elsewhere now', 3],
+      ['depend', 'x', 'a', 'epic:shop', 'needs the cart', 3],
+      ['undepend', 'x', 'a', 'task:b', 3],
+    ]);
+    for (const [route, body] of [
+      ['tasks/act', { task: 'a', action: 'abandon', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'abandon', reason: 'two\nlines', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'abandon', reason: 'a\ttab', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'abandon', reason: 'x'.repeat(501), revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'abandon', reason: '  ', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'close', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'archive' }],
+      ['queue/depend', { task: 'a', on: 'task:b', revision: 3 }],
+      ['queue/depend', { task: 'a', on: 'b', reason: 'r', revision: 3 }],
+      ['queue/depend', { task: 'a', on: 'task:--all', reason: 'r', revision: 3 }],
+      ['queue/depend', { task: 'a', on: 'spec:b', reason: 'r', revision: 3 }],
+      ['queue/undepend', { task: 'a', on: 'task:b' }],
+    ] as const) {
+      const res = await post(fake, `/api/projects/x/${route}`, body);
+      expect([route, body, res.status, ((await res.json()) as { error?: { code: string } }).error?.code]).toEqual([
+        route,
+        body,
+        422,
+        'usage',
+      ]);
+    }
+    expect(asked).toHaveLength(5);
+    outcome = { state: 'written', note: 'agent.git is push: the pull request is yours' };
+    expect(await (await act({ task: 'a', action: 'drop-item', revision: 3 })).json()).toEqual({
+      written: true,
+      note: 'agent.git is push: the pull request is yours',
+    });
+    outcome = { state: 'refused', code: 'stale-revision' };
+    expect((await act({ task: 'a', action: 'approve-gate', revision: 2 })).status).toBe(409);
+    outcome = { state: 'refused', code: 'not-found' };
+    expect((await post(fake, '/api/projects/x/queue/undepend', { task: 'a', on: 'task:b', revision: 3 })).status).toBe(404);
+    outcome = { state: 'refused', code: 'autopilot-stopped', reasons: ['a is stopped; answer its question'] };
+    const refused = await act({ task: 'a', action: 'archive', revision: 3 });
+    expect([refused.status, await refused.json()]).toEqual([
+      422,
+      { error: { code: 'autopilot-stopped', message: 'Jig refused the change.', reasons: ['a is stopped; answer its question'] } },
+    ]);
+    expect((await post(fake, '/api/projects/x/tasks/act', { task: 'a', action: 'archive', revision: 3 }, {})).status).toBe(401);
+  });
+
   it.each([
     [
       'a plan',
@@ -864,7 +931,9 @@ describe('/api/projects/:id/queue', () => {
         asked.push(kind);
         const there = task === 'b' && kind === 'plan';
         return Promise.resolve(
-          id !== 'x' ? undefined : { state: 'ready', artifact: there ? { kind, updatedAt: 'x', bytes: 7, content: '# Plan\n' } : null },
+          id !== 'x'
+            ? undefined
+            : { state: 'ready', artifact: there ? { kind, updatedAt: 'x', bytes: 7, content: '# Plan\n', revision: 5 } : null },
         );
       },
     };
@@ -883,7 +952,7 @@ describe('/api/projects/:id/queue', () => {
     expect(await read('/api/projects/y/tasks/b/artifacts')).toEqual({ status: 404, body: refused('not-connected') });
     expect(await read('/api/projects/x/tasks/b/artifacts/plan')).toEqual({
       status: 200,
-      body: { artifact: { state: 'ready', kind: 'plan', updatedAt: 'x', bytes: 7, content: '# Plan\n' } },
+      body: { artifact: { state: 'ready', kind: 'plan', updatedAt: 'x', bytes: 7, content: '# Plan\n', revision: 5 } },
     });
     expect(await read('/api/projects/x/tasks/b/artifacts/spec')).toEqual({ status: 404, body: refused('not-found') });
     expect(await read('/api/projects/x/tasks/b/artifacts/notes')).toEqual({ status: 422, body: refused('usage') });
@@ -938,7 +1007,7 @@ describe('/api/projects/:id/specs/items', () => {
 
   const noted: Written = { state: 'written', note: 'agent.git is commit: pushing spec/shop is yours' };
 
-  function faked(outcome: Written | undefined, finished: ProjectFinished = { state: 'ready', tasks: [] }) {
+  function faked(outcome: Written | undefined, finished: ProjectFinished = { state: 'ready', tasks: [], revision: 1 }) {
     const sent: unknown[][] = [];
     const source: ProjectSource = {
       ...localSource(join(webRoot, 'items-config')),
@@ -1028,8 +1097,8 @@ describe('/api/projects/:id/specs/items', () => {
 
   it("says a new id Jig refused already-exists is a finished task's when Jig's list of them holds it", async () => {
     const outcome: Written = { state: 'refused', code: 'already-exists', reasons: ['task already exists: search'] };
-    const search = { id: 'search', status: 'consolidated', goal: null, updatedAt: null, pullRequest: null } as const;
-    const { app, sent } = faked(outcome, { state: 'ready', tasks: [search] });
+    const search = { id: 'search', status: 'consolidated' as const, goal: null, updatedAt: null, pullRequest: null, offers: [] };
+    const { app, sent } = faked(outcome, { state: 'ready', tasks: [search], revision: 1 });
     const res = await post(app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
     expect([res.status, await res.json()]).toEqual([
       422,
@@ -1067,7 +1136,7 @@ describe('/api/projects/:id/specs/items', () => {
   });
 
   it.each<[string, ProjectFinished]>([
-    ['no finished task of that id', { state: 'ready', tasks: [] }],
+    ['no finished task of that id', { state: 'ready', tasks: [], revision: 1 }],
     ['a list Jig did not give', { id: 'x', state: 'unreadable', code: 'failed' }],
   ])("leaves Jig's line on already-exists with %s", async (_, finished) => {
     const outcome: Written = { state: 'refused', code: 'already-exists', reasons: ['i-5d729342e61f already names task other'] };

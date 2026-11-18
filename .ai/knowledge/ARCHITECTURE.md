@@ -51,17 +51,19 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `jig knowledge accept|reject|reviewed` (from Jig 0.40.0, feature-knowledge) and several in one write `jig knowledge
   decide` (from Jig 0.44.0, adr-20261114-knowledge-decisions-are-queued-on-the-page), a proposed document's text
   `jig knowledge read` (from Jig 0.41.0, adr-20261109-knowledge-text-and-drop-from-jig-0-41), `jig refresh` (from Jig
-  0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), and
+  0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), a person's writes on a task `jig task gate
+  approved`, `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend` (from
+  Jig 0.46.0, adr-20261118-a-person-writes-on-a-task-from-its-page), and
   `jig upgrade`, its dry run and its run (from Jig 0.34.0), and `jig self-update` (its text line), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
   fixtures in `server/jig/fixtures/` — Jig 0.29.0 for the reads it had, 0.31.0 for the queue,
   0.39.0 for a task's documents, 0.40.0 for the settings, a roadmap's edits and the knowledge, 0.41.0 for the
   knowledge's text, Drop and judged reads and for filing an item's new task in one write, 0.45.0 for a task
   list on the staging flow, `jig refresh` and the clone against origin, 0.46.0 for a staging task's review and
-  promotion (convention-jig-client).
+  promotion and for a person's writes on a task (convention-jig-client).
 - `server/source/` — the ProjectSource port (`project-source.ts`: the workspace, the connected ids
   (`connected`), one project as the workspace shows it (`project`), the Jig projects under a folder (`scan`, walked
   by `scan.ts`), a project's live tasks, its finished tasks on demand (`finished`), one task in full, a live task's documents (`artifacts`, `artifact`), the settings (`settings`), the knowledge waiting for a decision (`knowledge`, `knowledgeDiff`, `knowledgeText`), connect, disconnect, subscribe to changes, and the writes `move`,
-  `prioritise`, `moveEpic`, `prioritiseEpic`, `requestPause`, `cancelPause`, `pause`, `resume`, `close` and `fileTask`, `housekeeping` and `refresh`, `setSetting` and `unsetSetting`, `addItem`, `moveItem` and `fileItem`, `decideKnowledge`, `planUpgrade`, `upgrade` and
+  `prioritise`, `moveEpic`, `prioritiseEpic`, `requestPause`, `cancelPause`, `pause`, `resume`, `close` and `fileTask`, a person's writes on a task `act`, `depend` and `undepend`, `housekeeping` and `refresh`, `setSetting` and `unsetSetting`, `addItem`, `moveItem` and `fileItem`, `decideKnowledge`, `planUpgrade`, `upgrade` and
   `dismissUpgrade`, `land` and `landAll`, and the machine's runs `machine`, `selfUpdate`, `upgradeAll` and `dismissUpgradeAll`) and its local adapter (`local.ts`), which holds the
   registry, runs Jig and, while someone subscribes, follows each project through a Watcher (feature-live-updates). A
   project is `ready` (task counts and attention items), `unsupported` (Jig below the minimum, not
@@ -79,7 +81,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `/artifacts/:kind` (a task's documents, adr-20261030-a-task-document-is-shown-as-written), `GET /api/projects/:id/specs`
   (feature-specs), `POST /api/projects/:id/queue/move`, `/queue/priority`, `/queue/epic/move`, `/queue/epic/priority`, `/queue/pause`,
   `/queue/pause/cancel`, `/tasks/pause` (adr-20261113-a-task-nobody-started-is-paused-at-once), `/tasks/resume` (adr-20261022-writes-carry-the-revision-of-their-read) and
-  `/tasks/close` (adr-20261029-close-a-ready-task-from-the-board),
+  `/tasks/close` (adr-20261029-close-a-ready-task-from-the-board), `/tasks/act`, `/queue/depend` and `/queue/undepend`
+  (adr-20261118-a-person-writes-on-a-task-from-its-page),
   `POST /api/projects/:id/tasks` (adr-20261022-filing-a-task-carries-no-revision),
   `POST /api/projects/:id/housekeeping` (adr-20261110-housekeeping-runs-from-the-project-card),
   `POST /api/projects/:id/refresh` (adr-20261113-refresh-brings-the-clone-up-from-the-card),
@@ -148,7 +151,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   which that read does not hold: they are read through Jig when the page asks
   (adr-20261030-a-task-document-is-shown-as-written).
 - **Change.** The page sends a write with the revision of the board it showed; ProjectSource
-  runs the matching Jig command for live task ids only and answers after reading the project
+  runs the matching Jig command for live task ids only — a finished task's write, for an id the last read of the
+  finished list showed (adr-20261118-a-person-writes-on-a-task-from-its-page) — and answers after reading the project
   again; Jig's `stale-revision` comes back as 409, and the page reads the board again and shows
   the conflict: what changed between the board the write was made on and that read, its cards
   marked (adr-20261022-writes-carry-the-revision-of-their-read, feature-board). Built for the
@@ -157,7 +161,10 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   (adr-20261113-a-task-parked-at-staging-is-not-done); and for closing a ready task as done, after the
   person confirms, its refusal shown in Jig's words (adr-20261029-close-a-ready-task-from-the-board) — from the
   board, and from a merged task's item on the project's card, with the revision the workspace read carries for it
-  (feature-workspace), where a stale revision is said as the project having changed. Filing a task is a write with no revision: it
+  (feature-workspace), where a stale revision is said as the project having changed; and, from Jig 0.46.0, for a
+  person's writes on a task's page — approving its design with the revision its documents were read at, abandoning,
+  archiving, what it waits for — and on the finished list's rows, with that list's revision
+  (adr-20261118-a-person-writes-on-a-task-from-its-page). Filing a task is a write with no revision: it
   names a new id, which Jig claims or refuses `already-exists`
   (adr-20261022-filing-a-task-carries-no-revision); housekeeping is another, a sweep of the clone as it is, under
   Jig's own lock (adr-20261110-housekeeping-runs-from-the-project-card), and a refresh the third, a fetch and a

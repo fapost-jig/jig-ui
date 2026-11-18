@@ -1,0 +1,1 @@
+{"schema":1,"revision":1794994857,"generated_at":"2026-11-18T09:43:01Z","error":{"code":"git-not-allowed","message":"spec drop: agent.git is none in this clone, so Jig commits nothing; set it with `jig config set --local agent.git commit` (or higher), or make the change in an agent session"}}

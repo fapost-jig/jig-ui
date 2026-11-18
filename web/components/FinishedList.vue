@@ -1,18 +1,22 @@
 <script setup lang="ts">
-  import { ExternalLink } from '@lucide/vue';
+  import { Ellipsis, ExternalLink } from '@lucide/vue';
   import { computed } from 'vue';
   import type { Finished } from '@/api';
   import { Button } from '@/components/ui/button';
-  import { finished, latestFirst, noFinished } from '@/lib/finished';
+  import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+  import { FINISHED_WRITES, finished, latestFirst, noFinished } from '@/lib/finished';
   import { toneText } from '@/lib/tones';
 
   const props = defineProps<{
     /** The read of the finished tasks Jig still keeps, shown the latest first; none yet while it runs. */
     read?: Finished;
+    /** The task whose write is on its way to Jig: every menu waits for it. */
+    pending?: string;
   }>();
 
   defineEmits<{
     readAgain: [];
+    write: [task: string, write: (typeof FINISHED_WRITES)[number]['write']];
   }>();
 
   const none = computed(() => props.read && noFinished(props.read));
@@ -45,6 +49,21 @@
         <span v-else class="shrink-0 text-[13px]">{{ pr.text }}</span>
       </template>
       <span v-if="task.updatedAt" class="shrink-0 text-xs text-muted-foreground tabular-nums">{{ task.updatedAt }}</span>
+      <DropdownMenu v-if="task.offers.length > 0">
+        <DropdownMenuTrigger as-child>
+          <Button variant="ghost" size="icon-xs" :disabled="pending !== undefined" :aria-label="`What to do with ${task.id}`">
+            <Ellipsis />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-52">
+          <template v-for="w in FINISHED_WRITES" :key="w.write">
+            <DropdownMenuItem v-if="task.offers.includes(w.write)" @select="$emit('write', task.id, w.write)">{{
+              w.label
+            }}</DropdownMenuItem>
+          </template>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <span v-else class="size-6 shrink-0" aria-hidden="true" />
     </li>
   </ul>
 </template>

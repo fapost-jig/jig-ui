@@ -41,10 +41,11 @@
   import { conflict } from '@/lib/conflict';
   import { useDecisions } from '@/lib/decisions';
   import { movable } from '@/lib/epics';
-  import { settleFinished } from '@/lib/finished';
+  import { type FINISHED_WRITES, settleFinished } from '@/lib/finished';
+  import { DOING } from '@/lib/writes';
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
-  import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal } from '@/lib/refusal';
+  import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, writeRefusal } from '@/lib/refusal';
   import { filtered, fromQuery, reorders, sift, type Sift, toQuery } from '@/lib/sift';
   import { toneText } from '@/lib/tones';
 
@@ -271,6 +272,27 @@
       (revision) => client.api.projects[':id'].tasks.close.$post({ param, json: { task, revision } }),
       (code, reasons) => closeRefusal(code, reasons, task),
     );
+
+  /**
+   * A finished task's write from its menu, with the revision of the finished list it was chosen on; then the list and the
+   * board are read again — a task brought back is live again. Jig's note, or why it refused, goes to the notice.
+   */
+  async function writeFinished(task: string, write: (typeof FINISHED_WRITES)[number]['write']): Promise<void> {
+    const shown = finished.value;
+    if (shown?.state !== 'ready' || pending.value !== undefined) return;
+    pending.value = task;
+    notice.value = undefined;
+    const res = await call(() =>
+      client.api.projects[':id'].tasks.act.$post({ param, json: { task, action: write, revision: shown.revision } }),
+    );
+
+    const body = res && (await res.json());
+    await Promise.all([loadFinished(), load()]);
+    if (body && 'error' in body)
+      notice.value = { text: writeRefusal(body.error.code, reasonsOf(body.error), DOING[write], task), changed: [] };
+    else if (body && 'note' in body && body.note) notice.value = { text: body.note, changed: [] };
+    pending.value = undefined;
+  }
 
   /** The spec the Specs view shows, kept in the address (`?spec=`) like the board's sort: the first when it names none of them. */
   const chosenSpec = computed(() =>
@@ -619,8 +641,10 @@
     <FinishedList
       v-if="showFinished"
       :read="finished"
+      :pending="pending"
       class="max-h-48 shrink-0 overflow-y-auto border-b"
       @read-again="readFinishedAfresh"
+      @write="writeFinished"
     />
 
     <BoardFilter

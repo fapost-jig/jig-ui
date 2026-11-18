@@ -56,6 +56,11 @@ export const FILED_JIG_VERSION = '0.42.0';
 export const REFRESH_JIG_VERSION = '0.45.0';
 /** The first Jig with the staging flow (`git.flow: staging`): its setting, and a task row's `staging` and `parked`. */
 export const STAGING_JIG_VERSION = '0.45.0';
+/**
+ * The first Jig whose person's writes on a task answer in JSON against a revision (fapost-jig/jig, task `ui-writes-json`):
+ * `task gate`, `abandon`, `archive`, `unarchive` and `spec drop`, and the action `drop-item`.
+ */
+export const WRITES_JIG_VERSION = '0.46.0';
 
 const SCRIPT = '.ai/scripts/jig';
 /** A read's limit: 10 s ran out with several projects read at once, each four Jig runs (task `read-timeout`). */
@@ -321,6 +326,13 @@ const CODES = new Set([
   'not-on-base',
   'not-on-branch',
   'write-still-waits',
+  'no-gate',
+  'autopilot-running',
+  'autopilot-stopped',
+  'already-archived',
+  'not-archived',
+  'wrong-status',
+  'already-closed',
   'failed',
 ]);
 
@@ -494,7 +506,10 @@ const ACTIONS = new Set([
   'ship',
   'close',
   'abandon',
+  'archive',
+  'unarchive',
   'reopen',
+  'drop-item',
 ]);
 
 /** What a person may do next with a task, as Jig decides it from the task's state. */
@@ -615,6 +630,7 @@ const TaskList = z
   .transform(({ tasks, hidden, archived = 0 }) => ({
     tasks,
     finished: hidden - archived,
+    archived,
   }));
 
 /** The project's live tasks and how many finished ones Jig left out of them, without reading those (`jig task list --json`). */
@@ -624,27 +640,43 @@ export async function readTasks(
 ): Promise<{
   revision: number;
   tasks: TaskSummary[];
+  /** The closed and abandoned tasks left out. */
   finished: number;
+  /** The archived ones left out, from Jig 0.37.0; 0 from an older one, which counts them in `finished`. */
+  archived: number;
 }> {
   const { revision, data } = await readJson(root, ['task', 'list'], platform);
   return { revision, ...parsed(TaskList, data) };
 }
 
 /**
- * The closed and the abandoned tasks while Jig keeps their workspace, by id as Jig sorts a list. `--status` takes one
- * status at a time, so this is two runs; an archived task is in neither.
+ * The closed and the abandoned tasks while Jig keeps their workspace — and the archived ones when asked, which a Jig that
+ * brings one back from the page lists (`WRITES_JIG_VERSION`) — by id as Jig sorts a list. `--status` takes one status at a
+ * time, so this is a run for each.
  */
-export async function readFinishedTasks(root: string, platform: NodeJS.Platform = process.platform): Promise<TaskSummary[]> {
-  // Both are waited for, a failure too: an upgrade starts once this read has ended, and must find no Jig still running.
+export async function readFinishedTasks(
+  root: string,
+  archived = false,
+  platform: NodeJS.Platform = process.platform,
+): Promise<{
+  tasks: TaskSummary[];
+  revision: number;
+}> {
+  // All are waited for, a failure too: an upgrade starts once this read has ended, and must find no Jig still running.
   const reads = await Promise.allSettled(
-    ['consolidated', 'abandoned'].map((status) => readJson(root, ['task', 'list', '--status', status], platform)),
+    ['consolidated', 'abandoned', ...(archived ? ['archived'] : [])].map((status) =>
+      readJson(root, ['task', 'list', '--status', status], platform),
+    ),
   );
-  return reads
-    .flatMap((read) => {
-      if (read.status === 'rejected') throw read.reason;
-      return parsed(TaskList, read.value.data).tasks;
-    })
-    .sort((a, b) => (a.id < b.id ? -1 : 1));
+  const answers = reads.map((read) => {
+    if (read.status === 'rejected') throw read.reason;
+    return read.value;
+  });
+  return {
+    tasks: answers.flatMap((answer) => parsed(TaskList, answer.data).tasks).sort((a, b) => (a.id < b.id ? -1 : 1)),
+    // A write on one of them carries the oldest: a write after any of the reads makes it stale.
+    revision: Math.min(...answers.map((answer) => answer.revision)),
+  };
 }
 
 /** How far a roadmap or one of its phases is: items checked, all items, items with a task filed, fog items. */
@@ -825,9 +857,10 @@ export async function readArtifact(
   task: string,
   kind: ArtifactKind,
   platform: NodeJS.Platform = process.platform,
-): Promise<z.output<typeof ArtifactText>> {
-  const { data } = await readJson(root, ['task', 'artifact', 'read', task, kind], platform);
-  return parsed(ArtifactText, data);
+): Promise<z.output<typeof ArtifactText> & { revision: number }> {
+  const { data, revision } = await readJson(root, ['task', 'artifact', 'read', task, kind], platform);
+  // The revision the document was read at: an approval of the design shown carries it, so a design rewritten since is refused.
+  return { ...parsed(ArtifactText, data), revision };
 }
 
 /** The kinds of value Jig names for a setting; one it adds later is read as text. */
@@ -1032,6 +1065,63 @@ export type ItemPlace =
  * for a person, whose step is next or what failed after the commit.
  */
 const WriteNote = z.object({ write: z.object({ note: maybe }) });
+
+/** A person's write on a task from its page, by the id of Jig's action that offers it (`WRITES_JIG_VERSION`). */
+export type TaskWrite = 'approve-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
+
+const WRITE_COMMANDS: Record<TaskWrite, (task: string) => string[]> = {
+  'approve-gate': (task) => ['task', 'gate', task, 'approved'],
+  abandon: (task) => ['task', 'abandon', task],
+  archive: (task) => ['task', 'archive', task],
+  unarchive: (task) => ['task', 'unarchive', task],
+  'drop-item': (task) => ['spec', 'drop', task],
+};
+
+/**
+ * A person's write on a task, against the revision of the read they saw: approve its design at the gate, give it up with
+ * a reason, archive it or bring it back, or close the roadmap item that names an abandoned task (`jig spec drop`, a write
+ * in Jig's own tree, 60 s like a roadmap edit). The task it answers is not read, the caller reads again; `drop-item`
+ * answers Jig's note without a path. Refused as `stale-revision` — for the gate, a design rewritten since it was read —,
+ * `not-found`, `no-gate`, `autopilot-running`, `autopilot-stopped`, `already-archived`, `not-archived`, `wrong-status`,
+ * `already-closed`, and for `drop-item` the refusals of Jig's writes in its own tree.
+ */
+export async function writeTask(
+  root: string,
+  task: string,
+  write: TaskWrite,
+  reason: string | null,
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<string | null> {
+  const args = [...WRITE_COMMANDS[write](task), ...(reason === null ? [] : ['--reason', reason]), '--revision', String(revision)];
+  const { data } = await readJson(root, args, platform, write === 'drop-item' ? ROADMAP_TIMEOUT_MS : TIMEOUT_MS);
+  if (write !== 'drop-item') return null;
+  const { note } = parsed(WriteNote, data).write;
+  return note && withoutPaths(note);
+}
+
+/** Makes a task wait for another item of the queue (`task:<id>`, `epic:<spec>`), with the reason Jig asks for. */
+export async function depend(
+  root: string,
+  task: string,
+  on: string,
+  reason: string,
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  await readJson(root, ['queue', 'depend', `task:${task}`, '--on', on, '--reason', reason, '--revision', String(revision)], platform);
+}
+
+/** Takes back what a task waits for (`jig queue undepend`). */
+export async function undepend(
+  root: string,
+  task: string,
+  on: string,
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  await readJson(root, ['queue', 'undepend', `task:${task}`, '--on', on, '--revision', String(revision)], platform);
+}
 
 /**
  * Runs `jig spec item <args> --revision <n> --json`: Jig commits the edit on the spec's branch in a tree of its own and

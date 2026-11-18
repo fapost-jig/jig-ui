@@ -9,7 +9,7 @@ paths:
   - server/http/app.ts
   - web/views/BoardView.vue
 summary: A write from the page is one Jig command through ProjectSource with the board's lowest read revision, live ids only, answered after a re-read; 409 on stale-revision, never retried
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-18
 ---
 # Writes from the page are Jig commands carrying the revision of the read they were based on
 
@@ -30,6 +30,8 @@ Jig 0.31.0 refuses a write whose `--revision` is older than the clone's last wri
 - The adapter runs Jig only for task ids that are live in the last read it showed — the task
   and a move's anchor; anything else is refused `not-found` without running Jig, so nothing but
   ids Jig itself returned reaches Jig's arguments.
+  *Amended by adr-20261118-a-person-writes-on-a-task-from-its-page:* a finished task's write runs on an id the last
+  read of the finished list showed, with that list's revision, where Jig offered it.
 - After a write the adapter re-reads the project before it answers, so the page's next read
   already shows it; the change signal goes out the usual way.
   *Amended by adr-20261114-knowledge-decisions-are-queued-on-the-page:* knowledge decisions queued while a write runs go with the revision of the

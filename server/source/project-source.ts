@@ -14,6 +14,7 @@ import type {
   SpecItem,
   SpecPhase,
   SpecProgress,
+  TaskWrite,
   Upgrade,
 } from '../jig/client.js';
 
@@ -33,6 +34,7 @@ export type {
   SpecItem,
   SpecPhase,
   SpecProgress,
+  TaskWrite,
   Upgrade,
 };
 export { ARTIFACT_KINDS } from '../jig/client.js';
@@ -327,10 +329,15 @@ export interface TaskDetails extends Task {
   }[];
 }
 
-/** A task that is closed or abandoned, as long as Jig keeps its workspace: housekeeping moves a closed one's to trash once it sees it merged, an abandoned one's after a while. */
+/**
+ * A task that is closed, abandoned or archived, as long as Jig keeps its workspace: housekeeping moves a closed one's to
+ * trash once it sees it merged, an abandoned one's after a while.
+ */
 export interface FinishedTask {
   id: string;
-  status: 'consolidated' | 'abandoned';
+  status: 'consolidated' | 'abandoned' | 'archived';
+  /** The writes the page runs on it that Jig offers now; none on a Jig older than 0.46.0. */
+  offers: ('archive' | 'unarchive' | 'drop-item')[];
   goal: string | null;
   /** The day Jig last changed the task, which for a finished one is the day it finished. */
   updatedAt: string | null;
@@ -357,6 +364,8 @@ export type ProjectFinished =
   | {
       state: 'ready';
       tasks: FinishedTask[];
+      /** The revision a write on one of them carries. */
+      revision: number;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
@@ -365,6 +374,10 @@ export type ProjectTask =
   | {
       state: 'ready';
       task: TaskDetails | null;
+      /** The revision of the board read the details come from, which a write from them carries. */
+      revision: number;
+      /** The project's Jig runs a person's writes on a task (0.46.0): its page offers them as buttons. */
+      writes: boolean;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
@@ -446,6 +459,8 @@ export type TaskArtifact =
         updatedAt: string | null;
         bytes: number | null;
         content: string;
+        /** The revision it was read at, which an approval of the design shown carries. */
+        revision: number;
       } | null;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
@@ -611,6 +626,17 @@ export interface ProjectSource {
    * a taken id is Jig's `already-exists`. `undefined` when no project has that id.
    */
   fileTask(id: string, taskId: string, goal: string): Promise<Written | undefined>;
+  /**
+   * A person's write on a task, as `move` writes, from Jig 0.46.0 (below it `unsupported`): Jig runs only when the last
+   * read offers it — the board's for a live task (`approve-gate`, `abandon`, `archive`), the last finished read for one
+   * that is not (`archive`, `unarchive`, `drop-item`) —, else `not-found`. `reason` goes with `abandon` only. For
+   * `approve-gate` the revision is the design's read: a design rewritten since is refused `stale-revision`.
+   */
+  act(id: string, taskId: string, write: TaskWrite, reason: string | null, revision: number): Promise<Written | undefined>;
+  /** Makes a live task wait for another live task or an open epic (`task:<id>`, `epic:<spec>`) with a reason, as `move` writes. */
+  depend(id: string, taskId: string, on: string, reason: string, revision: number): Promise<Written | undefined>;
+  /** Takes back what a live task waits for, its own dependency only — not one its epic gives it —, as `move` writes. */
+  undepend(id: string, taskId: string, on: string, revision: number): Promise<Written | undefined>;
   /**
    * Tidies the project as Jig's session hook does once a day — merged tasks' workspaces to the trash, merged branches
    * deleted as its settings allow — then reads it again, answering Jig's report. No revision and no live id: it acts on

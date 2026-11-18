@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, unnamedRefusal } from './refusal';
+import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, unnamedRefusal, writeRefusal } from './refusal';
 
 describe('reasonsOf', () => {
   it("reads Jig's reasons as lines, and none from an answer without them or with them in another shape", () => {
@@ -93,5 +93,25 @@ describe('fileItemRefusal', () => {
 
   it('leaves any other refusal to roadmapRefusal', () => {
     expect(fileItemRefusal('git-not-allowed', [], 'search', false, false)).toBeUndefined();
+  });
+});
+
+describe('writeRefusal', () => {
+  it.each([
+    ['stale-revision', [], 'The project changed while you were archiving a. Look at it again as it is now.'],
+    ['not-found', [], 'a does not offer this any more: look at it again as it is now.'],
+    ['already-archived', [], 'Somebody archived a first.'],
+    ['not-archived', [], 'Somebody brought a back first.'],
+    ['already-closed', [], 'The roadmap item of a is closed already.'],
+    ['no-gate', [], 'a has no design waiting at its gate any more.'],
+    ['autopilot-running', [], "a's autopilot run is on: the approval there is the agent's."],
+    ['write-busy', [], 'Jig is making another change in this project: try again in a moment.'],
+    ['git-not-allowed', [], "Jig commits nothing in this clone (agent.git is none): choose a level in the project's Settings."],
+    ['autopilot-stopped', [], "a's autopilot run stopped on a question: answer it, or take the task over, first."],
+    ['wrong-status', [], 'a is no longer in a state that takes this: look at it again as it is now.'],
+    ['failed', ['the branch is gone'], 'Jig refused archiving a: the branch is gone'],
+    ['already-exists', [], 'Jig refused archiving a (already-exists).'],
+  ])('says %s with %j in its own words', (code, reasons, line) => {
+    expect(writeRefusal(code, reasons, 'archiving', 'a')).toBe(line);
   });
 });

@@ -40,6 +40,10 @@ import {
   REFRESH_JIG_VERSION,
   STAGING_JIG_VERSION,
   readFinishedTasks,
+  depend as dependOn,
+  undepend as undependOn,
+  WRITES_JIG_VERSION,
+  writeTask,
   readTasks,
   releaseNamed,
   pauseTask,
@@ -142,10 +146,14 @@ class Unnamed extends JigRefusal {}
 const itemIn = (phases: SpecPhase[], item: string) => phases.flatMap((p) => p.items).find((i) => i.id === item);
 type Finished = TaskSummary & { status: FinishedTask['status'] };
 
-/** A finished task as the list of them shows it. */
-const gone = (t: Finished): FinishedTask => ({
+/** The writes on a finished task the page runs. */
+const FINISHED_WRITES = ['archive', 'unarchive', 'drop-item'] as const;
+
+/** A finished task as the list of them shows it, with the writes Jig offers on it when the project's Jig runs them. */
+const gone = (t: Finished, writes: boolean): FinishedTask => ({
   id: t.id,
   status: t.status,
+  offers: writes ? FINISHED_WRITES.filter((w) => t.actions.some((a) => a.id === w && a.offered)) : [],
   goal: t.goal,
   updatedAt: t.updatedAt,
   pullRequest: t.pullRequest && { url: t.pullRequest.url, state: t.pullRequest.state },
@@ -313,7 +321,8 @@ async function readProject(project: Project): Promise<Read> {
     tasks: {
       state: 'ready',
       tasks: live.map((t) => card(t, queued.get(t.id), takes)),
-      finishedCount: list.finished,
+      // From Jig 0.46.0 the list of finished tasks holds the archived ones too: the page brings them back from there.
+      finishedCount: list.finished + (supports(jigVersion, WRITES_JIG_VERSION) ? list.archived : 0),
       stagingFlow,
       revision,
     },
@@ -383,6 +392,8 @@ interface Entry {
   upgrade?: UpgradeRun;
   /** The writes, and the on-demand reads (a task's documents, the settings, the finished tasks), under way: an upgrade starts once they have ended. */
   writes: Set<Promise<unknown>>;
+  /** What the last read of the finished tasks offered on each: a write on one runs only when it is there. */
+  finished?: Map<string, FinishedTask['offers']>;
   /**
    * The pull request the page's last upgrade left open, kept until a landing brings it here: before housekeeping hears
    * of it, it is all that says the project waits — a `not-merged` Check merge must not forget it.
@@ -875,7 +886,7 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
   async function onDemand<T>(
     id: string,
     minimum: string,
-    read: (root: string) => Promise<T>,
+    read: (root: string, jigVersion: string) => Promise<T>,
     taskId?: string,
   ): Promise<
     | {
@@ -897,7 +908,7 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
     const entry = entryOf(project);
     // Jig replaces its own scripts while it upgrades (adr-20261027-upgrading-a-project-runs-in-the-background).
     if (entry.upgrade?.state === 'running') return { id, state: 'unreadable', code: 'upgrading' };
-    const run = read(project.path);
+    const run = read(project.path, jigVersion);
     const held = run.then(
       () => {},
       () => {},
@@ -965,16 +976,28 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
       if (!project) return undefined;
       const read = await shown(project);
       if (read.tasks.state !== 'ready') return read.tasks;
-      return { state: 'ready', task: read.details.find((t) => t.id === taskId) ?? null };
+      return {
+        state: 'ready',
+        task: read.details.find((t) => t.id === taskId) ?? null,
+        revision: read.tasks.revision,
+        writes: read.view.state === 'ready' && supports(read.view.jigVersion, WRITES_JIG_VERSION),
+      };
     },
     async finished(id) {
       // Every Jig the board reads has `--status`: 0.31.0, its minimum.
-      const answer = await onDemand(id, MIN_JIG_VERSION, readFinishedTasks);
+      const answer = await onDemand(id, MIN_JIG_VERSION, (root, jigVersion) =>
+        readFinishedTasks(root, supports(jigVersion, WRITES_JIG_VERSION)),
+      );
       if (answer?.state !== 'ready') return answer;
-      return {
-        state: 'ready',
-        tasks: (answer.read ?? []).filter((t): t is Finished => t.status === 'consolidated' || t.status === 'abandoned').map(gone),
-      };
+      // Named no task, the read is never `null`.
+      const read = answer.read ?? { tasks: [], revision: 0 };
+      const writes = supports(answer.jigVersion, WRITES_JIG_VERSION);
+      const tasks = read.tasks
+        .filter((t): t is Finished => t.status === 'consolidated' || t.status === 'abandoned' || t.status === 'archived')
+        .map((t) => gone(t, writes));
+      const entry = entries.get(id);
+      if (entry) entry.finished = new Map(tasks.map((t) => [t.id, t.offers]));
+      return { state: 'ready', tasks, revision: read.revision };
     },
     async artifacts(id, taskId) {
       const answer = await onDemand(id, ARTIFACTS_JIG_VERSION, (root) => readArtifacts(root, taskId), taskId);
@@ -1035,6 +1058,37 @@ export function localSource(configDir: string, { rescanMs = 60_000, quietMs, max
         [],
         (t) => t.closable,
       );
+    },
+    act(id, taskId, write, reason, revision) {
+      return writing(id, [], async (root, jigVersion, read) => {
+        if (!supports(jigVersion, WRITES_JIG_VERSION)) throw new JigRefusal('unsupported');
+        // A live task's offer is the board's; one that is not live, the last finished read's.
+        const live = read.details.find((t) => t.id === taskId);
+        const offers: string[] = live ? live.actions.map((a) => a.id) : (entries.get(id)?.finished?.get(taskId) ?? []);
+        if (!offers.includes(write)) throw new JigRefusal('not-found');
+        return writeTask(root, taskId, write, write === 'abandon' ? reason : null, revision);
+      });
+    },
+    depend(id, taskId, on, reason, revision) {
+      const [kind, other] = on.split(':') as [string, string];
+      return writing(
+        id,
+        kind === 'task' ? [taskId, other] : [taskId],
+        async (root, jigVersion) => {
+          if (!supports(jigVersion, WRITES_JIG_VERSION)) throw new JigRefusal('unsupported');
+          await dependOn(root, taskId, on, reason, revision);
+        },
+        kind === 'epic' ? [other] : [],
+      );
+    },
+    undepend(id, taskId, on, revision) {
+      return writing(id, [taskId], async (root, jigVersion, read) => {
+        if (!supports(jigVersion, WRITES_JIG_VERSION)) throw new JigRefusal('unsupported');
+        // Only its own: one its epic gives it is the epic's to take back.
+        const own = read.details.find((t) => t.id === taskId)?.dependsOn.some((d) => d.on === on && d.through === null);
+        if (!own) throw new JigRefusal('not-found');
+        await undependOn(root, taskId, on, revision);
+      });
     },
     fileTask(id, taskId, goal) {
       // A new id names no live task: Jig itself refuses a taken one.
