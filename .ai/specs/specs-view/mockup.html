@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specs view mockup</title>
+<style>
+  :root { --bg:#fafaf9; --card:#fff; --tint:#f1f1ef; --text:#1c1c1a; --muted:#6b6b66; --faint:#9a9a94; --line:#e4e4e0; --strong:#cfcfca; --good:#1d9e75; --accent-bg:#e6f1fb; --accent:#0c447c; --warn-bg:#faeeda; --warn:#854f0b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1a1a19; --card:#242422; --tint:#202020; --text:#ececea; --muted:#a3a39e; --faint:#7a7a75; --line:#33332f; --strong:#4a4a45; --good:#5dcaa5; --accent-bg:#0c447c; --accent:#b5d4f4; --warn-bg:#633806; --warn:#fac775; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.5 system-ui, sans-serif; }
+  .page { display:grid; grid-template-columns:240px minmax(0,1fr); gap:20px; padding:20px 24px; }
+  @media (max-width: 720px) { .page { grid-template-columns:1fr; padding:16px; } }
+  .list { background:var(--tint); border-radius:12px; padding:8px; align-self:start; max-height:calc(100vh - 40px); overflow-y:auto; }
+  .list input { width:100%; height:32px; border:1px solid var(--line); border-radius:8px; padding:0 10px; background:var(--card); color:var(--text); margin-bottom:6px; }
+  .row { padding:9px 8px; border-bottom:1px solid var(--line); }
+  .row:last-of-type { border-bottom:none; }
+  .row.on { background:var(--card); border:1px solid var(--strong); border-radius:8px; }
+  .t { font-size:12px; line-height:1.35; }
+  .row.on .t { font-weight:600; }
+  .m { display:flex; align-items:center; gap:6px; margin-top:6px; }
+  .bar { flex:1; height:3px; background:var(--line); border-radius:2px; }
+  .bar i { display:block; height:3px; background:var(--good); border-radius:2px; }
+  .n { font-size:11px; color:var(--faint); }
+  .badge { font-size:11px; border-radius:4px; padding:0 5px; background:var(--accent-bg); color:var(--accent); white-space:nowrap; }
+  .badge.close { background:var(--warn-bg); color:var(--warn); }
+  .main { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  h1 { font-size:17px; font-weight:600; margin:0; }
+  .meta { display:flex; flex-wrap:wrap; gap:12px; align-items:center; color:var(--muted); font-size:12px; }
+  .meta .end { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  code { font-size:11px; }
+  .desc { color:var(--muted); max-width:62ch; margin:0; line-height:1.55; }
+  .docs { display:flex; gap:6px; }
+  .docs button, .chip { border:1px solid var(--strong); border-radius:6px; background:var(--card); color:var(--text); padding:2px 10px; font:inherit; }
+  .ask { color:var(--muted); font-size:12px; }
+  .phases { display:flex; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:12px; }
+  .phase { border:1px solid var(--line); border-radius:99px; padding:2px 10px; font-size:12px; color:var(--muted); }
+  .phase.on { border-color:var(--text); color:var(--text); }
+  .lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  @media (max-width: 720px) { .lanes { grid-template-columns:1fr; } }
+  .lane { background:var(--tint); border-radius:10px; padding:8px; border-top:2px solid var(--strong); }
+  .lane h3 { font-size:13px; margin:2px 4px 8px; }
+  .lane h3 span { color:var(--faint); font-weight:400; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:6px; }
+  .card small { display:block; color:var(--faint); }
+  .empty { border:1px dashed var(--line); border-radius:8px; padding:14px; text-align:center; color:var(--faint); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="list" aria-label="Specs">
+    <input type="search" placeholder="Find a spec…" aria-label="Find a spec">
+    <div class="row on"><div class="t">AI Solution — every AI capability of FaPost in one Solution</div><div class="m"><span class="badge">epic · P1</span><div class="bar"><i style="width:6%"></i></div><span class="n">1/18</span></div></div>
+    <div class="row"><div class="t">Audit log — who changed what in a tenant</div><div class="m"><span class="badge">epic</span><div class="bar"><i style="width:60%"></i></div><span class="n">6/10</span></div></div>
+    <div class="row"><div class="t">Carousel — rich cards in every channel</div><div class="m"><div class="bar"><i style="width:20%"></i></div><span class="n">1/5</span></div></div>
+    <div class="row"><div class="t">Channel connectors — one inbox for every messenger</div><div class="m"><div class="bar"><i style="width:40%"></i></div><span class="n">2/5</span></div></div>
+    <div class="row"><div class="t">Data lifecycle — retention and export</div><div class="m"><div class="bar"><i style="width:10%"></i></div><span class="n">1/9</span></div></div>
+    <div class="row"><div class="t">Builder versioning — every flow change kept</div><div class="m"><span class="badge close">close it</span><div class="bar"><i style="width:100%"></i></div><span class="n">✓</span></div></div>
+  </nav>
+
+  <main class="main">
+    <h1>AI Solution — every AI capability of FaPost in one Solution</h1>
+    <div class="meta">
+      <code>ai-solution</code><span>1/18 done</span><span>2 fog</span><span>epic <code>epic/ai-solution</code> — open</span>
+      <span class="end"><span class="chip">P1</span><span aria-label="Epic menu">⋯</span></span>
+    </div>
+    <p class="desc">A tenant who wants a bot that answers from their own documents, classifies requests or pulls fields out of a message gets it from one Solution installed from the marketplace; Core stays minimal.</p>
+    <div class="docs"><button type="button">Spec</button><button type="button">Roadmap</button></div>
+    <div class="ask">▸ Ask your agent (2)</div>
+    <div class="phases">
+      <span class="phase on">1/4 Phase 0 · Seams in Core every Solution uses</span>
+      <span class="phase">0/3 Phase 1 · Provider and LLM actions</span>
+      <span class="phase">0/4 Phase 2 · Knowledge base</span>
+      <span class="phase">0/3 Phase 3 · Operator assist</span>
+      <span class="phase">0/4 Phase 4 · Agent and copilot</span>
+    </div>
+    <div class="lanes">
+      <section class="lane"><h3>To file <span>3</span></h3>
+        <div class="card"><code>call@2</code> with action schemas<small>not filed</small></div>
+        <div class="card">Solution quota keys<small>not filed</small></div>
+        <div class="card">Solution data accessors<small>not filed</small></div>
+      </section>
+      <section class="lane" style="border-top-color:#378add"><h3>In work <span>0</span></h3><div class="empty">nothing here</div></section>
+      <section class="lane" style="border-top-color:var(--good)"><h3>Done <span>1</span></h3>
+        <div class="card">Solution tenant migrations and queue<small><code>solution-queue</code></small></div>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>
