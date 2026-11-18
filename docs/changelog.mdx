@@ -8,6 +8,11 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- On Jig's staging flow, a bell beside a project's name lights up when commits of yours are on the staging branch that
+  no task brings to the main branch; press it to see them — subject, when, short sha — and **Mark as known** to keep it
+  dark until a new one lands. It replaces the card's item about that work, and nobody else's commits are shown. It reads
+  `staging` on Jig 0.46.0's `staging-unowned` item and runs `jig staging ack --expect <n>`.
+  ([Your work on staging](/projects#your-work-on-staging))
 - A board card or list row of a task filed from a spec names the spec and the phase, marked **epic** when the task
   goes into the spec's epic; a click opens the spec on **Specs**, and the board's filter takes a spec (`?from=`), so one
   epic's tasks are seen together. It reads `spec` from `jig task list --json` (Jig 0.46.0).

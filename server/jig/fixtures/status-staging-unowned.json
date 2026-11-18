@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "revision": 1794936906,
+  "generated_at": "2026-11-18T15:04:55Z",
+  "data": {
+    "attention": [
+      {
+        "kind": "staging-unowned",
+        "subject": {
+          "type": "project",
+          "id": null
+        },
+        "tasks": [],
+        "title": "Your work on staging that no live task branch holds",
+        "detail": "2 commit(s) of yours on staging that the base does not have",
+        "todo": "Bring what the base still needs to it through a task; once you know the rest, run jig staging ack to stop being told (jig staging ack --dry-run lists them). Jig takes nothing off staging.",
+        "url": null,
+        "staging": {
+          "commits": 2,
+          "list": [
+            {
+              "sha": "29b3236343dfd37b43a1e545ee51ce65b01b9f6b",
+              "subject": "Retry the courier call once",
+              "date": "2026-11-18T17:04:55+02:00"
+            },
+            {
+              "sha": "4f9b92d84eeb864055506696c351837083a75dfa",
+              "subject": "Fix the label on the parcel form",
+              "date": "2026-11-18T17:04:55+02:00"
+            }
+          ],
+          "ack": "jig staging ack --expect 2"
+        }
+      }
+    ],
+    "housekeeping": null,
+    "knowledge_counts_at": "2026-11-18T15:04:55Z",
+    "origin": {
+      "base": "main",
+      "fetched_at": "2026-11-18T15:04:55Z",
+      "behind": 0,
+      "ahead": 0
+    }
+  }
+}

@@ -56,7 +56,10 @@ adapter then reads from `config keys` (task `staging-columns-without-tasks`) —
 `null` when absent — a check on `staging` itself would read every staging-flow task not on staging as
 direct (task `refactor-nits`). Jig 0.46.0 adds `parked.review` and, on that flow, `promotion`, both read as `null` when
 absent; on 0.46.0 a staging task's `pull_request` carries the pull request into staging's own state and CI, where 0.45.0
-gave the promotion's. The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
+gave the promotion's. An attention item's `staging` is read on `staging-unowned` only, as `{commits, list}` — absent
+before Jig 0.46.0, where the item counted everyone's commits, and never its `ack` command
+(adr-20261118-mark-as-known-carries-the-count-the-person-saw); `staging-unpromoted`'s `staging` of another shape is not
+read. The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
 `promotion`, the state, CI and `fetched_at` become the promotion's, without a link — so nothing past `server/jig/` tells the two apart
 (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns).
 
@@ -195,7 +198,10 @@ as Jig gives them, each with its `lossy` (adr-20261109-knowledge-text-and-drop-f
 is as approved) and `source-missing` (a stub whose linked file is gone); Jig 0.41.0's `not-on-base`,
 `not-on-branch` and `write-still-waits` are Jig's codes, carried with its line as reasons. Jig names the document
 it stopped at only in that line: the refusal carries as `doc` the first sent id the line names as a word of its own,
-not as part of a longer id — the one place Jig UI reads Jig's words, and only to name, never to act (adr-20261114-knowledge-decisions-are-queued-on-the-page).
+not as part of a longer id — one of two places Jig UI reads Jig's words, and only to name, never to act (adr-20261114-knowledge-decisions-are-queued-on-the-page).
+The other is `ackStaging`: `jig staging ack` says a moved count only in its message (`… now, not <n>; …`), read as
+`stale-revision`; a later wording falls back to `failed` with Jig's reasons, nothing marked
+(adr-20261118-mark-as-known-carries-the-count-the-person-saw).
 
 ## Rationale
 

@@ -37,6 +37,8 @@ import {
   readSpecs,
   readStatus,
   refresh as refreshClone,
+  ackStaging,
+  STAGING_ACK_JIG_VERSION,
   REFRESH_JIG_VERSION,
   STAGING_JIG_VERSION,
   readFinishedTasks,
@@ -318,6 +320,7 @@ async function readProject(project: Project): Promise<Read> {
       attention: status.attention,
       housekeepingStale: status.housekeepingStale,
       origin: status.origin,
+      stagingFlow,
       closable: live.filter(closable).map((t) => t.id),
       revision,
     },
@@ -1112,6 +1115,19 @@ export function localSource(
       return writing(id, [], (root, jigVersion) =>
         supports(jigVersion, REFRESH_JIG_VERSION) ? refreshClone(root) : Promise.reject(new JigRefusal('unsupported')),
       );
+    },
+    ackStaging(id, expect, shas) {
+      return writing(id, [], async (root, jigVersion) => {
+        if (!supports(jigVersion, STAGING_ACK_JIG_VERSION)) throw new JigRefusal('unsupported');
+        // Jig checks the count alone: a commit shown that reached the base while another arrived would leave it the same,
+        // and the new one would be marked unseen. A fetch from a terminal reads nothing again, so the list is read here.
+        const now = (await readStatus(root)).attention.find((a) => a.kind === 'staging-unowned')?.staging;
+        const listed = new Set(now?.list.map((c) => c.sha));
+        if ((now?.commits ?? 0) !== expect || listed.size !== shas.length || !shas.every((s) => listed.has(s))) {
+          throw new JigRefusal('stale-revision');
+        }
+        await ackStaging(root, expect);
+      });
     },
     addItem(id, specId, phase, text, revision) {
       return roadmapWriting(

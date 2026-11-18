@@ -713,6 +713,41 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
       })
 
+      // `expect` and `shas` are the count of the person's own commits on staging the card showed and the ones it listed:
+      // Jig marks those as known, or the mark is refused when either has moved since. Answered once the project was read
+      // again: its card's bell goes dark.
+      .post(
+        '/api/projects/:id/staging/ack',
+        validator('json', (body: unknown) => {
+          const [expect, shas] = [field(body, 'expect'), field(body, 'shas')];
+          return {
+            expect: isRevision(expect) ? expect : undefined,
+            shas:
+              Array.isArray(shas) && shas.every((s) => typeof s === 'string' && /^[0-9a-f]{4,64}$/.test(s))
+                ? (shas as string[])
+                : undefined,
+          };
+        }),
+        async (c) => {
+          const { expect, shas } = c.req.valid('json');
+          if (expect === undefined || shas === undefined) {
+            return refuse(c, 422, 'usage', 'Give the count of commits the card showed and the shas it listed.');
+          }
+          const w = await source.ackStaging(c.req.param('id'), expect, shas);
+          if (w?.state === 'written') return c.json({ acknowledged: true as const }, 200);
+          if (w?.state === 'refused' && w.code === 'stale-revision') {
+            return refuse(c, 409, w.code, 'Your work on staging changed since the card was read: look at the list again.');
+          }
+          if (w?.state === 'refused' && w.code === 'upgrading') {
+            return refuse(c, 409, w.code, "The project's Jig is being upgraded; try again once that ends.");
+          }
+          if (w?.state === 'refused' && w.code === 'unsupported') {
+            return refuse(c, 422, w.code, 'Marking work on staging as known needs Jig 0.46.0 or later.');
+          }
+          return unwritten(c, w);
+        },
+      )
+
       // A dry run: what upgrading the project's Jig would do, changing nothing.
       .post('/api/projects/:id/upgrade/plan', async (c) => {
         const planned = await source.planUpgrade(c.req.param('id'));

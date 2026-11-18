@@ -372,6 +372,7 @@ describe('localSource', () => {
         attention: [{ ...attention, versions: null }],
         housekeepingStale: true,
         origin: null,
+        stagingFlow: false,
         closable: [],
         revision: 7,
         upgrade: null,
@@ -924,6 +925,40 @@ describe('localSource, writing the queue', () => {
     const dir = project('refreshing-later', '0.45.0', { tasks, refresh: later });
     await source.connect(dir);
     expect(await source.refresh('refreshing-later')).toEqual({ state: 'refused', code: 'incompatible' });
+  });
+
+  // Jig 0.46.0's status of a scratch project on the staging flow: two commits of the reader's own on staging.
+  const staged = JSON.parse(readFileSync(new URL('../jig/fixtures/status-staging-unowned.json', import.meta.url), 'utf8')).data;
+  const shown = ['29b3236343dfd37b43a1e545ee51ce65b01b9f6b', '4f9b92d84eeb864055506696c351837083a75dfa'];
+
+  it("marks the person's own work on staging as known on Jig 0.46.0, those they were shown, and reads the project again", async () => {
+    const dir = project('acking', '0.46.0', { tasks, status: staged });
+    await source.connect(dir);
+    const from = calls(dir).length;
+    expect(await source.ackStaging('acking', 2, [...shown].reverse())).toEqual({ state: 'written' });
+    const ran = since(dir, from);
+    expect(ran.indexOf('status --json')).toBeLessThan(ran.indexOf('staging ack --expect 2'));
+    expect(ran.slice(ran.indexOf('staging ack --expect 2') + 1)).toEqual(expect.arrayContaining(['status --json', 'task list --json']));
+    expect(await source.ackStaging('nobody', 2, shown)).toBeUndefined();
+  });
+
+  it.each([
+    ['a count that moved', 3, shown],
+    ['a commit shown that left while another arrived', 2, [shown[0]!, 'c0ffee0000000000000000000000000000000000']],
+    ['a list shown shorter than the one there', 2, [shown[0]!]],
+  ])('refuses the mark for %s, Jig not asked to mark anything', async (_, expect_, shas) => {
+    const name = `ack-stale-${expect_}-${shas.length}-${shas.at(-1)!.slice(0, 4)}`;
+    const dir = project(name, '0.46.0', { tasks, status: staged });
+    await source.connect(dir);
+    expect(await source.ackStaging(name, expect_, shas)).toEqual({ state: 'refused', code: 'stale-revision' });
+    expect(calls(dir).some((c) => c.startsWith('staging ack'))).toBe(false);
+  });
+
+  it('refuses to mark work on staging as known below Jig 0.46.0 without running Jig', async () => {
+    const dir = project('no-ack', '0.45.0', { tasks });
+    await source.connect(dir);
+    expect(await source.ackStaging('no-ack', 2, [])).toEqual({ state: 'refused', code: 'unsupported' });
+    expect(calls(dir).some((c) => c.startsWith('staging ack'))).toBe(false);
   });
 
   it('refuses a refresh below Jig 0.45.0 without running it', async () => {

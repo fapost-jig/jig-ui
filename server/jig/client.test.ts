@@ -4,28 +4,28 @@ import { delimiter, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  ackStaging,
   addItem,
-  fileItem,
-  fileNewItem,
-  moveItem,
+  pauseTask,
   cancelPause,
   closeTask,
   decideKnowledge,
   depend,
-  undepend,
-  writeTask,
+  fileItem,
+  fileNewItem,
   fileTask,
   housekeeping,
-  jigVersion,
-  withoutTokens,
-  landUpgrade,
   JigRefusal,
   JigShapeError,
+  jigVersion,
+  landUpgrade,
+  planUpgrade,
   MIN_JIG_VERSION,
   moveInQueue,
-  planUpgrade,
+  moveItem,
   readArtifact,
   readArtifacts,
+  readFinishedTasks,
   readKnowledge,
   readKnowledgeText,
   readMachineJig,
@@ -34,20 +34,21 @@ import {
   readSourceDiff,
   readSpecs,
   readStatus,
-  readFinishedTasks,
   readTasks,
   refresh,
   releaseNamed,
   requestPause,
-  pauseTask,
   resumeTask,
   runUpgrade,
   selfUpdate,
   setPriority,
   setSetting,
   supports,
+  undepend,
   unsetSetting,
   withoutPaths,
+  withoutTokens,
+  writeTask,
   writtenByReads,
 } from './client.js';
 
@@ -271,6 +272,43 @@ describe('readStatus', () => {
   it('refuses an upgrade item without its versions', async () => {
     const answer = changed('status-upgrade.json', (d) => delete d.attention[0].versions);
     await expect(readStatus(answering(`case-${cases++}`, answer))).rejects.toBeInstanceOf(JigShapeError);
+  });
+
+  // status-staging-unowned.json is what Jig 0.46.0 printed in a scratch repository on the staging flow, two commits of the
+  // reader's own and one of a colleague's on origin's staging branch that the base does not have.
+  it("reads the person's own work on staging, never the command that marks it as known", async () => {
+    const read = await readStatus(answering('status-staging-unowned', 'status-staging-unowned.json'));
+    expect(read.attention).toHaveLength(1);
+    expect(read.attention[0]).toMatchObject({ kind: 'staging-unowned', subject: { type: 'project', id: null } });
+    expect(read.attention[0]?.staging).toEqual({
+      commits: 2,
+      list: [
+        { sha: '29b3236343dfd37b43a1e545ee51ce65b01b9f6b', subject: 'Retry the courier call once', date: '2026-11-18T17:04:55+02:00' },
+        { sha: '4f9b92d84eeb864055506696c351837083a75dfa', subject: 'Fix the label on the parcel form', date: '2026-11-18T17:04:55+02:00' },
+      ],
+    });
+    expect(JSON.stringify(read.attention)).not.toMatch(/staging ack --expect/);
+  });
+
+  it("reads Jig 0.45.0's item, its count alone and of everyone's commits, and staging of another kind as nothing", async () => {
+    const old = changed('status-staging-unowned.json', (d) => (d.attention[0].staging = { commits: 3 }));
+    expect((await readStatus(answering(`case-${cases++}`, old))).attention[0]).not.toHaveProperty('staging');
+    const none = changed('status-staging-unowned.json', (d) => delete d.attention[0].staging);
+    expect((await readStatus(answering(`case-${cases++}`, none))).attention[0]).not.toHaveProperty('staging');
+    const other = changed('status-staging-unowned.json', (d) => {
+      d.attention[0].kind = 'staging-unpromoted';
+      d.attention[0].staging = { branch: 'task/x', days: 3 };
+    });
+    expect((await readStatus(answering(`case-${cases++}`, other))).attention[0]).not.toHaveProperty('staging');
+  });
+
+  it.each([
+    ['without its count', (d: Record<string, any>) => delete d.attention[0].staging.commits],
+    ['with a commit without its subject', (d: Record<string, any>) => delete d.attention[0].staging.list[0].subject],
+  ])('refuses own work on staging %s', async (_, change) => {
+    await expect(readStatus(answering(`case-${cases++}`, changed('status-staging-unowned.json', change)))).rejects.toBeInstanceOf(
+      JigShapeError,
+    );
   });
 });
 
@@ -1647,6 +1685,30 @@ describe('refresh', () => {
     ],
   ])('refuses %s', async (_, change) => {
     await expect(refresh(answering(`case-${cases++}`, changed('refresh-up-to-date.json', change)))).rejects.toBeInstanceOf(JigShapeError);
+  });
+});
+
+describe('ackStaging', () => {
+  it('marks as known as many of the person’s commits on staging as they were shown', async () => {
+    const dir = selfUpdating(`case-${cases++}`, 'staging: 2 commit(s) of yours on staging acknowledged; jig status names only new ones\n');
+    await ackStaging(dir, 2);
+    expect(args(dir)).toEqual(['staging', 'ack', '--expect', '2']);
+  });
+
+  it('refuses stale-revision when the count moved since the read, as Jig refuses it', async () => {
+    const err = 'jig: error: staging ack: 3 commit(s) of yours on staging now, not 2; read jig status again\n';
+    await expect(ackStaging(selfUpdating(`case-${cases++}`, '', err, 1), 2)).rejects.toMatchObject({ code: 'stale-revision' });
+  });
+
+  it("refuses as failed with Jig's reasons, without the command's prefix and without a path", async () => {
+    const err = [
+      'jig: error: staging ack: this project is not on a sound staging flow (git.flow; jig doctor names what is wrong)',
+      'jig: error: no .ai/config.yaml in /Users/me/shop',
+    ].join('\n');
+    await expect(ackStaging(selfUpdating(`case-${cases++}`, '', err, 1), 2)).rejects.toMatchObject({
+      code: 'failed',
+      reasons: ['this project is not on a sound staging flow (git.flow; jig doctor names what is wrong)', 'no .ai/config.yaml in …'],
+    });
   });
 });
 

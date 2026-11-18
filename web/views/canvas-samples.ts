@@ -20,6 +20,7 @@ import type {
 import type { FinishedTask } from '@/lib/finished';
 import type { ClosingState, HousekeepingState, RefreshState } from '@/lib/projects';
 import { refreshReport } from '@/lib/refresh';
+import type { OwnStaging } from '@/lib/staging';
 import type { PlanState, UpgradeRun } from '@/lib/upgrade';
 
 const task = (id: string, more: Partial<Task>): Task => ({
@@ -363,6 +364,7 @@ const ready = (id: string, more: Partial<Extract<Project, { state: 'ready' }>> =
   attention: [],
   housekeepingStale: false,
   origin: null,
+  stagingFlow: false,
   closable: [],
   revision: 0,
   upgrade: null,
@@ -997,6 +999,42 @@ export const staleProject: Project = ready('nextjs-store', {
   counts: { active: 0, paused: 0, ready: 1 },
   origin: { fetchedAt: '2026-11-01T09:00:00Z', behind: 0 },
 });
+
+/** The person's own commits on staging, as Jig 0.46.0 lists them: all of them, and Jig's newest 20 of 34. */
+export const ownStaging: OwnStaging = {
+  commits: 2,
+  list: [
+    { sha: '29b3236343dfd37b43a1e545ee51ce65b01b9f6b', subject: 'Retry the courier call once', date: '2026-11-18T17:04:55+02:00' },
+    { sha: '4f9b92d84eeb864055506696c351837083a75dfa', subject: 'Fix the label on the parcel form', date: '2026-11-17T11:20:00+02:00' },
+  ],
+};
+export const manyOnStaging: OwnStaging = {
+  commits: 34,
+  list: Array.from({ length: 20 }, (_, i) => ({
+    sha: `${(0xa1b2c3d + i).toString(16)}${'0'.repeat(33)}`,
+    subject: `Try the checkout step ${20 - i} on staging`,
+    date: '2026-11-10T09:00:00+02:00',
+  })),
+};
+
+/** On the staging flow: the bell lit with the person's own work there, and dark with none. */
+export const stagingProject: Project = ready('parcel-desk', {
+  stagingFlow: true,
+  attention: [
+    {
+      kind: 'staging-unowned',
+      subject: { type: 'project', id: null },
+      tasks: [],
+      title: 'Your work on staging that no live task branch holds',
+      detail: '2 commit(s) of yours on staging that the base does not have',
+      todo: 'Bring what the base still needs to it through a task; once you know the rest, run jig staging ack to stop being told.',
+      url: null,
+      versions: null,
+      staging: ownStaging,
+    },
+  ],
+});
+export const quietStagingProject: Project = ready('parcel-api', { counts: { active: 1, paused: 0, ready: 0 }, stagingFlow: true });
 
 const refreshed = (outcome: 'fast-forwarded' | 'blocked-by-changes') =>
   refreshReport({

@@ -66,7 +66,8 @@ disconnect, `subscribe` to changes, and the writes `move(id, taskId, place, revi
 queue — `requestPause(id, taskId, revision)`,
 `cancelPause(id, taskId, revision)`, `pause(id, taskId, revision)` — only a `pausable` task, any other
 `not-found` without Jig —, `resume(id, taskId, revision)`, `fileTask(id, taskId, goal)`, `housekeeping(id)` —
-Jig's report on `written` as `report` —, `refresh(id)` — what it did on `written` as `refreshed` —, and
+Jig's report on `written` as `report` —, `refresh(id)` — what it did on `written` as `refreshed` —,
+`ackStaging(id, expect, shas)` — the person's own commits on staging the card showed —, and
 `setSetting(id, key, value, revision)` and `unsetSetting(id, key, revision)` — the person's own keys, always
 `--local` —, and a spec's roadmap edits `addItem(id, specId, phase, text, revision)`,
 `moveItem(id, specId, item, place, revision)` and `fileItem(id, specId, item, taskId, goal, revision)`, a person's
@@ -113,7 +114,9 @@ new, so it names no live task and carries no revision; `http/` checks the id and
 Jig's grammar before the port sees them (adr-20261022-filing-a-task-carries-no-revision). `housekeeping` is the other:
 it names no task and acts on the clone as it is, under Jig's own lock
 (adr-20261110-housekeeping-runs-from-the-project-card), and so does `refresh`
-(adr-20261113-refresh-brings-the-clone-up-from-the-card).
+(adr-20261113-refresh-brings-the-clone-up-from-the-card). `ackStaging` carries the count and the shas the person was
+shown instead of a revision: Jig checks the count, and the adapter reads the list again before it asks
+(adr-20261118-mark-as-known-carries-the-count-the-person-saw).
 
 A roadmap edit runs Jig only for the spec, the phase and the item handles of the roadmap the last
 read shows — the one on the spec's write branch while edits wait there — and below
