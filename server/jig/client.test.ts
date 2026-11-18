@@ -1,6 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -28,6 +28,7 @@ import {
   readArtifacts,
   readKnowledge,
   readKnowledgeText,
+  readMachineJig,
   readQueue,
   readSettings,
   readSourceDiff,
@@ -1979,4 +1980,48 @@ describe('depend and undepend', () => {
       refusal('stale-revision'),
     );
   });
+});
+
+describe('readMachineJig', () => {
+  /** A folder with a `jig` that prints `json` and exits with `status`, and writes the folder it ran in to `ran-in`. */
+  function machine(
+    name: string,
+    json: string,
+    status = 0,
+  ): {
+    env: NodeJS.ProcessEnv;
+    bin: string;
+  } {
+    const bin = join(root, name);
+    mkdirSync(bin, { recursive: true });
+    if (json.endsWith('.json')) copyFileSync(fixture(json), join(bin, 'out.json'));
+    else writeFileSync(join(bin, 'out.json'), json);
+    writeFileSync(join(bin, 'jig'), `#!/usr/bin/env bash\npwd > "${bin}/ran-in"\ncat "${bin}/out.json"\nexit ${status}\n`, { mode: 0o755 });
+    return { env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}` }, bin };
+  }
+
+  it("reads the machine's Jig and the newest release from the jig on PATH, run in the home folder", async () => {
+    const home = mkdtempSync(join(root, 'home-'));
+    const { env, bin } = machine('machine-jig', 'version.json');
+    expect(await readMachineJig(process.platform, env, home)).toEqual({ installed: '0.46.0', latest: '0.47.0' });
+    // Git bash names the folder its own way (`/c/…`).
+    if (process.platform !== 'win32') expect(readFileSync(join(bin, 'ran-in'), 'utf8').trim()).toBe(realpathSync(home));
+  });
+
+  it('reads no newest release while Jig cannot tell it', async () => {
+    const { env } = machine('machine-jig-offline', 'version-offline.json');
+    expect(await readMachineJig(process.platform, env, root)).toEqual({ installed: '0.46.0', latest: null });
+  });
+
+  it.runIf(process.platform !== 'win32')(
+    'answers nothing without a jig on PATH, from a Jig that refuses --json, or for a shape it does not read',
+    async () => {
+      expect(await readMachineJig(process.platform, { ...process.env, PATH: '/usr/bin:/bin' }, root)).toBeNull();
+      expect(
+        await readMachineJig(process.platform, machine('machine-jig-old', 'jig: error: version: unknown option: --json', 1).env, root),
+      ).toBeNull();
+      const shape = changed('version.json', (data) => (data.installed = 46));
+      expect(await readMachineJig(process.platform, machine('machine-jig-shape', shape).env, root)).toBeNull();
+    },
+  );
 });

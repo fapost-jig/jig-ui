@@ -11,6 +11,8 @@ export type Project = Ok<Api['workspace']['$get']>['projects'][number];
 export type Machine = Ok<Api['workspace']['$get']>['machine'];
 /** A newer Jig UI on npm and the command that stops this one, or `null`. */
 export type Newer = Ok<Api['instance']['newer']['$get']>['newer'];
+/** This machine's Jig and the newest Jig released; `null` while it cannot be told. */
+export type MachineJig = Ok<Api['instance']['jig']['$get']>['jig'];
 export type Attention = Extract<Project, { state: 'ready' }>['attention'][number];
 export type Board = Ok<Api['projects'][':id']['board']['$get']>['board'];
 export type Column = Extract<Board, { state: 'ready' }>['columns'][number];

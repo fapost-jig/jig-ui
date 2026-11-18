@@ -15,9 +15,9 @@ export function upgradeOf(project: Project):
   return project.attention.find((a) => a.kind === 'upgrade-available')?.versions ?? undefined;
 }
 
-/** `a` is an older version than `b`, both as `0.38.0`. */
-function older(a: string, b: string): boolean {
-  const [x, y] = [a.split('.').map(Number), b.split('.').map(Number)];
+/** `a` is an older version than `b`, both as `0.38.0`; a build's `+<sha>` (Jig run from its source) takes no part. */
+export function older(a: string, b: string): boolean {
+  const [x, y] = [a, b].map((v) => v.split('+')[0]!.split('.').map(Number)) as [number[], number[]];
   for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0);
   return false;
 }
@@ -216,3 +216,11 @@ export function landedLine(all: LandedAll): string {
     parts.push(`${all.stopped.join(', ')} could not be brought here: see ${all.stopped.length === 1 ? 'its card' : 'their cards'}`);
   return parts.length ? `Check all merges ${parts.join('; ')}.` : 'Check all merges found no upgrade pull request to check.';
 }
+
+/** The newest Jig released, where it is newer than this machine's: the header marks it and offers the update. */
+export const jigNewer = (
+  jig: {
+    installed: string;
+    latest: string | null;
+  } | null,
+): string | null => (jig?.latest && older(jig.installed, jig.latest) ? jig.latest : null);

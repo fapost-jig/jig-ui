@@ -16,9 +16,11 @@ reviewed_at: 2026-11-18
 JigClient (server/jig/)
 
 MAY:      run `jig` in a project's main checkout; parse and validate its JSON; check the
-          project's Jig version
+          project's Jig version; run the machine's own `jig` from PATH in the home folder for
+          `jig version --json` alone (adr-20261118-the-header-shows-the-machines-jig)
 MUST:     use execFile without a shell — on Windows Git's bash running .ai/scripts/jig, never
-          jig.cmd, with the arguments in the environment, never on its command line; run it without
+          jig.cmd, with the arguments in the environment, never on its command line — the machine's
+          `jig version --json`, whose words are fixed, is the one script that names them; run it without
           the GitHub token variables of Jig UI's environment; validate every response against the shape its contract test pins; turn a
           refusal into Jig's failure code
 MUST NOT: read or write Jig's files directly (`state`, roadmaps, the queue file); call the

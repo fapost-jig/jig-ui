@@ -37,7 +37,9 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   token) written atomically, probed by a second start, removed with `open.html` on stop; and the
   registry, `projects.json`, of connected projects by id and main-checkout path
   (adr-20261017-registry-of-connected-projects). It knows neither git nor Jig.
-- `server/jig/` — JigClient: the project's Jig version against `MIN_JIG_VERSION`, the JSON
+- `server/jig/` — JigClient: the project's Jig version against `MIN_JIG_VERSION`, this machine's own Jig and the
+  newest released by `jig version --json` of the `jig` on PATH, run outside any project (`readMachineJig`, Jig 0.46.0,
+  adr-20261118-the-header-shows-the-machines-jig), the JSON
   reads `jig status` (what needs the person), `jig task list`, `jig queue list` and `jig spec list`
   (feature-specs), a task's documents `jig task artifacts` and `jig task artifact read` (from Jig 0.39.0,
   adr-20261030-a-task-document-is-shown-as-written), and the writes `jig queue move`, `jig queue set --priority`, `jig queue request`
@@ -64,7 +66,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   (`connected`), one project as the workspace shows it (`project`), the Jig projects under a folder (`scan`, walked
   by `scan.ts`), a project's live tasks, its finished tasks on demand (`finished`), one task in full, a live task's documents (`artifacts`, `artifact`), the settings (`settings`), the knowledge waiting for a decision (`knowledge`, `knowledgeDiff`, `knowledgeText`), connect, disconnect, subscribe to changes, and the writes `move`,
   `prioritise`, `moveEpic`, `prioritiseEpic`, `requestPause`, `cancelPause`, `pause`, `resume`, `close` and `fileTask`, a person's writes on a task `act`, `depend` and `undepend`, `housekeeping` and `refresh`, `setSetting` and `unsetSetting`, `addItem`, `moveItem` and `fileItem`, `decideKnowledge`, `planUpgrade`, `upgrade` and
-  `dismissUpgrade`, `land` and `landAll`, and the machine's runs `machine`, `selfUpdate`, `upgradeAll` and `dismissUpgradeAll`) and its local adapter (`local.ts`), which holds the
+  `dismissUpgrade`, `land` and `landAll`, and the machine's runs `machine`, `selfUpdate`, `upgradeAll` and `dismissUpgradeAll`, and the machine's Jig
+  `machineJig`, read from the `jig` on PATH outside any project, adr-20261118-the-header-shows-the-machines-jig) and its local adapter (`local.ts`), which holds the
   registry, runs Jig and, while someone subscribes, follows each project through a Watcher (feature-live-updates). A
   project is `ready` (task counts and attention items), `unsupported` (Jig below the minimum, not
   read), `incompatible` (a newer Jig's shape), `unreadable` (Jig refused, or `timeout`; its code only — **Read again** reads it at once) or
@@ -104,7 +107,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   registry at most once a day by the running instance and answered on `GET /api/instance/newer`, with
   the stop command for how Jig UI was started; the page's header says it in one line
   (adr-20261031-jig-ui-asks-npm-for-a-newer-release). `main.ts` gives it to `createApp`; `http/`
-  knows only its type.
+  knows only its type. Beside it `GET /api/instance/jig` answers this machine's Jig and the newest Jig released, the
+  port's `machineJig`, which the header shows with **Update…** (adr-20261118-the-header-shows-the-machines-jig).
 - `server/open-browser.ts` — opens the browser through `open.html` in the config directory, so
   the token is never a process argument (adr-20261017-browser-opens-through-a-redirect-file).
 - `web/` — the Vue 3 page, built from shadcn-vue components on Tailwind (adr-20261018-page-built-from-shadcn-vue-with-router-and-canvas,

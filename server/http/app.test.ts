@@ -47,6 +47,18 @@ describe('createApp', () => {
     expect(await (await get('/api/instance/newer', { host: HOST, cookie: COOKIE })).json()).toEqual({ newer: null });
   });
 
+  it("names this machine's Jig and the newest release on /api/instance/jig, as the source reads them", async () => {
+    const source = {
+      ...localSource(join(webRoot, 'config')),
+      machineJig: () => Promise.resolve({ installed: '0.46.0', latest: '0.47.0', updatable: true }),
+    };
+    const app = createApp({ port: PORT, token: TOKEN, source, webRoot });
+    const res = await app.request('/api/instance/jig', { headers: { host: HOST, cookie: COOKIE } });
+    expect(await res.json()).toEqual({ jig: { installed: '0.46.0', latest: '0.47.0', updatable: true } });
+    const none = createApp({ port: PORT, token: TOKEN, source: { ...source, machineJig: () => Promise.resolve(null) }, webRoot });
+    expect(await (await none.request('/api/instance/jig', { headers: { host: HOST, cookie: COOKIE } })).json()).toEqual({ jig: null });
+  });
+
   it('answers /api/instance at once while the registry has not answered', async () => {
     const stuck = createApp({
       port: PORT,

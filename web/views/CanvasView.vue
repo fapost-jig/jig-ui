@@ -24,6 +24,7 @@
   import ProgressBar from '@/components/ProgressBar.vue';
   import ProjectList from '@/components/ProjectList.vue';
   import ProjectMark from '@/components/ProjectMark.vue';
+  import MachineJig from '@/components/MachineJig.vue';
   import ProjectSwitcher from '@/components/ProjectSwitcher.vue';
   import SettingsDialog from '@/components/SettingsDialog.vue';
   import EpicMenu from '@/components/EpicMenu.vue';
@@ -132,6 +133,15 @@
   ];
 
   const filingOpen = ref<(typeof filingStates)[number]>();
+
+  /** The header's Jig with a newer release: its question, while the update runs, and after Jig refused it. */
+  const jigStates = [
+    { label: 'Update…', busy: false, refusal: undefined },
+    { label: 'updating', busy: true, refusal: undefined },
+    { label: 'refused', busy: false, refusal: ['self-update: cannot reach the remote at …'] },
+  ];
+
+  const jigOpen = ref<string>();
 </script>
 
 <template>
@@ -245,6 +255,28 @@
       <ProjectSwitcher :projects="projects" version="0.1.0"><ThemeToggle /></ProjectSwitcher>
       <ProjectSwitcher :projects="projects" current="jig-ui" version="0.1.0" />
       <ProjectSwitcher :projects="[]" />
+    </CanvasSection>
+
+    <CanvasSection
+      title="MachineJig"
+      note="the header's Jig: a newer release out, open its question in each state; no project to update through; up to date; the newest not known yet (offline); a build of Jig's source; none to tell"
+    >
+      <div class="flex flex-col items-start gap-2">
+        <MachineJig
+          v-for="state in jigStates"
+          :key="state.label"
+          :open="jigOpen === state.label"
+          :jig="{ installed: '0.46.0', latest: '0.47.0', updatable: true }"
+          :busy="state.busy"
+          :refusal="state.refusal"
+          @update:open="(open) => (jigOpen = open ? state.label : undefined)"
+        />
+        <MachineJig :open="false" :jig="{ installed: '0.46.0', latest: '0.47.0', updatable: false }" :busy="false" />
+        <MachineJig :open="false" :jig="{ installed: '0.47.0', latest: '0.47.0', updatable: true }" :busy="false" />
+        <MachineJig :open="false" :jig="{ installed: '0.46.0', latest: null, updatable: true }" :busy="false" />
+        <MachineJig :open="false" :jig="{ installed: '0.47.0+abc1234', latest: '0.47.0', updatable: true }" :busy="false" />
+        <MachineJig :open="false" :jig="null" :busy="false" />
+      </div>
     </CanvasSection>
 
     <CanvasSection title="ProjectList" note="one chosen, a project in each state; type to search; on the first load, two still being read">

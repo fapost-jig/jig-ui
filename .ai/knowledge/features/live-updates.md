@@ -22,8 +22,11 @@ everything after the stream reconnects. The stream's `open` is also the page's f
 reads nothing on mount. While followed, reads are answered from the last read, so
 re-fetches and extra tabs run no Jig — except what the read does not hold: a task's documents, which the
 task page lists, and reads each open one, through Jig again on each change
-(adr-20261030-a-task-document-is-shown-as-written), and the finished tasks while their list is open
-(feature-board).
+(adr-20261030-a-task-document-is-shown-as-written), the finished tasks while their list is open
+(feature-board), and the header's `jig version --json` of this machine's Jig, read with a tab's first workspace read
+and again only when a self-update has ended, a project heard of a new release or the connected projects changed, one
+run shared by the tabs that ask meanwhile
+(adr-20261118-the-header-shows-the-machines-jig).
 
 ## Why
 

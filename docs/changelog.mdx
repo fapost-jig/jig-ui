@@ -8,6 +8,9 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- The page's header shows this machine's Jig and the newest Jig released beside Jig UI's version, and when the newest
+  is newer, marks it with **Update…**, which runs `jig self-update` after asking. It reads `jig version --json` (Jig 0.46.0) from the `jig` on
+  `PATH`; offline it shows the installed Jig only.
 - A board card no longer squeezes a long task id into a column of single letters beside its badges: an id that starts
   with a tracker's key (`SRD-2598-…`) shows as the key while the card has a goal, and any other long id is broken at its
   hyphens, the badges moving to the next line together when they do not fit.

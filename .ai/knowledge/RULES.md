@@ -44,7 +44,9 @@ are added as sections of this file.
   no other `fetch` or outbound request in `server/` outside `server/team/`.) The team server asks
   only GitHub: its API as the App and its installations, and OAuth's token exchange, all in
   `server/team/github.ts`. (adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app.
-  Checked in review: no other `fetch` in `server/team/`.)
+  Checked in review: no other `fetch` in `server/team/`.) A Jig run may ask the network itself — a fetch, a push,
+  the forge — and `jig version --json`, which the header reads, asks Jig's origin for its newest release at most
+  every 6 hours: that request is Jig's, not Jig UI's (adr-20261118-the-header-shows-the-machines-jig).
 - The API and the page name connected projects by id; no path reaches `web/` but Find projects'
   answer — the folder it looked through and what it found there, under the folder the person named,
   with `~` for the home folder —, a task's documents, whose content is shown as its authors wrote it,

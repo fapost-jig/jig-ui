@@ -6,6 +6,7 @@ import type {
   ItemPlace,
   Knowledge,
   KnowledgeDecision,
+  MachineJig,
   Origin,
   Place,
   Refreshed,
@@ -26,6 +27,7 @@ export type {
   ItemPlace,
   Knowledge,
   KnowledgeDecision,
+  MachineJig,
   Origin,
   Place,
   Refreshed,
@@ -700,6 +702,12 @@ export interface ProjectSource {
   dismissUpgrade(id: string): Promise<boolean>;
   /** The runs started from the page that change this machine's Jig or every project. */
   machine(): Machine;
+  /**
+   * This machine's own Jig and the newest Jig released, as that Jig says them, read outside any project; `null` when it
+   * cannot be told — no Jig on PATH, one before 0.46.0 — and `latest` `null` while the newest is unknown. `updatable`:
+   * a connected project has a Jig to run `selfUpdate` through. Reads asked meanwhile share one Jig run.
+   */
+  machineJig(): Promise<(MachineJig & { updatable: boolean }) | null>;
   /**
    * Moves this machine's Jig to its newest release and answers once it has, then reads every project again: they now
    * show the upgrade it makes possible. Touches no project. Refused `running` while it, an upgrade or Upgrade all runs,

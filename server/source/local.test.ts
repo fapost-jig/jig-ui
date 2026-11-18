@@ -2588,6 +2588,30 @@ describe('localSource, self-update and Upgrade all', () => {
       expect(source.machine().selfUpdate).toMatchObject({ state: 'done' });
     });
 
+    it('names the machine’s Jig with whether a project can update it, one Jig run for the reads asked meanwhile', async () => {
+      let reads = 0;
+      let answer: {
+        installed: string;
+        latest: string | null;
+      } | null = { installed: '0.46.0', latest: '0.47.0' };
+      const source = localSource(join(root, `machine-config-${configs++}`), {
+        readJig: async () => {
+          reads++;
+          await delay(20);
+          return answer;
+        },
+      });
+      expect(await source.machineJig()).toEqual({ installed: '0.46.0', latest: '0.47.0', updatable: false });
+      await source.connect(behind('mj-project'));
+      reads = 0;
+      const [a, b] = await Promise.all([source.machineJig(), source.machineJig()]);
+      expect(a).toEqual({ installed: '0.46.0', latest: '0.47.0', updatable: true });
+      expect(b).toBe(a);
+      expect(reads).toBe(1);
+      answer = null;
+      expect(await source.machineJig()).toBeNull();
+    });
+
     it('stops before any project when the self-update fails, and says why', async () => {
       const { source } = fresh();
       const first = project('ua-fail-first', '0.34.0', {
