@@ -7,6 +7,7 @@
   import { Card } from '@/components/ui/card';
   import { toneRule } from '@/lib/tones';
   import { minute } from '@/lib/clock';
+  import { cardKey } from '@/lib/task-key';
   import { requested, waits } from '@/lib/waits';
   import CloseConfirm from './CloseConfirm.vue';
   import QueueMenu from './QueueMenu.vue';
@@ -43,18 +44,26 @@
 
   const note = computed(() => waits(props.task));
   const request = computed(() => requested(props.task, minute.value.getTime()));
+  const key = computed(() => cardKey(props.task.id, props.task.goal, props.open));
 </script>
 
 <template>
   <Card class="gap-2 px-3 py-3" :class="[open && 'ring-foreground', busy && 'opacity-60']">
     <div class="flex items-start gap-1">
       <button type="button" class="flex min-w-0 flex-1 flex-col gap-2 text-left" :aria-expanded="open" @click="$emit('toggle')">
-        <span class="flex w-full items-center gap-2">
-          <span class="font-mono text-xs break-all" :class="task.goal ? 'text-muted-foreground' : 'font-medium'">{{ task.id }}</span>
-          <Badge v-if="task.priority !== null" variant="secondary" class="ml-auto" :title="`Priority ${task.priority}`">
-            P{{ task.priority }}
-          </Badge>
-          <Badge v-if="task.class" variant="outline" :class="task.priority === null && 'ml-auto'">{{ task.class }}</Badge>
+        <!-- The key, or the whole id broken at its hyphens, then the badges together: on one line where they fit. -->
+        <span class="flex w-full flex-wrap items-center gap-1">
+          <span v-if="key" class="mr-auto font-mono text-xs whitespace-nowrap text-muted-foreground" :title="task.id">
+            <span aria-hidden="true">{{ key }}</span
+            ><span class="sr-only">{{ task.id }}</span>
+          </span>
+          <span v-else class="mr-auto min-w-0 font-mono text-xs break-words" :class="task.goal ? 'text-muted-foreground' : 'font-medium'">
+            {{ task.id }}
+          </span>
+          <span v-if="task.priority !== null || task.class" class="flex gap-1">
+            <Badge v-if="task.priority !== null" variant="secondary" :title="`Priority ${task.priority}`">P{{ task.priority }}</Badge>
+            <Badge v-if="task.class" variant="outline">{{ task.class }}</Badge>
+          </span>
         </span>
         <span v-if="task.goal" class="font-medium" :class="!open && 'line-clamp-2'">{{ task.goal }}</span>
       </button>

@@ -55,6 +55,23 @@ const pr = (state: string | null, ci: string | null) => ({
 });
 
 /** One task for each note a card can carry, and one with none. */
+/** Ids a tracker names, as a colleague's board has them: long, with a key at their head. */
+export const trackerTasks: Task[] = [
+  task('SRD-2598-long-term-storage-threshold', {
+    class: 'T4',
+    priority: 1,
+    goal: 'Let the warehouse decide, per client, how long goods may stay in long-term storage.',
+  }),
+  task('SRD-2627-split-oversized-item-volume', {
+    class: 'T1',
+    priority: 2,
+    status: 'ready',
+    closable: true,
+    goal: 'Split by box must not answer 500 when an item is larger than the box.',
+  }),
+  task('SRD-2606-transfer-packing-refusal-not-reported', { class: 'T1', priority: 2 }),
+];
+
 export const tasks: Task[] = [
   task('design-system', {
     class: 'T3',
