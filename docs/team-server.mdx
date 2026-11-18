@@ -26,7 +26,7 @@ The image is not published yet: build it from the repository, then run it with a
 data and its public address.
 
 ```bash
-docker build -t jig-ui-team https://github.com/fapost-lab/jig-ui.git#main
+docker build -t jig-ui-team https://github.com/fapost-jig/jig-ui.git#main
 docker volume create jig-ui-team
 docker run -d --name jig-ui-team --restart unless-stopped \
   -p 127.0.0.1:4870:4870 -v jig-ui-team:/data \

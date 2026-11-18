@@ -1,6 +1,6 @@
 # Jig UI
 
-A local control center for [Jig](https://github.com/fapost-lab/jig) projects. One page shows every
+A local control center for [Jig](https://github.com/fapost-jig/jig) projects. One page shows every
 task and epic of every connected project, so a person running several agents across several projects
 sees what is running, what waits for them and in what order the work goes.
 
