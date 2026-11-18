@@ -4,12 +4,16 @@
   import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
   import { Input } from '@/components/ui/input';
   import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-  import { CLASSES, filtered, PRIORITIES, type Sift, SORTS } from '@/lib/sift';
+  import { CLASSES, filtered, PRIORITIES, type Sift, SORTS, type SpecChoice } from '@/lib/sift';
 
-  /** The board's sort and filters, for every column at once; `shown` of its `total` cards pass the filters. */
-  defineProps<{
+  /**
+   * The board's sort and filters, for every column at once; `shown` of its `total` cards pass the filters. `specs`, the
+   * specs the tasks were filed from (`specsOf`), offer a filter of their own while there are any.
+   */
+  const props = defineProps<{
     shown: number;
     total: number;
+    specs: SpecChoice[];
   }>();
 
   const view = defineModel<Sift>({ required: true });
@@ -27,7 +31,7 @@
   }
 
   /** Shows or hides the cards of one label, keeping the labels in their own order. */
-  function choose(key: (typeof FILTERS)[number]['key'], labels: readonly string[], label: string, on: boolean): void {
+  function choose(key: (typeof FILTERS)[number]['key'] | 'specs', labels: readonly string[], label: string, on: boolean): void {
     const chosen = new Set(view.value[key]);
     if (on) chosen.add(label);
     else chosen.delete(label);
@@ -36,7 +40,9 @@
 
   const find = (text: string | number) => (view.value = { ...view.value, text: String(text) });
 
-  const clear = () => (view.value = { ...view.value, classes: [], priorities: [], text: '' });
+  const clear = () => (view.value = { ...view.value, classes: [], priorities: [], specs: [], text: '' });
+
+  const specIds = () => props.specs.map((s) => s.id);
 </script>
 
 <template>
@@ -61,6 +67,25 @@
           @select.prevent
         >
           {{ label === 'none' ? 'None' : label }}
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <DropdownMenu v-if="specs.length > 0">
+      <DropdownMenuTrigger as-child>
+        <Button variant="outline" size="sm" aria-label="Filter by spec">
+          Spec<template v-if="view.specs.length > 0">: {{ view.specs.join(', ') }}</template>
+          <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" class="w-72">
+        <DropdownMenuCheckboxItem
+          v-for="spec in specs"
+          :key="spec.id"
+          :model-value="view.specs.includes(spec.id)"
+          @update:model-value="(on: boolean | 'indeterminate') => choose('specs', specIds(), spec.id, on === true)"
+          @select.prevent
+        >
+          <span class="truncate" :title="spec.id">{{ spec.title }}</span>
         </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>

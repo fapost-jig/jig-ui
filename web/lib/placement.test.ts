@@ -16,6 +16,7 @@ const task = (id: string, level?: string | null, position = 100): Task => ({
   staging: null,
   parked: null,
   stagingFlow: false,
+  spec: null,
   promotion: null,
   resumesTo: null,
   started: false,

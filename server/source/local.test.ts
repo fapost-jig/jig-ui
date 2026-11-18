@@ -602,6 +602,7 @@ describe('localSource', () => {
           staging: null,
           parked: null,
           stagingFlow: false,
+          spec: null,
           promotion: null,
           started: true,
           gate: null,

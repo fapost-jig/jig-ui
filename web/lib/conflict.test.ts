@@ -16,6 +16,7 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
   staging: null,
   parked: null,
   stagingFlow: false,
+  spec: null,
   promotion: null,
   resumesTo: null,
   started: true,

@@ -21,6 +21,8 @@
     sorted?: boolean;
     /** A filter hides some cards: a card moves among those shown, and to either end of its column. */
     filtered?: boolean;
+    /** The ids of the project's specs: a card's spec among them opens on the Specs view. */
+    specs?: string[];
   }>();
 
   const emit = defineEmits<{
@@ -30,6 +32,7 @@
     pause: [task: string, ask: boolean];
     resume: [task: string];
     close: [task: string];
+    openSpec: [spec: string];
   }>();
 
   const drag = useDrop(
@@ -84,12 +87,14 @@
             :filtered="filtered"
             :busy="pending === task.id"
             :changed="changed?.includes(task.id)"
+            :spec-opens="!!task.spec && !!specs?.includes(task.spec.id)"
             @toggle="$emit('toggle', task.id)"
             @move="(place) => $emit('move', task.id, place)"
             @prioritise="(p) => $emit('prioritise', task.id, p)"
             @pause="(ask) => $emit('pause', task.id, ask)"
             @resume="$emit('resume', task.id)"
             @close="$emit('close', task.id)"
+            @open-spec="(spec) => $emit('openSpec', spec)"
           />
           <span
             v-if="gap?.list === column.id && gap.index === column.cards.length && i === column.cards.length - 1"

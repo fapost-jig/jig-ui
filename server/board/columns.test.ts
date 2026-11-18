@@ -16,6 +16,7 @@ const task = (more: Partial<Task> = {}): Task => ({
   staging: null,
   parked: null,
   stagingFlow: false,
+  spec: null,
   promotion: null,
   started: true,
   gate: null,

@@ -1,0 +1,334 @@
+{
+  "schema": 1,
+  "revision": 1792234305,
+  "generated_at": "2026-11-18T14:06:26Z",
+  "data": {
+    "tasks": [
+      {
+        "id": "person-writes-nits",
+        "class": "T1",
+        "status": "active",
+        "issue": null,
+        "goal": "Close the two P3 findings the architecture review of person-writes (PR #177) left open, and point the page's note on the gate at the Jig issue that will fix it.",
+        "knowledge_consolidated": false,
+        "paused": false,
+        "pause_request": null,
+        "created_at": "2026-11-18",
+        "updated_at": "2026-11-18",
+        "archived_at": null,
+        "archived_reason": null,
+        "archived_from": null,
+        "absorbed_into": null,
+        "absorbs": [],
+        "absorbs_partly": [],
+        "partly_in": [],
+        "branch": null,
+        "base_branch": "main",
+        "spec": null,
+        "worktree": null,
+        "gate": null,
+        "autopilot": null,
+        "pull_request": null,
+        "shipping": null,
+        "housekeeping_flags": [],
+        "waivers": [],
+        "actions": [
+          {
+            "id": "start",
+            "command": "jig task start person-writes-nits --out-of-order --reason <text>",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "pause",
+            "command": "jig task pause person-writes-nits",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "resume",
+            "command": "jig task resume person-writes-nits",
+            "offered": false,
+            "reason": "task resume: not paused or parked: person-writes-nits"
+          },
+          {
+            "id": "request-pause",
+            "command": "jig queue request task:person-writes-nits pause",
+            "offered": false,
+            "reason": "task person-writes-nits is not started: no stage will take a pause request; pause it directly: jig task pause person-writes-nits"
+          },
+          {
+            "id": "cancel-pause-request",
+            "command": "jig queue cancel task:person-writes-nits pause",
+            "offered": false,
+            "reason": "queue cancel: no pause of task:person-writes-nits is requested"
+          },
+          {
+            "id": "approve-gate",
+            "command": "jig task gate person-writes-nits approved",
+            "offered": false,
+            "reason": "task gate: person-writes-nits is T1; only T3 and T4 tasks have a human gate"
+          },
+          {
+            "id": "answer-stop",
+            "command": "jig task autopilot person-writes-nits answer --answer <text>",
+            "offered": false,
+            "reason": "task autopilot answer: not stopped: person-writes-nits"
+          },
+          {
+            "id": "handover",
+            "command": "jig task autopilot person-writes-nits handover --by human --answer <text>",
+            "offered": false,
+            "reason": "task autopilot handover: person-writes-nits has no stopped autopilot run"
+          },
+          {
+            "id": "set-class",
+            "command": "jig task set person-writes-nits class <Tn>",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "ship",
+            "command": "jig task ship person-writes-nits --message-file <file>",
+            "offered": false,
+            "reason": "task ship: requires knowledge_consolidated true; record the knowledge decision first: jig task set person-writes-nits knowledge_consolidated true"
+          },
+          {
+            "id": "land",
+            "command": "jig task land person-writes-nits --by human",
+            "offered": false,
+            "reason": "task land: person-writes-nits is not on the staging flow; a task in this project lands with jig task ship"
+          },
+          {
+            "id": "request-review",
+            "command": "jig task request-review person-writes-nits --reviewer <login> --by human",
+            "offered": false,
+            "reason": "task request-review: person-writes-nits has no pull request; run jig task ship person-writes-nits first"
+          },
+          {
+            "id": "merge",
+            "command": "jig task merge-pr person-writes-nits --by human",
+            "offered": false,
+            "reason": "task merge-pr: person-writes-nits has no pull request; run jig task ship person-writes-nits first"
+          },
+          {
+            "id": "promote",
+            "command": "jig task promote person-writes-nits --by human",
+            "offered": false,
+            "reason": "task promote: person-writes-nits is not on the staging flow; a task in this project reaches main with jig task ship"
+          },
+          {
+            "id": "pr-status",
+            "command": "jig task pr-status person-writes-nits --json",
+            "offered": false,
+            "reason": "task pr-status: person-writes-nits has no pull request; run jig task ship person-writes-nits first"
+          },
+          {
+            "id": "close",
+            "command": "jig task set person-writes-nits status consolidated",
+            "offered": false,
+            "reason": "task set: status consolidated requires knowledge_consolidated true; record the knowledge decision first: jig task set person-writes-nits knowledge_consolidated true"
+          },
+          {
+            "id": "abandon",
+            "command": "jig task abandon person-writes-nits",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "archive",
+            "command": "jig task archive person-writes-nits",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "unarchive",
+            "command": "jig task unarchive person-writes-nits",
+            "offered": false,
+            "reason": "task unarchive: task person-writes-nits is not archived"
+          },
+          {
+            "id": "reopen",
+            "command": "jig task set person-writes-nits status active",
+            "offered": false,
+            "reason": "task person-writes-nits is active, not abandoned"
+          },
+          {
+            "id": "drop-item",
+            "command": "jig spec drop person-writes-nits --json",
+            "offered": false,
+            "reason": "spec drop: person-writes-nits is active; abandon it first: jig task abandon person-writes-nits --reason <text>"
+          }
+        ]
+      },
+      {
+        "id": "spec-on-card",
+        "class": "T2",
+        "status": "active",
+        "issue": null,
+        "goal": "A card of a task filed from a spec shows the spec's name and the phase, marked as an epic's when the task goes into one; a click opens that spec, and the board's filter takes a spec too, so a person sees one epic's tasks at a glance.",
+        "knowledge_consolidated": false,
+        "paused": false,
+        "pause_request": null,
+        "created_at": "2026-11-14",
+        "updated_at": "2026-11-18",
+        "archived_at": null,
+        "archived_reason": null,
+        "archived_from": null,
+        "absorbed_into": null,
+        "absorbs": [],
+        "absorbs_partly": [],
+        "partly_in": [],
+        "branch": "task/spec-on-card",
+        "base_branch": "main",
+        "spec": {
+          "id": "jig-ui",
+          "title": "Jig UI \u2014 a local control center for Jig projects",
+          "phase": 4,
+          "epic": null
+        },
+        "worktree": null,
+        "gate": null,
+        "autopilot": null,
+        "pull_request": null,
+        "shipping": null,
+        "housekeeping_flags": [],
+        "waivers": [],
+        "actions": [
+          {
+            "id": "start",
+            "command": "jig task start spec-on-card",
+            "offered": false,
+            "reason": "task start: already started on task/spec-on-card; to give it a worktree of its own: `jig task start spec-on-card --worktree`"
+          },
+          {
+            "id": "pause",
+            "command": "jig task pause spec-on-card",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "resume",
+            "command": "jig task resume spec-on-card",
+            "offered": false,
+            "reason": "task resume: not paused or parked: spec-on-card"
+          },
+          {
+            "id": "request-pause",
+            "command": "jig queue request task:spec-on-card pause",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "cancel-pause-request",
+            "command": "jig queue cancel task:spec-on-card pause",
+            "offered": false,
+            "reason": "queue cancel: no pause of task:spec-on-card is requested"
+          },
+          {
+            "id": "approve-gate",
+            "command": "jig task gate spec-on-card approved",
+            "offered": false,
+            "reason": "task gate: spec-on-card is T2; only T3 and T4 tasks have a human gate"
+          },
+          {
+            "id": "answer-stop",
+            "command": "jig task autopilot spec-on-card answer --answer <text>",
+            "offered": false,
+            "reason": "task autopilot answer: not stopped: spec-on-card"
+          },
+          {
+            "id": "handover",
+            "command": "jig task autopilot spec-on-card handover --by human --answer <text>",
+            "offered": false,
+            "reason": "task autopilot handover: spec-on-card has no stopped autopilot run"
+          },
+          {
+            "id": "set-class",
+            "command": "jig task set spec-on-card class <Tn>",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "ship",
+            "command": "jig task ship spec-on-card --message-file <file>",
+            "offered": false,
+            "reason": "task ship: requires knowledge_consolidated true; record the knowledge decision first: jig task set spec-on-card knowledge_consolidated true"
+          },
+          {
+            "id": "land",
+            "command": "jig task land spec-on-card --by human",
+            "offered": false,
+            "reason": "task land: spec-on-card is not on the staging flow; a task in this project lands with jig task ship"
+          },
+          {
+            "id": "request-review",
+            "command": "jig task request-review spec-on-card --reviewer <login> --by human",
+            "offered": false,
+            "reason": "task request-review: spec-on-card has no pull request; run jig task ship spec-on-card first"
+          },
+          {
+            "id": "merge",
+            "command": "jig task merge-pr spec-on-card --by human",
+            "offered": false,
+            "reason": "task merge-pr: spec-on-card has no pull request; run jig task ship spec-on-card first"
+          },
+          {
+            "id": "promote",
+            "command": "jig task promote spec-on-card --by human",
+            "offered": false,
+            "reason": "task promote: spec-on-card is not on the staging flow; a task in this project reaches main with jig task ship"
+          },
+          {
+            "id": "pr-status",
+            "command": "jig task pr-status spec-on-card --json",
+            "offered": false,
+            "reason": "task pr-status: spec-on-card has no pull request; run jig task ship spec-on-card first"
+          },
+          {
+            "id": "close",
+            "command": "jig task set spec-on-card status consolidated",
+            "offered": false,
+            "reason": "task set: status consolidated requires knowledge_consolidated true; record the knowledge decision first: jig task set spec-on-card knowledge_consolidated true"
+          },
+          {
+            "id": "abandon",
+            "command": "jig task abandon spec-on-card --reason <text>",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "archive",
+            "command": "jig task archive spec-on-card",
+            "offered": true,
+            "reason": null
+          },
+          {
+            "id": "unarchive",
+            "command": "jig task unarchive spec-on-card",
+            "offered": false,
+            "reason": "task unarchive: task spec-on-card is not archived"
+          },
+          {
+            "id": "reopen",
+            "command": "jig task set spec-on-card status active",
+            "offered": false,
+            "reason": "task spec-on-card is active, not abandoned"
+          },
+          {
+            "id": "drop-item",
+            "command": "jig spec drop spec-on-card --json",
+            "offered": false,
+            "reason": "spec drop: spec-on-card is active; abandon it first: jig task abandon spec-on-card --reason <text>"
+          }
+        ]
+      }
+    ],
+    "hidden": 21,
+    "archived": 7,
+    "housekeeping": {
+      "ran_at": "2026-11-17T13:50:07Z",
+      "forge": "github"
+    }
+  }
+}

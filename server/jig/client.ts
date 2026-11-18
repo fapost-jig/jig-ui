@@ -576,6 +576,8 @@ const TaskRow = z
       .transform(({ fetched_at, ...p }) => ({ ...p, fetchedAt: fetched_at }))
       .nullable()
       .optional(),
+    /** From Jig 0.46.0: the spec the task was filed from, by its `Spec:` line; `epic` the branch its roadmap declares. */
+    spec: z.object({ id: text, title: maybe, phase: z.number().int().nullable(), epic: maybe }).nullable().optional(),
   })
   .transform(({ autopilot: run, pull_request: pr, ...t }) => {
     // Jig 0.45.0 has no `promotion`: the state and CI of a task on the staging side were the promotion's, the url the
@@ -621,6 +623,16 @@ const TaskRow = z
           ? { url: null, state: pr.state, ci: pr.ci, fetchedAt: pr.fetched_at }
           : null
         : (t.promotion ?? null),
+      // Whether the task goes into the spec's epic, never the epic's branch: a task nobody started is cut from it, a
+      // started one goes where its base is.
+      spec: t.spec
+        ? {
+            id: t.spec.id,
+            title: t.spec.title,
+            phase: t.spec.phase,
+            epic: t.spec.epic !== null && (t.branch === null || t.base_branch === t.spec.epic),
+          }
+        : null,
     };
   });
 export type TaskSummary = z.output<typeof TaskRow>;

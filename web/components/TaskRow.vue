@@ -9,6 +9,7 @@
   import { requested, waits } from '@/lib/waits';
   import CloseConfirm from './CloseConfirm.vue';
   import QueueMenu from './QueueMenu.vue';
+  import SpecMark from './SpecMark.vue';
 
   const props = defineProps<{
     task: Task;
@@ -23,6 +24,8 @@
     busy?: boolean;
     /** It changed between the board a refused change was made on and the board read after it. */
     changed?: boolean;
+    /** Its spec is one of the project's: its mark opens it on the Specs view. */
+    specOpens?: boolean;
   }>();
 
   defineEmits<{
@@ -32,6 +35,7 @@
     pause: [ask: boolean];
     resume: [];
     close: [];
+    openSpec: [spec: string];
   }>();
 
   /** The question before closing the task is open: one press asks, the question's button closes. */
@@ -90,6 +94,13 @@
         <X />
       </Button>
     </div>
+    <SpecMark
+      v-if="task.spec"
+      :spec="task.spec"
+      :openable="specOpens"
+      class="-mt-1.5 px-4 pb-2.5"
+      @open="(spec) => $emit('openSpec', spec)"
+    />
     <CloseConfirm
       v-if="task.closable && confirming && !busy"
       :task="task.id"
