@@ -532,13 +532,13 @@ export function localSource(
     for (const [id, entry] of entries) signal({ id, revision: entry.shown?.revision ?? null });
   }
 
+  /** The machine's Jig being read, shared by every read asked meanwhile. */
+  let reading: Promise<(MachineJig & { updatable: boolean }) | null> | undefined;
+
   /**
    * The main checkout whose Jig hands `jig self-update` to the machine's: one whose last read says a release is out —
    * a Jig that knows the command — else the first connected project with a Jig.
    */
-  /** The machine's Jig being read, shared by every read asked meanwhile. */
-  let reading: Promise<(MachineJig & { updatable: boolean }) | null> | undefined;
-
   async function selfUpdateRoot(): Promise<string | undefined> {
     const projects = (await readProjects(configDir).catch(() => [])).filter((p) => hasJig(p.path));
     const saysRelease = (id: string): boolean => {

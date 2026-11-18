@@ -224,3 +224,10 @@ export const jigNewer = (
     latest: string | null;
   } | null,
 ): string | null => (jig?.latest && older(jig.installed, jig.latest) ? jig.latest : null);
+
+/**
+ * What the header reads this machine's Jig again for, as one key: the last self-update's end, the release a project
+ * heard of, and the connected projects, which decide whether one can run the update. A project's other changes leave it.
+ */
+export const jigReadKey = (projects: { id: string }[], machine: Pick<Machine, 'selfUpdate' | 'release'>): string =>
+  [machine.selfUpdate?.state === 'done' ? machine.selfUpdate.at : '', machine.release ?? '', ...projects.map((p) => p.id).sort()].join(' ');
