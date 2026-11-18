@@ -26,10 +26,13 @@
       <dd class="mb-1 @sm:mb-0">{{ placeLine(details) }}</dd>
       <dt class="text-[13px] text-muted-foreground">Waits for</dt>
       <dd class="mb-1 @sm:mb-0">
-        <template v-if="details.dependsOn.length === 0">nothing in the queue</template>
-        <ul v-else>
-          <li v-for="d in details.dependsOn" :key="`${d.through}>${d.on}`">{{ waitLine(d) }}</li>
-        </ul>
+        <!-- The task's page changes it here. -->
+        <slot name="waits">
+          <template v-if="details.dependsOn.length === 0">nothing in the queue</template>
+          <ul v-else>
+            <li v-for="d in details.dependsOn" :key="`${d.through}>${d.on}`">{{ waitLine(d) }}</li>
+          </ul>
+        </slot>
       </dd>
       <dt class="text-[13px] text-muted-foreground">Filed, changed</dt>
       <dd class="mb-1 @sm:mb-0">{{ details.createdAt ?? '—' }}, {{ details.updatedAt ?? '—' }}</dd>

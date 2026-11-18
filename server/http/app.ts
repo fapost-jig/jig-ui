@@ -18,6 +18,7 @@ import {
   type Place,
   type ProjectSource,
   RegistryUnreadable,
+  type TaskWrite,
   type Written,
 } from '../source/project-source.js';
 import type { Newer } from '../release.js';
@@ -95,6 +96,16 @@ const isKey = (v: unknown): v is string => typeof v === 'string' && /^[a-z][a-z0
 /** A setting's value as the page sends one: a line of at most 500 characters; Jig checks the rest, an empty one included. */
 const isValue = (v: unknown): v is string => typeof v === 'string' && v.length <= 500 && !/[\r\n]/.test(v);
 
+/** A reason as Jig takes one with an abandon or a dependency: a line of text without a tab, at most 500 characters. */
+const isReason = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= 500 && !/[\r\n\t]/.test(v);
+
+/** A person's write on a task the page runs, by the id of Jig's action that offers it. */
+const isTaskWrite = (v: unknown): v is TaskWrite =>
+  v === 'approve-gate' || v === 'abandon' || v === 'archive' || v === 'unarchive' || v === 'drop-item';
+
+/** An item of Jig's queue a task waits for: `task:<id>` or `epic:<spec>`, the id never a flag. */
+const isQueueRef = (v: unknown): v is string => typeof v === 'string' && /^(task|epic):[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(v);
+
 /** A decision on a knowledge document, as Jig's command is named: `reviewed` keeps a changed linked file. */
 const isDecision = (v: unknown): v is KnowledgeDecision => v === 'accept' || v === 'reject' || v === 'reviewed';
 
@@ -121,6 +132,38 @@ function itemPlace(v: unknown): ItemPlace | undefined {
   if (v === 'top') return v;
   const [after, phase] = [field(v, 'after'), field(v, 'phase')];
   return isId(after) ? { after } : isPhase(phase) ? { phase } : undefined;
+}
+
+/** The body of a person's write on a task: the task, the action of Jig's it runs, its reason — an abandon's only — and the revision; `undefined` where invalid. */
+function writeAt(body: unknown): {
+  task?: string;
+  action?: TaskWrite;
+  reason?: string;
+  revision?: number;
+} {
+  const [task, action, reason, revision] = ['task', 'action', 'reason', 'revision'].map((k) => field(body, k));
+  return {
+    task: isId(task) ? task : undefined,
+    action: isTaskWrite(action) ? action : undefined,
+    reason: isReason(reason) ? reason : undefined,
+    revision: isRevision(revision) ? revision : undefined,
+  };
+}
+
+/** The body of a change of what a task waits for: the task, the queue item, the reason a new one needs, and the revision. */
+function dependAt(body: unknown): {
+  task?: string;
+  on?: string;
+  reason?: string;
+  revision?: number;
+} {
+  const [task, on, reason, revision] = ['task', 'on', 'reason', 'revision'].map((k) => field(body, k));
+  return {
+    task: isId(task) ? task : undefined,
+    on: isQueueRef(on) ? on : undefined,
+    reason: isReason(reason) ? reason : undefined,
+    revision: isRevision(revision) ? revision : undefined,
+  };
 }
 
 /** The body of a write that names only a task: the task and the revision it was read at, `undefined` where invalid. */
@@ -254,7 +297,10 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
         if (read.state !== 'ready') return c.json({ task: read }, 200);
         if (read.task === null) return refuse(c, 404, 'not-found', 'This project has no live task with this id.');
-        return c.json({ task: { state: read.state, ...read.task, column: placeOf(read.task) } }, 200);
+        return c.json(
+          { task: { state: read.state, ...read.task, column: placeOf(read.task), revision: read.revision, writes: read.writes } },
+          200,
+        );
       })
 
       // A task's documents, read through the project's Jig at each call: the list, then one as it is written.
@@ -523,6 +569,31 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         const { task, revision } = c.req.valid('json');
         if (task === undefined || revision === undefined) return refuse(c, 422, 'usage', 'Give a task and the revision it was read at.');
         return written(c, await source.close(c.req.param('id'), task, revision));
+      })
+
+      // A person's write on a task: an abandon needs its reason, the rest none.
+      .post('/api/projects/:id/tasks/act', validator('json', writeAt), async (c) => {
+        const { task, action, reason, revision } = c.req.valid('json');
+        if (task === undefined || action === undefined || revision === undefined || (action === 'abandon' && reason === undefined)) {
+          return refuse(c, 422, 'usage', 'Give a task, the action, its reason for an abandon, and the revision it was read at.');
+        }
+        return edited(c, await source.act(c.req.param('id'), task, action, action === 'abandon' ? (reason ?? null) : null, revision));
+      })
+
+      .post('/api/projects/:id/queue/depend', validator('json', dependAt), async (c) => {
+        const { task, on, reason, revision } = c.req.valid('json');
+        if (task === undefined || on === undefined || reason === undefined || revision === undefined) {
+          return refuse(c, 422, 'usage', 'Give a task, what it waits for, the reason, and the revision it was read at.');
+        }
+        return written(c, await source.depend(c.req.param('id'), task, on, reason, revision));
+      })
+
+      .post('/api/projects/:id/queue/undepend', validator('json', dependAt), async (c) => {
+        const { task, on, revision } = c.req.valid('json');
+        if (task === undefined || on === undefined || revision === undefined) {
+          return refuse(c, 422, 'usage', 'Give a task, what it no longer waits for, and the revision it was read at.');
+        }
+        return written(c, await source.undepend(c.req.param('id'), task, on, revision));
       })
 
       // A setting is the person's own, in this clone's file only; the write carries the revision of the settings read.

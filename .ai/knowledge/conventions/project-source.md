@@ -53,7 +53,9 @@ The port is `ProjectSource` in `server/source/project-source.ts` — the workspa
 (`project(id)`), for a page that lists the projects before their reads land, a project's
 live tasks, how many finished ones Jig still keeps and whether it is on Jig's staging flow (`tasks(id)`, for the board;
 the flow from its tasks, or, with none listed, from `config keys`), those finished tasks (`finished(id)`,
-read through Jig at each call and kept nowhere, so a failure stays its own answer and never becomes the project's state), one live task in full (`task(id, taskId)`), a task's documents (`artifacts(id, taskId)`, and one as it
+read through Jig at each call and kept nowhere, so a failure stays its own answer and never becomes the project's state —
+only what Jig offered on each, in memory, for a write from that list), one live task in full (`task(id, taskId)`, with
+the revision of its board read and whether its Jig takes a person's writes), a task's documents (`artifacts(id, taskId)`, and one as it
 is written, `artifact(id, taskId, kind)`, read through Jig at each call), its specs
 (`specs(id)`), its settings (`settings(id)`, as `jig config keys` lists them with a revision of their own,
 read through Jig at each call), `readAgain(id)` — the project read through Jig now, for a person's Read again — `scan(folder?)`, the
@@ -67,7 +69,11 @@ queue — `requestPause(id, taskId, revision)`,
 Jig's report on `written` as `report` —, `refresh(id)` — what it did on `written` as `refreshed` —, and
 `setSetting(id, key, value, revision)` and `unsetSetting(id, key, revision)` — the person's own keys, always
 `--local` —, and a spec's roadmap edits `addItem(id, specId, phase, text, revision)`,
-`moveItem(id, specId, item, place, revision)` and `fileItem(id, specId, item, taskId, goal, revision)`, and the
+`moveItem(id, specId, item, place, revision)` and `fileItem(id, specId, item, taskId, goal, revision)`, a person's
+writes on a task `act(id, taskId, write, reason, revision)` — only one Jig offers in the last read of the task, or of
+the finished list for a finished one — and `depend(id, taskId, on, reason, revision)` and `undepend(id, taskId, on,
+revision)` — between live tasks or onto an open epic, and only a dependency of the task's own —, all three
+`unsupported` below `WRITES_JIG_VERSION` without Jig (adr-20261118-a-person-writes-on-a-task-from-its-page), and the
 knowledge waiting for a decision — `knowledge(id)`, with a revision of its own and whether the project's Jig
 reads a document's text, drops a link and decides several documents in one write (`canRead`, `canDrop`,
 `canDecideMany`), a linked file's diff `knowledgeDiff(id, doc)`

@@ -8,6 +8,7 @@ const task = (more: Partial<FinishedTask> = {}): FinishedTask => ({
   goal: 'Fix the typo.',
   updatedAt: '2026-10-24',
   pullRequest: null,
+  offers: [],
   ...more,
 });
 
@@ -15,6 +16,7 @@ describe('finished', () => {
   it('says a closed task went well and an abandoned one quietly', () => {
     expect(finished(task())).toEqual({ word: 'closed', tone: 'good', pr: undefined });
     expect(finished(task({ status: 'abandoned' }))).toEqual({ word: 'abandoned', tone: 'quiet', pr: undefined });
+    expect(finished(task({ status: 'archived' }))).toEqual({ word: 'archived', tone: 'quiet', pr: undefined });
   });
 
   it('names a pull request by its number and state, with its link', () => {
@@ -46,8 +48,8 @@ describe('latestFirst', () => {
 
 describe('noFinished', () => {
   it('says why there is no list, and nothing when there is one', () => {
-    expect(noFinished({ state: 'ready', tasks: [task()] })).toBeUndefined();
-    expect(noFinished({ state: 'ready', tasks: [] })).toContain('no finished tasks');
+    expect(noFinished({ state: 'ready', tasks: [task()], revision: 1 })).toBeUndefined();
+    expect(noFinished({ state: 'ready', tasks: [], revision: 1 })).toContain('no finished tasks');
     expect(noFinished({ id: 'x', state: 'unreadable', code: 'failed' })).toBe('Jig could not list the finished tasks.');
     expect(noFinished({ id: 'x', state: 'unreadable', code: 'timeout' })).toContain('in time');
     expect(noFinished({ id: 'x', state: 'unreadable', code: 'upgrading' })).toContain('being upgraded');
@@ -57,7 +59,7 @@ describe('noFinished', () => {
 });
 
 describe('settleFinished', () => {
-  const ready = { id: 'p', state: 'ready', tasks: [task()] } as Finished;
+  const ready = { id: 'p', state: 'ready', tasks: [task()], revision: 1 } as Finished;
   const unreadable = { id: 'p', state: 'unreadable', code: 'failed' } as Finished;
   const incompatible = { id: 'p', state: 'incompatible', jigVersion: '9.0.0' } as Finished;
 

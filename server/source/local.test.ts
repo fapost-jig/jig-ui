@@ -67,6 +67,7 @@ function lists(answer: ListAnswer) {
     },
     consolidated: only('consolidated'),
     abandoned: only('abandoned'),
+    archived: only('archived'),
   };
 }
 
@@ -84,7 +85,7 @@ function project(
     abandoned?: unknown;
     specs?: unknown;
     queue?: unknown;
-    /** What `queue move`, `set`, `request`, `cancel`, `task new`, `task resume`, `task set … --json` and `config set|unset` print, once no file `hold` is in the project: an envelope's `data`, or a refusal's code. */
+    /** What `queue move`, `set`, `request`, `cancel`, `depend`, `undepend`, `task new`, `task resume`, `task set … --json`, a person's write on a task and `config set|unset` print, once no file `hold` is in the project: an envelope's `data`, or a refusal's code. */
     write?: unknown;
     /** What `upgrade --dry-run` prints, as `data`, or a whole envelope as a string. */
     plan?: unknown;
@@ -140,6 +141,7 @@ function project(
   const listed = lists((answers.tasks ?? { tasks: [], hidden: 0, housekeeping: null }) as ListAnswer);
   writeFileSync(join(dir, 'tasks.json'), envelope(listed.live));
   writeFileSync(join(dir, 'consolidated.json'), envelope(listed.consolidated));
+  writeFileSync(join(dir, 'archived.json'), envelope(listed.archived));
   writeFileSync(join(dir, 'specs.json'), typeof answers.specs === 'string' ? answers.specs : envelope(answers.specs ?? { specs: [] }));
   writeFileSync(join(dir, 'queue.json'), envelope(answers.queue ?? { items: [] }));
   const write = answers.write ?? { ref: 'task:x', item: null };
@@ -187,10 +189,11 @@ case "$*" in
   "status --json") cat status.json; exit ${refused ? 1 : 0} ;;
   "task list --json") cat tasks.json ;;
   "task list --status consolidated --json") cat consolidated.json ;;
+  "task list --status archived --json") cat archived.json ;;
   "task list --status abandoned --json") while [ -f hold-finished ]; do sleep 0.05; done; cat abandoned.json; if grep -q '"error"' abandoned.json; then exit 1; fi ;;
   "spec list --json") cat specs.json ;;
   "queue list --json") cat queue.json ;;
-  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
+  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*|"task gate "*|"task abandon "*|"task archive "*|"task unarchive "*|"spec drop "*|"queue depend "*|"queue undepend "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
   "spec item "*) while [ -f hold ]; do sleep 0.05; done; cat item.json; if grep -q '"error"' item.json; then exit 1; fi ;;
   "task artifacts "*) while [ -f hold-artifacts ]; do sleep 0.05; done; cat artifacts.json; if grep -q '"error"' artifacts.json; then exit 1; fi ;;
   "config keys --json") cat settings.json ;;
@@ -273,7 +276,7 @@ describe("localSource, a task's documents", () => {
     });
     expect(await source.artifact('documents', 'b', 'plan')).toEqual({
       state: 'ready',
-      artifact: { kind: 'plan', updatedAt: '2026-10-30T07:00:00Z', bytes: 7, content: '# Plan\n' },
+      artifact: { kind: 'plan', updatedAt: '2026-10-30T07:00:00Z', bytes: 7, content: '# Plan\n', revision: 7 },
     });
     expect(calls(dir)).toEqual(expect.arrayContaining(['task artifacts b --json', 'task artifact read b plan --json']));
   });
@@ -627,9 +630,11 @@ describe('localSource', () => {
           goal: 'Goal of closed',
           updatedAt: '2026-10-24',
           pullRequest: { url: 'https://github.com/o/r/pull/9', state: 'merged' },
+          offers: [],
         },
-        { id: 'dropped', status: 'abandoned', goal: null, updatedAt: '2026-10-17', pullRequest: null },
+        { id: 'dropped', status: 'abandoned', goal: null, updatedAt: '2026-10-17', pullRequest: null, offers: [] },
       ],
+      revision: 7,
     });
     expect(await source.tasks('waiting')).toEqual({
       state: 'ready',
@@ -650,6 +655,9 @@ describe('localSource', () => {
     const read = await source.task('busy', 'b');
     expect(read).toEqual({
       state: 'ready',
+      // Jig 0.31.0 takes none of a person's writes: the page shows each offer as its command.
+      revision: 7,
+      writes: false,
       task: expect.objectContaining({
         id: 'b',
         baseBranch: 'main',
@@ -671,8 +679,8 @@ describe('localSource', () => {
         dependsOn: [],
       },
     });
-    expect(await source.task('busy', 'gone-task')).toEqual({ state: 'ready', task: null });
-    expect(await source.task('busy', 'closed')).toEqual({ state: 'ready', task: null });
+    expect(await source.task('busy', 'gone-task')).toEqual({ state: 'ready', task: null, revision: 7, writes: false });
+    expect(await source.task('busy', 'closed')).toEqual({ state: 'ready', task: null, revision: 7, writes: false });
     expect(await source.task('old', 'a')).toEqual({ id: 'old', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0' });
     expect(await source.task('nobody', 'a')).toBeUndefined();
   });
@@ -764,17 +772,20 @@ describe('localSource, the finished tasks', () => {
     expect(await source.finished('finished-read')).toEqual({
       state: 'ready',
       tasks: [
-        { id: 'closed', status: 'consolidated', goal: 'Goal of closed', updatedAt: '2026-10-17', pullRequest: null },
-        { id: 'dropped', status: 'abandoned', goal: null, updatedAt: '2026-10-17', pullRequest: null },
-        { id: 'zed', status: 'consolidated', goal: 'Goal of zed', updatedAt: '2026-10-17', pullRequest: null },
+        { id: 'closed', status: 'consolidated', goal: 'Goal of closed', updatedAt: '2026-10-17', pullRequest: null, offers: [] },
+        { id: 'dropped', status: 'abandoned', goal: null, updatedAt: '2026-10-17', pullRequest: null, offers: [] },
+        { id: 'zed', status: 'consolidated', goal: 'Goal of zed', updatedAt: '2026-10-17', pullRequest: null, offers: [] },
       ],
+      revision: 7,
     });
     expect(calls(dir)).toEqual(expect.arrayContaining(['task list --status consolidated --json', 'task list --status abandoned --json']));
+    // Below Jig 0.46.0 the page brings no archived task back, so none is read.
+    expect(calls(dir)).not.toContain('task list --status archived --json');
   });
 
   it('answers an empty list when Jig keeps none, and knows no project it does not have', async () => {
     await source.connect(project('finished-none', '0.31.0'));
-    expect(await source.finished('finished-none')).toEqual({ state: 'ready', tasks: [] });
+    expect(await source.finished('finished-none')).toEqual({ state: 'ready', tasks: [], revision: 7 });
     expect(await source.finished('nobody')).toBeUndefined();
   });
 
@@ -2274,7 +2285,7 @@ describe('localSource, upgrading a project', () => {
     await delay(300);
     expect(upgrades()).toBe(held);
     rmSync(join(dir, 'hold-finished'));
-    expect(await listing).toEqual({ state: 'ready', tasks: [] });
+    expect(await listing).toEqual({ state: 'ready', tasks: [], revision: 7 });
     await until(() => upgrades() > held);
     writeFileSync(join(dir, 'go'), '');
     await ended('behind-documents');
@@ -3091,5 +3102,135 @@ describe('localSource, checking the merge of an upgrade pull request', () => {
       expect(seen.at(-1)).toBe(false);
       unsubscribe();
     });
+  });
+});
+
+describe("localSource, a person's writes on a task", () => {
+  const source = localSource(join(root, 'person-writes-config'));
+  const offered = (task: string, ...ids: string[]) => ids.map((id) => ({ id, command: `jig ${id} ${task}`, offered: true, reason: null }));
+  const rows = [
+    task('gated', 'active', false, {
+      gate: { state: 'waiting', by: null },
+      actions: offered('gated', 'approve-gate', 'abandon', 'archive'),
+    }),
+    task('plain', 'active', false, { actions: offered('plain', 'pause') }),
+    task('dropped', 'abandoned', false, { actions: offered('dropped', 'archive', 'drop-item', 'reopen') }),
+    task('put-away', 'archived', false, { actions: offered('put-away', 'unarchive') }),
+  ];
+  const answers = {
+    tasks: { tasks: rows, hidden: 0, housekeeping: null },
+    specs: {
+      specs: [
+        {
+          id: 'shop',
+          title: null,
+          missing_files: [],
+          release: null,
+          epic: { branch: 'epic/shop', state: 'open', checked_out: false, missing: false, ref: null },
+          progress: null,
+          phases: [],
+        },
+      ],
+    },
+    queue: {
+      items: [
+        {
+          ref: 'task:gated',
+          kind: 'task',
+          id: 'gated',
+          level: null,
+          position: 100,
+          priority: null,
+          depends_on: [{ on: 'task:plain', reason: 'Its form' }],
+        },
+      ],
+    },
+    write: { task: {} },
+  };
+  const writes = (dir: string) =>
+    calls(dir).filter((c) => /^(task (gate|abandon|archive|unarchive)|spec drop|queue (depend|undepend)) /.test(c));
+
+  it("runs a write Jig offers on a live task against the revision of the read, an abandon's reason with it", async () => {
+    const dir = project('writes-live', '0.46.0', answers);
+    await source.connect(dir);
+    expect(await source.task('writes-live', 'gated')).toMatchObject({ revision: 7, writes: true });
+    expect(await source.act('writes-live', 'gated', 'approve-gate', null, 7)).toEqual({ state: 'written' });
+    expect(await source.act('writes-live', 'gated', 'abandon', 'lives elsewhere now', 7)).toEqual({ state: 'written' });
+    expect(await source.act('writes-live', 'gated', 'archive', null, 7)).toEqual({ state: 'written' });
+    expect(writes(dir)).toEqual([
+      'task gate gated approved --revision 7 --json',
+      'task abandon gated --reason lives elsewhere now --revision 7 --json',
+      'task archive gated --revision 7 --json',
+    ]);
+  });
+
+  it('refuses a write Jig does not offer, or on a task it does not know, without running Jig', async () => {
+    const dir = project('writes-unoffered', '0.46.0', answers);
+    await source.connect(dir);
+    expect(await source.act('writes-unoffered', 'plain', 'approve-gate', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.act('writes-unoffered', '--all', 'archive', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    // A finished task's offers are the ones its list last read, and it was not read yet.
+    expect(await source.act('writes-unoffered', 'dropped', 'archive', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(writes(dir)).toEqual([]);
+    expect(await source.act('nobody', 'gated', 'archive', null, 7)).toBeUndefined();
+  });
+
+  it('runs a finished task’s write as its last read list offered it, and lists the archived ones from Jig 0.46.0', async () => {
+    const dir = project('writes-finished', '0.46.0', {
+      ...answers,
+      write: { spec: 'shop', task: 'dropped', item: {}, write: { note: 'agent.git is push: the pull request is yours' } },
+    });
+    await source.connect(dir);
+    expect(await source.tasks('writes-finished')).toMatchObject({ finishedCount: 2 });
+    expect(await source.finished('writes-finished')).toMatchObject({
+      tasks: [
+        { id: 'dropped', status: 'abandoned', offers: ['archive', 'drop-item'] },
+        { id: 'put-away', status: 'archived', offers: ['unarchive'] },
+      ],
+      revision: 7,
+    });
+    expect(await source.act('writes-finished', 'dropped', 'drop-item', null, 7)).toEqual({
+      state: 'written',
+      note: 'agent.git is push: the pull request is yours',
+    });
+    expect(await source.act('writes-finished', 'put-away', 'archive', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.act('writes-finished', 'put-away', 'unarchive', null, 7)).toMatchObject({ state: 'written' });
+    expect(writes(dir)).toEqual(['spec drop dropped --revision 7 --json', 'task unarchive put-away --revision 7 --json']);
+  });
+
+  it('runs none below Jig 0.46.0, which shows each offer as its command', async () => {
+    const dir = project('writes-old', '0.45.0', answers);
+    await source.connect(dir);
+    expect(await source.task('writes-old', 'gated')).toMatchObject({ writes: false });
+    expect(await source.tasks('writes-old')).toMatchObject({ finishedCount: 1 });
+    expect(await source.act('writes-old', 'gated', 'archive', null, 7)).toEqual({ state: 'refused', code: 'unsupported' });
+    expect(await source.depend('writes-old', 'plain', 'task:gated', 'Needs the gate', 7)).toEqual({
+      state: 'refused',
+      code: 'unsupported',
+    });
+    expect(await source.undepend('writes-old', 'gated', 'task:plain', 7)).toEqual({ state: 'refused', code: 'unsupported' });
+    expect(writes(dir)).toEqual([]);
+  });
+
+  it('adds a dependency on a live task or an open epic, and takes back only one of its own', async () => {
+    const dir = project('writes-depends', '0.46.0', answers);
+    await source.connect(dir);
+    expect(await source.depend('writes-depends', 'plain', 'task:gated', 'Needs the gate', 7)).toEqual({ state: 'written' });
+    expect(await source.depend('writes-depends', 'plain', 'epic:shop', 'Needs the cart', 7)).toEqual({ state: 'written' });
+    expect(await source.undepend('writes-depends', 'gated', 'task:plain', 7)).toEqual({ state: 'written' });
+    for (const refused of [
+      source.depend('writes-depends', 'plain', 'task:gone', 'r', 7),
+      source.depend('writes-depends', 'plain', 'epic:nothing', 'r', 7),
+      source.depend('writes-depends', 'gone', 'task:plain', 'r', 7),
+      source.undepend('writes-depends', 'gated', 'task:other', 7),
+      source.undepend('writes-depends', 'plain', 'task:gated', 7),
+    ]) {
+      expect(await refused).toEqual({ state: 'refused', code: 'not-found' });
+    }
+    expect(writes(dir)).toEqual([
+      'queue depend task:plain --on task:gated --reason Needs the gate --revision 7 --json',
+      'queue depend task:plain --on epic:shop --reason Needs the cart --revision 7 --json',
+      'queue undepend task:gated --on task:plain --revision 7 --json',
+    ]);
   });
 });

@@ -32,7 +32,7 @@ first Jig with a queue (0.29.0 was the first that prints JSON). A write a later 
 does not raise it: it carries a version of its own, checked by the local adapter against the
 project's Jig before the page is offered the write — `RESUME_JIG_VERSION`, 0.35.0, for
 `resumeTask`, `ARTIFACTS_JIG_VERSION`, 0.39.0, for a task's documents, `ROADMAP_JIG_VERSION`, 0.40.0, for a
-roadmap's edits, `KNOWLEDGE_JIG_VERSION`, 0.40.0, for the knowledge waiting for a decision, `KNOWLEDGE_TEXT_JIG_VERSION`, 0.41.0, for a proposed document's text and a dropped link, `FILE_NEW_JIG_VERSION`, 0.41.0, for filing an item's new task in one write, `FILED_JIG_VERSION`, 0.42.0, for `already-filed` apart from a taken id, `DECIDE_JIG_VERSION`, 0.44.0, for several knowledge decisions in one write, and `REFRESH_JIG_VERSION`, 0.45.0, for bringing the clone up to origin — so a project on an older Jig is still read, and only that write is missing. `CLOSE_JIG_VERSION`, 0.40.0, is the other kind: the close is offered on any Jig, and the version picks how `closeTask` checks it. `STAGING_JIG_VERSION`, 0.45.0, is a read's: below it the adapter does not ask a project with no task listed for its `git.flow`. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
+roadmap's edits, `KNOWLEDGE_JIG_VERSION`, 0.40.0, for the knowledge waiting for a decision, `KNOWLEDGE_TEXT_JIG_VERSION`, 0.41.0, for a proposed document's text and a dropped link, `FILE_NEW_JIG_VERSION`, 0.41.0, for filing an item's new task in one write, `FILED_JIG_VERSION`, 0.42.0, for `already-filed` apart from a taken id, `DECIDE_JIG_VERSION`, 0.44.0, for several knowledge decisions in one write, `REFRESH_JIG_VERSION`, 0.45.0, for bringing the clone up to origin, and `WRITES_JIG_VERSION`, 0.46.0, for a person's writes on a task (adr-20261118-a-person-writes-on-a-task-from-its-page) — so a project on an older Jig is still read, and only that write is missing. `CLOSE_JIG_VERSION`, 0.40.0, is the other kind: the close is offered on any Jig, and the version picks how `closeTask` checks it. `STAGING_JIG_VERSION`, 0.45.0, is a read's: below it the adapter does not ask a project with no task listed for its `git.flow`. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
 found from `git --exec-path` (`<git>/mingw64/libexec/git-core` → `<git>/bin/bash.exe`), never a
 `bash` on PATH, which may be WSL's. It is asked once per process; a failed ask is not kept.
 
@@ -80,7 +80,10 @@ as and where it came from; it reaches the page whole, paths cut.
 A task-list read runs Jig's JSON task listing, the live tasks only, checks the envelope, then `data` through the
 `TaskList` schema — the status among Jig's own words — and returns typed tasks and the count of finished ones left out
 (`hidden`, less `archived` from Jig 0.37.0, which counts those among the hidden). The finished tasks themselves are
-`readFinishedTasks`: `--status` takes one status, so two runs, and either's failure fails the read. Jig's refusal throws `JigRefusal` with its code
+`readFinishedTasks`: `--status` takes one status, so a run for each — consolidated, abandoned, and archived when the
+caller asks (from `WRITES_JIG_VERSION`) — and any one's failure fails the read; its revision is the oldest of theirs,
+which a write from the list carries. A task document's read (`readArtifact`) answers its envelope's revision too: an
+approval of a design carries the oldest of its documents', so one rewritten since is refused. Jig's refusal throws `JigRefusal` with its code
 (an unknown code is `failed`, so a code the page tells apart is in the client's `CODES` with a test
 that it arrives as itself — `already-filed` reached the page as `failed` until task `release-0-7-0`); an envelope of another shape throws `JigShapeError`, which the
 project shows as `incompatible` ("update Jig UI"), never half-parsed. Each read has a contract
@@ -97,6 +100,12 @@ adds `not-paused`, `wrong-checkout` and `stash-conflict`; its answer (how long t
 stash applied) is not read. `pauseTask` (`jig task pause <id> --revision <n> --json`, from Jig 0.45.0,
 `PAUSE_JIG_VERSION`) names the task by its bare id too and adds `already-paused`. Its success answer carries the revision before
 the write, so the caller reads again; a test pins each command's arguments and a refusal.
+`writeTask` runs a person's write on a task by the id of Jig's action that offers it — `approve-gate` (`task gate <id>
+approved`), `abandon` (with `--reason`), `archive`, `unarchive`, `drop-item` (`spec drop <id>`, a roadmap write with its
+longer timeout, whose note it answers without a path) — and `depend` / `undepend` change what a task waits for
+(`queue depend|undepend task:<id> --on <ref>`, a reason with the first); each from `WRITES_JIG_VERSION`, adding the
+codes `no-gate`, `autopilot-running`, `autopilot-stopped`, `already-archived`, `not-archived`, `wrong-status` and
+`already-closed`.
 `fileTask` (`jig task new <id> --goal <text>`) takes no revision — Jig has none for it — and its
 tests pin that a person's goal reaches Jig as one argument, unglobbed
 (adr-20261022-filing-a-task-carries-no-revision). `closeTask` (`jig task set <id> status consolidated`) takes the

@@ -15,6 +15,11 @@ paths:
   - web/components/TaskDocuments.vue
   - web/lib/artifacts.ts
   - web/lib/markdown.ts
+  - web/components/GateApproval.vue
+  - web/components/TaskWrites.vue
+  - web/components/DependsEditor.vue
+  - web/lib/writes.ts
+  - web/components/ActionList.vue
 summary: What a task's details show from Jig's task row and queue, and its documents on the full page; why only offered actions reach the page and a document is shown as written
 reviewed_at: 2026-11-18
 ---
@@ -25,7 +30,7 @@ reviewed_at: 2026-11-18
 A click on a board card expands it into the task's facts; in the List, a selected row shows them
 in a pane (`web/components/TaskBrief.vue`), with a button that copies the task's id. "Open full
 details" opens `#/projects/<id>/tasks/<task>` (`web/views/TaskView.vue`), the page links land on,
-and only it lists the actions Jig offers. All three are served by
+and only it lists the actions Jig offers — from Jig 0.46.0 running some of them itself (below). All three are served by
 `GET /api/projects/:id/tasks/:task` from `ProjectSource.task`: the task's row from Jig's task list
 in full — column (the board's rule), status, class, branch and base, worktree's uncommitted count,
 knowledge decision, dates, gate, autopilot run with its stage and stop question, pull request with
@@ -46,6 +51,15 @@ and rendered from its Markdown (`web/lib/markdown.ts`). Both are read through Ji
 held with the board's read; on a change of the project the list and every open document are read
 again. A project on an older Jig says so in the section.
 
+From Jig 0.46.0 the full page **runs a person's writes** where Jig offers them
+(adr-20261118-a-person-writes-on-a-task-from-its-page): a design at its gate is shown as written with **Approve the
+design** under it (`web/components/GateApproval.vue`), **Abandon…** with its reason and **Archive** sit above the
+commands (`web/components/TaskWrites.vue`), and "Waits for" takes a dependency away or adds one
+(`web/components/DependsEditor.vue`). The rest of the offered actions stay commands to copy; `start` is the request
+for the person's agent instead. Each write carries the revision of the read it was made on — the approval, the oldest
+of the design documents' reads — and the page reads the task again after it, or goes back to the board once the task
+is no longer live.
+
 ## Why
 
 A card answers "where does it stand"; the details answer "what is it waiting for, and what do I
@@ -59,7 +73,9 @@ so the page never decides what is allowed.
 - **Only offered actions reach the page, without a reason.** An action's `reason` is Jig's refusal
   text word for word and can name a checkout or worktree path; no path reaches `web/` (RULES.md).
   For the same reason the worktree is only its `uncommitted` count — JigClient drops the path.
-- **Jig UI runs no action** in Phase 1: the page shows the command to run in the project.
+- **Jig UI runs only the writes of its ADR**, and only where Jig offers them on a Jig that takes them (0.46.0): an
+  approval, an abandon, an archive and the task's dependencies. Every other action is the command to run in the
+  project, and starting a task is the agent's work, never the page's.
 - **A document is shown as written**, a path in it included — the one other place a path reaches
   the page besides Find projects (adr-20261030-a-task-document-is-shown-as-written). What Jig UI
   adds about it names none: its kind, time, size, and Jig's fixed word for one it cannot read.
@@ -73,8 +89,8 @@ so the page never decides what is allowed.
   JSON). They are read for a live task only, and not while the project upgrades.
 - Details cost no extra Jig run: the local adapter keeps one detail per live task in the same read
   as the board's rows (feature-live-updates). A finished task has none; its link says so.
-- An action id this Jig UI does not know is ignored in `server/jig/client.ts`, as Jig's contract
-  asks of a consumer; the page names the ten it knows.
+- An action id this Jig UI does not know is ignored in `server/jig/client.ts` (`ACTIONS`), as Jig's contract
+  asks of a consumer; the page names the ones it knows.
 - Strict validation: the whole task row is checked (convention-jig-client), so a Jig that changes
   an action's or the autopilot's shape makes the project `incompatible`, not half-read.
 

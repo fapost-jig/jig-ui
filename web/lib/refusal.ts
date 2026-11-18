@@ -67,3 +67,25 @@ export function fileItemRefusal(code: string, reasons: string[], task: string, f
   if (code === 'already-exists' && reasons.length > 0) return `Jig did not file ${task}: ${reasons.join(' ')}`;
   return code === 'usage' ? 'Jig does not take this id or goal: one line of goal, not starting with #.' : undefined;
 }
+
+/**
+ * The line for a person's write on a task that Jig refused — approving its design, abandoning, archiving or bringing it
+ * back, closing its roadmap item, adding or removing a dependency: a stale revision as the project having changed since
+ * it was read, the design included; somebody having done it first; `agent.git: none` sending to Settings; Jig's own
+ * reasons, paths already cut out by the server, where it gave them; anything else as `refusal` says it.
+ */
+export function writeRefusal(code: string, reasons: string[], doing: string, task: string): string {
+  if (code === 'stale-revision') return `The project changed while you were ${doing} ${task}. Look at it again as it is now.`;
+  if (code === 'not-found') return `${task} does not offer this any more: look at it again as it is now.`;
+  if (code === 'already-archived') return `Somebody archived ${task} first.`;
+  if (code === 'not-archived') return `Somebody brought ${task} back first.`;
+  if (code === 'already-closed') return `The roadmap item of ${task} is closed already.`;
+  if (code === 'no-gate') return `${task} has no design waiting at its gate any more.`;
+  if (code === 'autopilot-running') return `${task}'s autopilot run is on: the approval there is the agent's.`;
+  if (code === 'autopilot-stopped') return `${task}'s autopilot run stopped on a question: answer it, or take the task over, first.`;
+  if (code === 'wrong-status') return `${task} is no longer in a state that takes this: look at it again as it is now.`;
+  if (code === 'write-busy') return 'Jig is making another change in this project: try again in a moment.';
+  if (code === 'git-not-allowed') return NO_COMMITS;
+  if (reasons.length > 0) return `Jig refused ${doing} ${task}: ${reasons.join(' ')}`;
+  return refusal(code, doing, task);
+}

@@ -1,7 +1,7 @@
 import { type Finished, link } from '../api';
 import type { Tone } from './tones';
 
-/** A closed or abandoned task as its list carries it, while Jig keeps its workspace. */
+/** A closed, abandoned or archived task as its list carries it, while Jig keeps its workspace. */
 export type FinishedTask = Extract<Finished, { state: 'ready' }>['tasks'][number];
 
 /**
@@ -19,11 +19,18 @@ export function finished(task: FinishedTask): {
   const pr = task.pullRequest;
   const number = pr && /\/(?:pull|merge_requests)\/(\d+)$/.exec(pr.url)?.[1];
   return {
-    word: task.status === 'consolidated' ? 'closed' : 'abandoned',
+    word: task.status === 'consolidated' ? 'closed' : task.status,
     tone: task.status === 'consolidated' ? 'good' : 'quiet',
     pr: pr ? { text: `${number ? `#${number}` : 'Pull request'}${pr.state ? ` ${pr.state}` : ''}`, url: link(pr.url) } : undefined,
   };
 }
+
+/** What a finished task's menu offers, in the order it lists them, as Jig offers them. */
+export const FINISHED_WRITES = [
+  { write: 'unarchive', label: 'Bring back' },
+  { write: 'drop-item', label: 'Close its roadmap item' },
+  { write: 'archive', label: 'Archive' },
+] as const;
 
 /** The finished tasks, the latest first; of one day, in Jig's order. */
 export const latestFirst = (tasks: FinishedTask[]): FinishedTask[] =>

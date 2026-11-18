@@ -186,7 +186,7 @@ export const board: Column[] = [
 /** A board with no live task. */
 export const emptyBoard: Column[] = board.map((c) => ({ ...c, cards: [] }));
 
-/** Closed with its pull request merged, abandoned with none, and one without a goal. */
+/** Closed with its pull request merged, abandoned with none, and one archived without a goal; each with what Jig offers on it. */
 export const finished: FinishedTask[] = [
   {
     id: 'file-backlog-task',
@@ -194,9 +194,17 @@ export const finished: FinishedTask[] = [
     goal: 'File a minimal backlog task from the page.',
     updatedAt: '2026-10-25',
     pullRequest: { url: 'https://github.com/fapost-lab/jig-ui/pull/40', state: 'merged' },
+    offers: ['archive'],
   },
-  { id: 'pr-template', status: 'abandoned', goal: 'A pull request template.', updatedAt: '2026-10-17', pullRequest: null },
-  { id: 'old-spike', status: 'abandoned', goal: null, updatedAt: '2026-10-12', pullRequest: null },
+  {
+    id: 'pr-template',
+    status: 'abandoned',
+    goal: 'A pull request template.',
+    updatedAt: '2026-10-17',
+    pullRequest: null,
+    offers: ['archive', 'drop-item'],
+  },
+  { id: 'old-spike', status: 'archived', goal: null, updatedAt: '2026-10-12', pullRequest: null, offers: ['unarchive'] },
 ];
 
 export const columns = [
@@ -253,6 +261,8 @@ export const actions = [
 
 const base = {
   state: 'ready' as const,
+  revision: 1794994851,
+  writes: true,
   issue: null,
   baseBranch: 'main',
   createdAt: '2026-10-17',
@@ -587,6 +597,7 @@ export const openDocument: TaskArtifact = {
   kind: 'design',
   updatedAt: hourAgo,
   bytes: 5288,
+  revision: 1794994851,
   content: [
     '# Design — task-artifacts',
     '',

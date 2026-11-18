@@ -11,6 +11,9 @@ import {
   cancelPause,
   closeTask,
   decideKnowledge,
+  depend,
+  undepend,
+  writeTask,
   fileTask,
   housekeeping,
   jigVersion,
@@ -105,25 +108,41 @@ describe('readFinishedTasks', () => {
     const dir = answering(name, '{}');
     writeFileSync(join(dir, 'consolidated.json'), consolidated);
     writeFileSync(join(dir, 'abandoned.json'), abandoned);
+    copyFileSync(fixture('task-list-archived.json'), join(dir, 'archived.json'));
     writeFileSync(
       join(dir, '.ai', 'scripts', 'jig'),
-      `#!/usr/bin/env bash\necho "$*" >> calls.log\ncase "$*" in\n  *consolidated*) cat consolidated.json ;;\n  *abandoned*) cat abandoned.json; grep -q '"error"' abandoned.json && exit 1 ;;\nesac\nexit 0\n`,
+      `#!/usr/bin/env bash\necho "$*" >> calls.log\ncase "$*" in\n  *consolidated*) cat consolidated.json ;;\n  *abandoned*) cat abandoned.json; grep -q '"error"' abandoned.json && exit 1 ;;\n  *archived*) cat archived.json ;;\nesac\nexit 0\n`,
     );
     return dir;
   };
   const closed = changed('task-list-all.json', (d) => (d.tasks = d.tasks.filter((t: { status: string }) => t.status === 'consolidated')));
   const dropped = readFileSync(fixture('task-list-status-abandoned.json'), 'utf8');
 
-  it('asks for one status at a time, and reads both by id', async () => {
+  it('asks for one status at a time, and reads both by id at the oldest of their revisions', async () => {
     const dir = finishedJig('finished', closed, dropped);
-    expect((await readFinishedTasks(dir)).map((t) => [t.id, t.status])).toEqual([
+    const read = await readFinishedTasks(dir);
+    expect(read.tasks.map((t) => [t.id, t.status])).toEqual([
       ['fix-typo', 'consolidated'],
       ['old-idea', 'abandoned'],
     ]);
+    expect(read.revision).toBe(1792922487);
     expect(readFileSync(join(dir, 'calls.log'), 'utf8').trim().split('\n').sort()).toEqual([
       'task list --status abandoned --json',
       'task list --status consolidated --json',
     ]);
+  });
+
+  // task-list-archived.json is what Jig 0.46.0 printed in a scratch repository.
+  it('reads the archived ones too when asked, with what Jig offers on each', async () => {
+    const dir = finishedJig('finished-archived', closed, dropped);
+    const read = await readFinishedTasks(dir, true);
+    expect(read.tasks.map((t) => [t.id, t.status])).toEqual([
+      ['fix-typo', 'consolidated'],
+      ['old-idea', 'abandoned'],
+      ['put-away', 'archived'],
+    ]);
+    expect(read.tasks[2]?.actions.filter((a) => a.offered).map((a) => a.id)).toEqual(['unarchive']);
+    expect(readFileSync(join(dir, 'calls.log'), 'utf8')).toContain('task list --status archived --json');
   });
 
   it('refuses as a whole when either status is refused', async () => {
@@ -1302,7 +1321,8 @@ describe("a task's documents", () => {
   it('reads one as it is written', async () => {
     const dir = logging(`case-${cases++}`, 'task-artifact-read.json');
     const read = await readArtifact(dir, 'task-artifacts', 'discovery');
-    expect(read).toMatchObject({ kind: 'discovery', updatedAt: '2026-10-30T06:57:46Z', bytes: 1993 });
+    // The revision it was read at: an approval of a design carries it, so one rewritten since is not approved.
+    expect(read).toMatchObject({ kind: 'discovery', updatedAt: '2026-10-30T06:57:46Z', bytes: 1993, revision: 1792230932 });
     expect(read.content).toMatch(/^# Discovery — task-artifacts\n\nRe-classified T2 → T3/);
     expect(args(dir)).toEqual(['task', 'artifact', 'read', 'task-artifacts', 'discovery', '--json']);
   });
@@ -1893,5 +1913,70 @@ describe('stopJig', () => {
 
   it('has nothing to stop when nothing runs', async () => {
     await expect((await fresh()).stopJig(10)).resolves.toBeUndefined();
+  });
+});
+
+// task-gate*.json, task-abandon*.json, task-archive*.json, task-unarchive*.json, spec-drop*.json and queue-*depend.json are
+// what Jig 0.46.0 printed in a scratch repository; task-gate.json's row is one Jig printed for an approved gate.
+describe('writeTask', () => {
+  it.each([
+    ['approve-gate' as const, null, 'task-gate.json', ['task', 'gate', 'gated', 'approved', '--revision', '7', '--json']],
+    [
+      'abandon' as const,
+      'lives elsewhere now',
+      'task-abandon.json',
+      ['task', 'abandon', 'gated', '--reason', 'lives elsewhere now', '--revision', '7', '--json'],
+    ],
+    ['archive' as const, null, 'task-archive.json', ['task', 'archive', 'gated', '--revision', '7', '--json']],
+    ['unarchive' as const, null, 'task-unarchive.json', ['task', 'unarchive', 'gated', '--revision', '7', '--json']],
+  ])('runs %s against the revision it was read at, the reason Jig takes once', async (write, reason, json, expected) => {
+    const dir = logging(`case-${cases++}`, json);
+    await expect(writeTask(dir, 'gated', write, reason, 7)).resolves.toBeNull();
+    expect(args(dir)).toEqual(expected);
+  });
+
+  it("closes a task's roadmap item and gives Jig's note without a path", async () => {
+    const dir = logging(`case-${cases++}`, 'spec-drop.json');
+    await expect(writeTask(dir, 'dropme', 'drop-item', null, 7)).resolves.toBe('agent.git is push: the pull request is yours');
+    expect(args(dir)).toEqual(['spec', 'drop', 'dropme', '--revision', '7', '--json']);
+  });
+
+  it.each([
+    ['task-gate-stale.json', 'approve-gate' as const, 'stale-revision'],
+    ['task-gate-no-gate.json', 'approve-gate' as const, 'no-gate'],
+    ['task-archive-already.json', 'archive' as const, 'already-archived'],
+    ['task-unarchive-not-archived.json', 'unarchive' as const, 'not-archived'],
+    ['spec-drop-already-closed.json', 'drop-item' as const, 'already-closed'],
+    ['spec-drop-git-not-allowed.json', 'drop-item' as const, 'git-not-allowed'],
+  ])('carries the refusal in %s as its code', async (json, write, code) => {
+    await expect(writeTask(answering(`case-${cases++}`, json, 1), 'gated', write, null, 1)).rejects.toEqual(refusal(code));
+  });
+});
+
+describe('depend and undepend', () => {
+  it('adds a dependency with its reason, and takes one back, against the revision it was read at', async () => {
+    const added = logging(`case-${cases++}`, 'queue-depend.json');
+    await depend(added, 'gated', 'task:small', 'needs the small one first', 7);
+    expect(args(added)).toEqual([
+      'queue',
+      'depend',
+      'task:gated',
+      '--on',
+      'task:small',
+      '--reason',
+      'needs the small one first',
+      '--revision',
+      '7',
+      '--json',
+    ]);
+    const removed = logging(`case-${cases++}`, 'queue-undepend.json');
+    await undepend(removed, 'gated', 'epic:x', 7);
+    expect(args(removed)).toEqual(['queue', 'undepend', 'task:gated', '--on', 'epic:x', '--revision', '7', '--json']);
+  });
+
+  it('carries a refusal as its code', async () => {
+    await expect(depend(answering(`case-${cases++}`, 'queue-stale.json', 1), 'a', 'task:b', 'r', 1)).rejects.toEqual(
+      refusal('stale-revision'),
+    );
   });
 });

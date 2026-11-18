@@ -11,7 +11,9 @@
   import ColumnHeader from '@/components/ColumnHeader.vue';
   import ConnectForm from '@/components/ConnectForm.vue';
   import FoundProjects from '@/components/FoundProjects.vue';
+  import DependsEditor from '@/components/DependsEditor.vue';
   import FinishedList from '@/components/FinishedList.vue';
+  import GateApproval from '@/components/GateApproval.vue';
   import KnowledgeView from '@/components/KnowledgeView.vue';
   import NewTaskForm from '@/components/NewTaskForm.vue';
   import CopyButton from '@/components/CopyButton.vue';
@@ -35,6 +37,7 @@
   import TaskDocuments from '@/components/TaskDocuments.vue';
   import TaskFacts from '@/components/TaskFacts.vue';
   import TaskRow from '@/components/TaskRow.vue';
+  import TaskWrites from '@/components/TaskWrites.vue';
   import ThemeToggle from '@/components/ThemeToggle.vue';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
@@ -494,12 +497,13 @@
 
     <CanvasSection
       title="FinishedList"
-      note="closed with its pull request merged; abandoned; one without a goal; the read under way; none left; a read that failed, with Read again"
+      note="closed with its pull request merged; abandoned; archived without a goal — each with Jig's offers in its menu; a write under way; the read under way; none left; a read that failed, with Read again"
     >
       <div class="flex flex-col gap-3">
-        <FinishedList :read="{ state: 'ready', tasks: finished }" class="border" />
+        <FinishedList :read="{ state: 'ready', tasks: finished, revision: 1 }" class="border" />
+        <FinishedList :read="{ state: 'ready', tasks: finished, revision: 1 }" pending="pr-template" class="border" />
         <FinishedList class="border" />
-        <FinishedList :read="{ state: 'ready', tasks: [] }" class="border" />
+        <FinishedList :read="{ state: 'ready', tasks: [], revision: 1 }" class="border" />
         <FinishedList :read="{ id: 'jig-ui', state: 'unreadable', code: 'timeout' }" class="border" />
       </div>
     </CanvasSection>
@@ -560,9 +564,67 @@
       />
     </CanvasSection>
 
-    <CanvasSection title="ActionList" note="Jig's offers, one unknown id; none">
-      <ActionList :actions="actions" />
-      <ActionList :actions="[]" />
+    <CanvasSection
+      title="ActionList"
+      note="Jig's offers, one unknown id; the page's own writes left out; start as the agent's request, and on a Jig before 0.46.0 as its command; none"
+    >
+      <ActionList :actions="actions" project="jig-ui" task="design-system" />
+      <ActionList :actions="actions" project="jig-ui" task="design-system" :runs="new Set(['approve-gate'])" writes />
+      <ActionList
+        :actions="[{ id: 'start', command: 'jig task start file-backlog-task' }]"
+        project="jig-ui"
+        task="file-backlog-task"
+        writes
+      />
+      <ActionList :actions="[{ id: 'start', command: 'jig task start file-backlog-task' }]" project="jig-ui" task="file-backlog-task" />
+      <ActionList :actions="[]" project="jig-ui" task="x" />
+    </CanvasSection>
+
+    <CanvasSection
+      title="GateApproval"
+      note="the design as written, with Approve; a T4's spec and alternatives first; being read; one Jig could not read; approving; refused"
+    >
+      <GateApproval :documents="[{ kind: 'design', content: openDocument.state === 'ready' ? openDocument.content : '' }]" :busy="false" />
+      <GateApproval
+        :documents="[
+          { kind: 'spec', content: '# Spec\n\nWhat it must do.' },
+          { kind: 'alternatives', content: '# Alternatives\n\nTwo lost.' },
+          { kind: 'design', content: '# Design\n\nThe shape.' },
+        ]"
+        :busy="false"
+      />
+      <GateApproval :busy="false" />
+      <GateApproval :documents="[{ kind: 'design', content: null }]" :busy="false" />
+      <GateApproval :documents="[{ kind: 'design', content: '# Design' }]" busy />
+      <GateApproval
+        :documents="[{ kind: 'design', content: '# Design' }]"
+        :busy="false"
+        refusal="The project changed while you were approving the design of design-system. Look at it again as it is now."
+      />
+    </CanvasSection>
+
+    <CanvasSection title="TaskWrites" note="abandon and archive offered; abandon only; archiving; refused">
+      <TaskWrites task="design-system" :offers="new Set(['abandon', 'archive'])" :busy="false" />
+      <TaskWrites task="design-system" :offers="new Set(['abandon'])" :busy="false" />
+      <TaskWrites task="design-system" :offers="new Set(['archive'])" busy />
+      <TaskWrites task="design-system" :offers="new Set(['abandon'])" :busy="false" refusal="Somebody archived design-system first." />
+    </CanvasSection>
+
+    <CanvasSection title="DependsEditor" note="its own dependency with a remove, one through its epic without; none; busy; refused">
+      <DependsEditor
+        task="pause-request"
+        :depends-on="details[0]!.dependsOn"
+        :candidates="['task:registry-schema', 'epic:refunds']"
+        :busy="false"
+      />
+      <DependsEditor task="registry-schema" :depends-on="[]" :busy="false" />
+      <DependsEditor task="pause-request" :depends-on="details[0]!.dependsOn" busy />
+      <DependsEditor
+        task="pause-request"
+        :depends-on="[]"
+        :busy="false"
+        refusal="Jig refused adding a dependency to pause-request: the dependency would close a cycle."
+      />
     </CanvasSection>
 
     <CanvasSection title="CopyButton" note="copy; copy id">
