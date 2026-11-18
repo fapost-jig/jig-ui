@@ -77,22 +77,26 @@ function inReview(parked: NonNullable<Task['parked']>): {
 /**
  * A task's pull request as its details show it. On Jig's staging flow, once the task waits at the staging branch or its
  * work went there, the pull request into staging and the promotion into the base are shown apart, each with its own
- * state, CI and link; a project on Jig 0.45.0 has no link to the promotion and no state of the one into staging.
+ * state, CI, link and the time Jig's housekeeping heard it; a project on Jig 0.45.0 has no link to the promotion and no
+ * state of the one into staging.
  * Elsewhere, one pull request.
  */
 export function pullRequests(task: Pick<Task, 'pullRequest' | 'staging' | 'parked' | 'promotion'>): {
   title: string;
   text: string | null;
   url: string | null;
+  fetchedAt: string | null;
 }[] {
   const pr = task.pullRequest;
   const promotion = task.promotion;
   const said = (p: Pull) => `${p.state ?? 'state not known yet'}${ci(p)}`;
   if (task.staging === null && task.parked === null && !promotion)
-    return pr ? [{ title: 'Pull request', text: said(pr), url: pr.url }] : [];
+    return pr ? [{ title: 'Pull request', text: said(pr), url: pr.url, fetchedAt: pr.fetchedAt }] : [];
   return [
-    ...(pr ? [{ title: 'Pull request into staging', text: pr.state ? said(pr) : null, url: pr.url }] : []),
-    ...(promotion?.state || promotion?.url ? [{ title: 'Promotion', text: said(promotion), url: promotion.url }] : []),
+    ...(pr ? [{ title: 'Pull request into staging', text: pr.state ? said(pr) : null, url: pr.url, fetchedAt: pr.fetchedAt }] : []),
+    ...(promotion?.state || promotion?.url
+      ? [{ title: 'Promotion', text: said(promotion), url: promotion.url, fetchedAt: promotion.fetchedAt }]
+      : []),
   ];
 }
 

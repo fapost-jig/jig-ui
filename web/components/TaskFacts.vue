@@ -70,7 +70,7 @@
           >
         </dd>
       </template>
-      <template v-for="(pr, i) in pullRequests(details)" :key="pr.title">
+      <template v-for="pr in pullRequests(details)" :key="pr.title">
         <dt class="text-[13px] text-muted-foreground">{{ pr.title }}</dt>
         <dd class="mb-1 @sm:mb-0">
           {{ pr.text }}
@@ -83,9 +83,7 @@
           >
             open<ExternalLink class="size-3" />
           </a>
-          <span v-if="details.pullRequest?.fetchedAt && i === pullRequests(details).length - 1" class="block text-muted-foreground"
-            >as Jig's housekeeping heard it at {{ details.pullRequest.fetchedAt }}</span
-          >
+          <span v-if="pr.fetchedAt" class="block text-muted-foreground">as Jig's housekeeping heard it at {{ pr.fetchedAt }}</span>
         </dd>
       </template>
       <dt class="text-[13px] text-muted-foreground">Knowledge</dt>

@@ -51,7 +51,11 @@ describe('columnOf', () => {
     ['work on staging, waiting for prepare for prod', { status: 'ready' as const, parked: signal }, 'on-staging'],
     [
       'an open promotion',
-      { status: 'ready' as const, staging: 'on' as const, promotion: { url: 'https://x/9', state: 'open', ci: 'pending' } },
+      {
+        status: 'ready' as const,
+        staging: 'on' as const,
+        promotion: { url: 'https://x/9', state: 'open', ci: 'pending', fetchedAt: null },
+      },
       'ready',
     ],
     ['a parked task that is paused', { status: 'ready' as const, parked: signal, paused: true }, 'paused'],

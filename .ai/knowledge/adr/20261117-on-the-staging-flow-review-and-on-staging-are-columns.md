@@ -38,7 +38,8 @@ gate, 2026-11-17.
   setting `git.flow` (`jig config keys --json`, Jig 0.45.0), read only then, so it shows all seven; the read's
   `stagingFlow` carries it to `columns()`. A colleague on the staging flow with no live task saw five columns and took
   it for a bug.)* Seven
-  columns are at least 12rem wide instead of 14rem (`BoardColumns.vue`), so they fit a 1440px window.
+  columns are at least 11.5rem wide instead of 14rem (`BoardColumns.vue`), so they fit a 1440px window with a classic
+  scrollbar (12rem left it no room, task `staging-nits`).
 - **A card in Review says its review** (`inReview` in `web/lib/waits.ts`): "Approved — yours to land" or, with no
   approval read, "Pull request into staging — yours to land" for `hint: landing`, in the attention tone; "Waits for review
   from <logins>"; "Changes requested", attention; "Approved" (the agent lands it); "No review requested yet"; and, the
@@ -48,8 +49,8 @@ gate, 2026-11-17.
   for the next housekeeping run; merged, the task waits for its close as before — the ✕ after housekeeping's `needs-consolidation` — and leaves
   the board when closed. The roadmap's "leaves the board once it merges" was narrowed so at the gate: a close is the
   person's step.
-- **The details** show the pull request into staging and the promotion apart, each with its own state, CI and link
-  (`pullRequests`).
+- **The details** show the pull request into staging and the promotion apart, each with its own state, CI, link and the
+  time Jig's housekeeping heard it (`pullRequests`; the time per entry since task `staging-nits`).
 - **One shape for both Jigs.** JigClient reads Jig 0.45.0, which has no `promotion`, into 0.46.0's shape: for a task on
   staging or parked, the state and CI of its `pull_request` become the promotion's, without a link, and the pull request
   into staging has none; `parked.review` is `null`.

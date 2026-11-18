@@ -28,7 +28,12 @@ const task = (more: Partial<Task> = {}): Task => ({
 });
 
 const pr = (state: string | null, ci: string | null, url = 'https://github.com/o/r/pull/7') => ({ url, state, ci, fetchedAt: null });
-const promotion = (state: string, ci: string, url: string | null = 'https://github.com/o/r/pull/9') => ({ url, state, ci });
+const promotion = (state: string, ci: string, url: string | null = 'https://github.com/o/r/pull/9') => ({
+  url,
+  state,
+  ci,
+  fetchedAt: null,
+});
 const parked = (
   reason: 'review' | 'signal',
   hint: 'landing' | null = null,
@@ -164,7 +169,11 @@ describe('waits', () => {
     // `jig task promote` records the link at once; the state comes with the next housekeeping run.
     [
       'a promotion just opened, its state not heard yet',
-      { status: 'ready' as const, staging: 'on' as const, promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null } },
+      {
+        status: 'ready' as const,
+        staging: 'on' as const,
+        promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null, fetchedAt: null },
+      },
       { text: 'Promotion opened', tone: 'quiet', url: 'https://github.com/o/r/pull/9' },
     ],
     [
@@ -182,34 +191,43 @@ describe('waits', () => {
 describe('pullRequests', () => {
   it('shows one pull request off the staging flow, and none without one', () => {
     expect(pullRequests(task({ pullRequest: pr('open', 'green') }))).toEqual([
-      { title: 'Pull request', text: 'open, CI green', url: 'https://github.com/o/r/pull/7' },
+      { title: 'Pull request', text: 'open, CI green', url: 'https://github.com/o/r/pull/7', fetchedAt: null },
     ]);
     expect(pullRequests(task({ pullRequest: pr(null, 'none') }))).toEqual([
-      { title: 'Pull request', text: 'state not known yet', url: 'https://github.com/o/r/pull/7' },
+      { title: 'Pull request', text: 'state not known yet', url: 'https://github.com/o/r/pull/7', fetchedAt: null },
     ]);
     expect(pullRequests(task())).toEqual([]);
   });
 
+  it('shows when Jig’s housekeeping heard each pull request, the promotion its own time', () => {
+    const into = { ...pr('merged', 'green'), fetchedAt: '2026-11-17T10:00:00Z' };
+    const out = { ...promotion('open', 'red'), fetchedAt: '2026-11-17T12:00:00Z' };
+    expect(pullRequests(task({ staging: 'on', pullRequest: into, promotion: out })).map((p) => [p.title, p.fetchedAt])).toEqual([
+      ['Pull request into staging', '2026-11-17T10:00:00Z'],
+      ['Promotion', '2026-11-17T12:00:00Z'],
+    ]);
+  });
+
   it('shows the pull request into staging apart from the promotion, each with its state and link', () => {
-    const into = { title: 'Pull request into staging', text: 'merged, CI green', url: 'https://github.com/o/r/pull/7' };
+    const into = { title: 'Pull request into staging', text: 'merged, CI green', url: 'https://github.com/o/r/pull/7', fetchedAt: null };
     expect(pullRequests(task({ staging: 'on', pullRequest: pr('merged', 'green'), promotion: promotion('open', 'red') }))).toEqual([
       into,
-      { title: 'Promotion', text: 'open, CI red', url: 'https://github.com/o/r/pull/9' },
+      { title: 'Promotion', text: 'open, CI red', url: 'https://github.com/o/r/pull/9', fetchedAt: null },
     ]);
     expect(pullRequests(task({ staging: 'on', parked: parked('signal'), pullRequest: pr('merged', 'green') }))).toEqual([into]);
     expect(pullRequests(task({ parked: parked('review'), pullRequest: pr('open', 'green') }))).toEqual([
-      { title: 'Pull request into staging', text: 'open, CI green', url: 'https://github.com/o/r/pull/7' },
+      { title: 'Pull request into staging', text: 'open, CI green', url: 'https://github.com/o/r/pull/7', fetchedAt: null },
     ]);
     // Jig 0.45.0, read into 0.46.0's shape: the pull request into staging has no state, the promotion no link.
     expect(pullRequests(task({ staging: 'on', pullRequest: pr(null, null), promotion: promotion('open', 'green', null) }))).toEqual([
-      { title: 'Pull request into staging', text: null, url: 'https://github.com/o/r/pull/7' },
-      { title: 'Promotion', text: 'open, CI green', url: null },
+      { title: 'Pull request into staging', text: null, url: 'https://github.com/o/r/pull/7', fetchedAt: null },
+      { title: 'Promotion', text: 'open, CI green', url: null, fetchedAt: null },
     ]);
-    expect(pullRequests(task({ staging: 'on', promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null } }))).toEqual([
-      { title: 'Promotion', text: 'state not known yet', url: 'https://github.com/o/r/pull/9' },
-    ]);
+    expect(
+      pullRequests(task({ staging: 'on', promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null, fetchedAt: null } })),
+    ).toEqual([{ title: 'Promotion', text: 'state not known yet', url: 'https://github.com/o/r/pull/9', fetchedAt: null }]);
     expect(pullRequests(task({ staging: 'on', promotion: promotion('open', 'green') }))).toEqual([
-      { title: 'Promotion', text: 'open, CI green', url: 'https://github.com/o/r/pull/9' },
+      { title: 'Promotion', text: 'open, CI green', url: 'https://github.com/o/r/pull/9', fetchedAt: null },
     ]);
   });
 });

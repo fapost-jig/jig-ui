@@ -555,7 +555,11 @@ const TaskRow = z
       .nullable()
       .optional(),
     /** From Jig 0.46.0, beside `staging`: the promotion, the pull request from the task's branch into its base. */
-    promotion: z.object({ url: maybe, state: maybe, ci: maybe }).nullable().optional(),
+    promotion: z
+      .object({ url: maybe, state: maybe, ci: maybe, fetched_at: maybe })
+      .transform(({ fetched_at, ...p }) => ({ ...p, fetchedAt: fetched_at }))
+      .nullable()
+      .optional(),
   })
   .transform(({ autopilot: run, pull_request: pr, ...t }) => {
     // Jig 0.45.0 has no `promotion`: the state and CI of a task on the staging side were the promotion's, the url the
@@ -596,7 +600,11 @@ const TaskRow = z
       stagingFlow: t.staging !== undefined,
       staging: t.staging ?? null,
       parked: t.parked ? { reason: t.parked.reason, hint: t.parked.hint, review: t.parked.review ?? null } : null,
-      promotion: promoted ? (pr?.state ? { url: null, state: pr.state, ci: pr.ci } : null) : (t.promotion ?? null),
+      promotion: promoted
+        ? pr?.state
+          ? { url: null, state: pr.state, ci: pr.ci, fetchedAt: pr.fetched_at }
+          : null
+        : (t.promotion ?? null),
     };
   });
 export type TaskSummary = z.output<typeof TaskRow>;

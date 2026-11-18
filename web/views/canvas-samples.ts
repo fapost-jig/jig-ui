@@ -167,7 +167,7 @@ export const tasks: Task[] = [
     stagingFlow: true,
     staging: 'on',
     pullRequest: pr('merged', 'green'),
-    promotion: { url: 'https://github.com/fapost-lab/jig-ui/pull/61', state: 'open', ci: 'pending' },
+    promotion: { url: 'https://github.com/fapost-lab/jig-ui/pull/61', state: 'open', ci: 'pending', fetchedAt: null },
     goal: 'Prepared for prod: its promotion into the base is open.',
   }),
 ];
@@ -202,6 +202,8 @@ export const finished: FinishedTask[] = [
 export const columns = [
   { id: 'needs-you', title: 'Needs you', count: 3 },
   { id: 'in-progress', title: 'In progress', count: 1 },
+  { id: 'review', title: 'Review', count: 3 },
+  { id: 'on-staging', title: 'On staging', count: 1 },
   { id: 'ready', title: 'Ready', count: 5 },
   { id: 'backlog', title: 'Backlog', count: 1 },
   { id: 'paused', title: 'Paused', count: 1 },
