@@ -2,7 +2,7 @@
 # Installs Jig UI for a person without Node.js, with one line in Git Bash on Windows or a terminal on
 # macOS and Linux:
 #
-#   curl -fsSL https://github.com/fapost-lab/jig-ui/releases/latest/download/install.sh | bash
+#   curl -fsSL https://github.com/fapost-jig/jig-ui/releases/latest/download/install.sh | bash
 #
 # A Node.js 24 or later already on the machine is used. Otherwise the official Node.js 24 from
 # nodejs.org, checked against nodejs.org's SHA-256 sums, goes into Jig UI's own folder: no system

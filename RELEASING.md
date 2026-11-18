@@ -70,7 +70,9 @@ publish is done by hand.
 
 3. Restore `package.json` and `package-lock.json` (`git checkout package.json package-lock.json`).
 4. On npmjs.com open the package, then Settings, then Trusted Publisher, choose GitHub Actions
-   and enter: organization `fapost-lab`, repository `jig-ui`, workflow `release.yml`.
+   and enter: organization `fapost-jig`, repository `jig-ui`, workflow `release.yml`. The repository moved there from
+   `fapost-lab` on 2026-11-18; a trusted publisher still naming the old organization makes `npm publish` answer `E404`,
+   and `repository.url` in `package.json` must name the repository the workflow runs in.
 5. Optionally, in the same settings page, set publishing access to require two-factor
    authentication and disallow tokens, so that only the trusted publisher can publish.
 

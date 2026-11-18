@@ -7,6 +7,7 @@ domains: []
 paths:
   - "server/**"
 summary: Jig UI is optional, keeps only its registry and settings, and reads and writes Jig only through Jig's released contracts
+reviewed_at: 2026-11-18
 ---
 # Jig UI is an optional layer over Jig that keeps no task state of its own
 
@@ -19,7 +20,7 @@ maintainer on 2026-10-14).
 
 ## Decision
 
-- Jig UI is a separate, optional package (`fapost-lab/jig-ui`); Jig works exactly as before
+- Jig UI is a separate, optional package (`fapost-lab/jig-ui`, `fapost-jig/jig-ui` since the move of 2026-11-18, task `repo-moved-to-fapost-jig`); Jig works exactly as before
   without it, and stopping Jig UI changes nothing in any project.
 - Jig's files are the source of truth. Jig UI stores only its registry of connected projects and
   its interface settings.
