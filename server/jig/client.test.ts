@@ -386,7 +386,7 @@ describe('readTasks', () => {
     });
     const read = await readTasks(answering(`case-${cases++}`, promoted));
     expect(read.tasks[1]?.pullRequest).toEqual({ url: 'https://github.com/o/r/pull/7', state: null, ci: null, fetchedAt: null });
-    expect(read.tasks[1]?.promotion).toEqual({ url: null, state: 'open', ci: 'green' });
+    expect(read.tasks[1]?.promotion).toEqual({ url: null, state: 'open', ci: 'green', fetchedAt: '2026-11-13T07:00:00Z' });
     // Neither on staging nor parked: its pull request is its own, as before.
     expect(read.tasks[2]?.pullRequest?.state).toBe('open');
     expect(read.tasks[2]?.promotion).toBeNull();
@@ -412,7 +412,7 @@ describe('readTasks', () => {
     expect([by['promo']?.staging, by['promo']?.parked, by['promo']?.promotion]).toEqual([
       'on',
       null,
-      { url: 'https://github.com/acme/stg/pull/9', state: 'open', ci: 'pending' },
+      { url: 'https://github.com/acme/stg/pull/9', state: 'open', ci: 'pending', fetchedAt: '2026-11-17T12:00:00Z' },
     ]);
   });
 

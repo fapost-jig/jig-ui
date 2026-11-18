@@ -90,7 +90,7 @@ describe('conflict', () => {
         queued('omega', 200, {
           status: 'ready',
           staging: 'on',
-          promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null },
+          promotion: { url: 'https://github.com/o/r/pull/9', state: null, ci: null, fetchedAt: null },
         }),
       ],
     );

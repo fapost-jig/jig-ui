@@ -15,7 +15,8 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
   task (the development channel's first builds showed them only once it had one): **Review**, where a task's pull
   request into staging waits, its card saying where the review stands — whom it waits for, changes requested, approved
   and yours to land —, and **On staging**, where its work waits for "prepare for prod". A task whose promotion is open
-  stays in Ready, now with a link to the promotion. On Jig 0.46.0 a task with an open promotion no longer reads
+  stays in Ready, now with a link to the promotion; a task's details give each of the two its own time Jig's housekeeping
+  heard it. On Jig 0.46.0 a task with an open promotion no longer reads
   "Promotion merged" once its pull request into staging merged. ([Tasks on staging](/projects#tasks-on-staging))
 - The team server: Jig UI run once for a team, from the repository's Dockerfile or with
   `jig-ui team-server`. It creates its own public GitHub App asking for nothing but Metadata (read),

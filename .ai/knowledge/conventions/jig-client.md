@@ -55,7 +55,7 @@ adapter then reads from `config keys` (task `staging-columns-without-tasks`) —
 direct (task `refactor-nits`). Jig 0.46.0 adds `parked.review` and, on that flow, `promotion`, both read as `null` when
 absent; on 0.46.0 a staging task's `pull_request` carries the pull request into staging's own state and CI, where 0.45.0
 gave the promotion's. The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
-`promotion`, the state and CI become the promotion's, without a link — so nothing past `server/jig/` tells the two apart
+`promotion`, the state, CI and `fetched_at` become the promotion's, without a link — so nothing past `server/jig/` tells the two apart
 (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns).
 
 A test that runs real processes — a stand-in `jig` script that starts a child, leaves its process

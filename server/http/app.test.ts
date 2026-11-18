@@ -150,14 +150,14 @@ describe('access guard', () => {
 
 /**
  * A git clone whose `.ai/scripts/jig` answers `jig <version>` and an empty project to every JSON
- * read, refusing with a message that names a path; no Jig at all without a version.
+ * read — with `tasks` and the settings `keys` —, refusing with a message that names a path; no Jig at all without a version.
  */
-function project(name: string, version?: string, refuse = false, tasks: unknown[] = []): string {
+function project(name: string, version?: string, refuse = false, tasks: unknown[] = [], keys: unknown[] = []): string {
   const dir = join(realpathSync.native(webRoot), name);
   mkdirSync(dir, { recursive: true });
   execFileSync('git', ['init', '-q'], { cwd: dir });
   if (version) {
-    const data = `"data":{"attention":[],"housekeeping":null,"tasks":${JSON.stringify(tasks)},"hidden":0,"specs":[],"items":[]}`;
+    const data = `"data":{"attention":[],"housekeeping":null,"tasks":${JSON.stringify(tasks)},"hidden":0,"specs":[],"items":[],"keys":${JSON.stringify(keys)}}`;
     const error = `"error":{"code":"failed","message":"cannot read ${dir.replace(/\\/g, '/')}"}`;
     mkdirSync(join(dir, '.ai', 'scripts'), { recursive: true });
     writeFileSync(
@@ -324,7 +324,27 @@ describe('/api/projects and /api/workspace', () => {
     expect((await call('GET', '/api/projects/nobody/board')).status).toBe(404);
   });
 
-  it("serves Review and On staging on a board of Jig's staging flow", async () => {
+  it("serves Review and On staging on a board of Jig's staging flow, before its first task too", async () => {
+    const flow = {
+      key: 'git.flow',
+      value: 'staging',
+      set: true,
+      source: 'project',
+      scope: 'project',
+      kind: 'choice',
+      allowed: ['direct', 'staging'],
+      default: 'direct',
+      description: 'How a task travels.',
+      secret: false,
+    };
+    // A project with no task yet: its settings tell the flow.
+    await call('POST', '/api/projects', { path: project('staged-empty', '0.46.0', false, [], [flow]) });
+    const empty = await (await call('GET', '/api/projects/staged-empty/board')).text();
+    expect(JSON.parse(empty)).toMatchObject({
+      board: {
+        columns: ['needs-you', 'in-progress', 'review', 'on-staging', 'ready', 'backlog', 'paused'].map((id) => ({ id, cards: [] })),
+      },
+    });
     const staged = project('staged', '0.45.0', false, [
       row('s', { status: 'ready', staging: 'on', parked: { reason: 'signal', hint: null } }),
     ]);

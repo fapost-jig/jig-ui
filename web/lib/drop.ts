@@ -5,7 +5,7 @@ import { placement } from './placement';
 /**
  * Dragging a card: within its list (a column), with the gap it would land in and the place Jig's queue would give it;
  * onto the Paused column, a pause — asked of the task, or made at once for a task nobody started; out of Paused, or a
- * task parked at the staging branch out of Ready, a resume. A drop is allowed only where `placement`
+ * task parked at the staging branch out of Review or On staging, a resume. A drop is allowed only where `placement`
  * says one `jig queue move` puts it, on Paused when Jig offers the request or pauses the task at once, or on the one
  * list a resume would put the task in; any other list allows none.
  */

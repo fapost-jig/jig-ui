@@ -265,6 +265,8 @@ export interface Task {
     url: string | null;
     state: string | null;
     ci: string | null;
+    /** When Jig's housekeeping last heard of it. */
+    fetchedAt: string | null;
   } | null;
   started: boolean;
   gate: string | null;
