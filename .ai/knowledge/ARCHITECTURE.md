@@ -69,8 +69,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `unavailable` (convention-project-source).
 - `server/watch/` — Watcher: one recursive `fs.watch` per directory, debounced into "something
   changed", knowing nothing of Jig (convention-watcher).
-- `server/board/` — a project's board: columns worked out from its tasks on every read
-  (feature-board).
+- `server/board/` — a project's board: columns worked out from its tasks, and the project's flow its read gives, on
+  every read (feature-board).
 - `server/http/` also serves `GET /api/workspace`, `GET /api/projects` (the connected ids, no Jig run) and
   `GET /api/projects/:id` (one project as the workspace shows it) for the workspace's first load (feature-workspace),
   `POST /api/scan` (Find projects, adr-20261029-finding-projects-shows-their-paths),

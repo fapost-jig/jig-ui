@@ -14,7 +14,7 @@ paths:
   - web/lib/refusal.ts
   - web/lib/sift.ts
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-18
 ---
 # Board
 
@@ -22,7 +22,8 @@ reviewed_at: 2026-11-17
 
 A connected project's live tasks in five columns, shown in the order of `COLUMNS` — Needs you,
 In progress, Ready, Backlog, Paused — or seven on Jig's staging flow, Review and On staging between In progress and
-Ready (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns) — worked out from Jig's task list on every
+Ready (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns) — the flow told by the project's tasks, or,
+with none listed, by its setting `git.flow` — worked out from Jig's task list on every
 read by `server/board/columns.ts` (`columnOf`, first rule that fits wins: Paused, Backlog, Needs you, Review, On
 staging, Ready, In progress) and served by `GET /api/projects/:id/board`. Cards are light: id, class, priority, goal,
 and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). Finished

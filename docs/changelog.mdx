@@ -8,7 +8,8 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
-- On Jig's staging flow the board has two more columns between In progress and Ready: **Review**, where a task's pull
+- On Jig's staging flow the board has two more columns between In progress and Ready, even before the project has a
+  task (the development channel's first builds showed them only once it had one): **Review**, where a task's pull
   request into staging waits, its card saying where the review stands — whom it waits for, changes requested, approved
   and yours to land —, and **On staging**, where its work waits for "prepare for prod". A task whose promotion is open
   stays in Ready, now with a link to the promotion. On Jig 0.46.0 a task with an open promotion no longer reads

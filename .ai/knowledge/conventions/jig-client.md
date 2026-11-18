@@ -6,7 +6,7 @@ domains: []
 paths:
   - "server/jig/**"
 summary: JigClient alone runs jig (execFile, bash on Windows) and validates its JSON; never reads Jig's files
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-18
 ---
 # JigClient — the only module that knows Jig
 
@@ -32,7 +32,7 @@ first Jig with a queue (0.29.0 was the first that prints JSON). A write a later 
 does not raise it: it carries a version of its own, checked by the local adapter against the
 project's Jig before the page is offered the write — `RESUME_JIG_VERSION`, 0.35.0, for
 `resumeTask`, `ARTIFACTS_JIG_VERSION`, 0.39.0, for a task's documents, `ROADMAP_JIG_VERSION`, 0.40.0, for a
-roadmap's edits, `KNOWLEDGE_JIG_VERSION`, 0.40.0, for the knowledge waiting for a decision, `KNOWLEDGE_TEXT_JIG_VERSION`, 0.41.0, for a proposed document's text and a dropped link, `FILE_NEW_JIG_VERSION`, 0.41.0, for filing an item's new task in one write, `FILED_JIG_VERSION`, 0.42.0, for `already-filed` apart from a taken id, `DECIDE_JIG_VERSION`, 0.44.0, for several knowledge decisions in one write, and `REFRESH_JIG_VERSION`, 0.45.0, for bringing the clone up to origin — so a project on an older Jig is still read, and only that write is missing. `CLOSE_JIG_VERSION`, 0.40.0, is the other kind: the close is offered on any Jig, and the version picks how `closeTask` checks it. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
+roadmap's edits, `KNOWLEDGE_JIG_VERSION`, 0.40.0, for the knowledge waiting for a decision, `KNOWLEDGE_TEXT_JIG_VERSION`, 0.41.0, for a proposed document's text and a dropped link, `FILE_NEW_JIG_VERSION`, 0.41.0, for filing an item's new task in one write, `FILED_JIG_VERSION`, 0.42.0, for `already-filed` apart from a taken id, `DECIDE_JIG_VERSION`, 0.44.0, for several knowledge decisions in one write, and `REFRESH_JIG_VERSION`, 0.45.0, for bringing the clone up to origin — so a project on an older Jig is still read, and only that write is missing. `CLOSE_JIG_VERSION`, 0.40.0, is the other kind: the close is offered on any Jig, and the version picks how `closeTask` checks it. `STAGING_JIG_VERSION`, 0.45.0, is a read's: below it the adapter does not ask a project with no task listed for its `git.flow`. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
 found from `git --exec-path` (`<git>/mingw64/libexec/git-core` → `<git>/bin/bash.exe`), never a
 `bash` on PATH, which may be WSL's. It is asked once per process; a failed ask is not kept.
 
@@ -49,7 +49,8 @@ as a field Jig dropped does (task `projects-to-upgrade`). A roadmap item's `id` 
 spec's `waiting` (the edits on its write branch, with the roadmap there) are printed from Jig 0.40.0
 only, and read as `null` when absent (task `roadmap-from-page`). A task's `staging` and `parked` are
 printed on Jig 0.45.0's staging flow only, absent on any other; that absence is how the adapter tells
-the flow (task `tasks-on-staging`), and the schema names it once, as `stagingFlow`, reading both as
+the flow (task `tasks-on-staging`) — a project with no task listed tells it only in its setting `git.flow`, which the
+adapter then reads from `config keys` (task `staging-columns-without-tasks`) —, and the schema names it once, as `stagingFlow`, reading both as
 `null` when absent — a check on `staging` itself would read every staging-flow task not on staging as
 direct (task `refactor-nits`). Jig 0.46.0 adds `parked.review` and, on that flow, `promotion`, both read as `null` when
 absent; on 0.46.0 a staging task's `pull_request` carries the pull request into staging's own state and CI, where 0.45.0

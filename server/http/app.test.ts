@@ -324,6 +324,22 @@ describe('/api/projects and /api/workspace', () => {
     expect((await call('GET', '/api/projects/nobody/board')).status).toBe(404);
   });
 
+  it("serves Review and On staging on a board of Jig's staging flow", async () => {
+    const staged = project('staged', '0.45.0', false, [
+      row('s', { status: 'ready', staging: 'on', parked: { reason: 'signal', hint: null } }),
+    ]);
+    await call('POST', '/api/projects', { path: staged });
+    const board = await (await call('GET', '/api/projects/staged/board')).text();
+    expect(JSON.parse(board)).toMatchObject({
+      board: {
+        columns: ['needs-you', 'in-progress', 'review', 'on-staging', 'ready', 'backlog', 'paused'].map((id) => ({
+          id,
+          cards: id === 'on-staging' ? [expect.objectContaining({ id: 's' })] : [],
+        })),
+      },
+    });
+  });
+
   it("serves a project's finished tasks, its state when it is not readable, and 404 for an unknown id", async () => {
     expect(await (await call('GET', '/api/projects/ready/finished')).json()).toEqual({ finished: { state: 'ready', tasks: [] } });
     const unreadable = await (await call('GET', '/api/projects/broken/finished')).text();

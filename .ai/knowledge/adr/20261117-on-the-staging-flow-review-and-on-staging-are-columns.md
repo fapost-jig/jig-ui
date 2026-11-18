@@ -10,8 +10,9 @@ paths:
   - server/jig/client.ts
   - web/components/BoardColumns.vue
   - web/lib/tones.ts
+  - server/source/local.ts
 summary: On Jig's staging flow parked tasks sit in Review and On staging, a Review card says its review's state, and Ready shows the promotion with its link; Jig 0.45.0 is read into 0.46.0's shape.
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-18
 ---
 # On Jig's staging flow the board has a Review and an On staging column, between In progress and Ready
 
@@ -32,7 +33,11 @@ gate, 2026-11-17.
 - **Two more columns on the staging flow only**: Needs you, In progress, **Review**, **On staging**, Ready, Backlog,
   Paused (`COLUMNS` in `server/board/columns.ts`). `columnOf`, first rule that fits: Paused, Backlog, Needs you, then a task
   parked for `review` → Review, parked for `signal` → On staging, then Ready and In progress as before. The project is on
-  the staging flow when one of its tasks says so (`stagingFlow`); a project with no task shows the other five. Seven
+  the staging flow when one of its tasks says so (`stagingFlow`); a project with no task shows the other five.
+  *(Amended by task `staging-columns-without-tasks`, 2026-11-18: a project with no task listed takes the flow from its
+  setting `git.flow` (`jig config keys --json`, Jig 0.45.0), read only then, so it shows all seven; the read's
+  `stagingFlow` carries it to `columns()`. A colleague on the staging flow with no live task saw five columns and took
+  it for a bug.)* Seven
   columns are at least 12rem wide instead of 14rem (`BoardColumns.vue`), so they fit a 1440px window.
 - **A card in Review says its review** (`inReview` in `web/lib/waits.ts`): "Approved — yours to land" or, with no
   approval read, "Pull request into staging — yours to land" for `hint: landing`, in the attention tone; "Waits for review
@@ -57,7 +62,8 @@ gate, 2026-11-17.
 
 - **The two columns on every flow** — two columns that are always empty in every project on the direct flow.
 - **The flow from `jig status --json` or the config** — one more read for a project with no task, whose two columns would
-  be empty anyway.
+  be empty anyway. *(Taken after all for that project, task `staging-columns-without-tasks`: empty columns that are
+  missing read as a broken board; `jig status --json` does not name the flow, `jig config keys` does.)*
 - **No promotion state on Jig 0.45.0** — fewer lines, but such a project would lose "Promotion open"; reading it into one
   shape costs a few lines in one place.
 - **Changes requested in Needs you** — Needs you is read from the gate and the autopilot run, not from a review, and the
@@ -69,6 +75,9 @@ gate, 2026-11-17.
 
 - A board on the staging flow is seven columns wide; narrower than 1440px it scrolls sideways, as five do on a narrow
   window.
+- A project with no task listed, on Jig 0.45.0 or later, runs one more Jig at each read, `config keys --json`; a run
+  Jig refuses shows five columns rather than failing the board, while an answer JigClient cannot read fails it as
+  `incompatible`, as adr-20261018-jig-answers-checked-by-zod-schemas has every read do.
 - The review is the forge cache's: right after a ship it shows on the next housekeeping run.
 - The page copies one more of Jig's rules: a resume ends parking. A Jig that parks a resumed task makes `resumesTo` wrong
   until `columns.ts` follows.
