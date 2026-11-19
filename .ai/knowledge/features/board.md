@@ -15,7 +15,7 @@ paths:
   - web/lib/sift.ts
   - web/components/SpecMark.vue
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-19
 ---
 # Board
 
@@ -107,8 +107,13 @@ done, or moving.
   to it from Jig 0.46.0. JigClient reads Jig 0.45.0, whose `pull_request` carried the promotion's state, into
   0.46.0's shape. **Take back for a fix** in its menu, or a drop on In progress, is the resume above. The ✕ waits
   for housekeeping's `needs-consolidation`, the merge into the base: Jig 0.45.0's close command closes
-  a task once its pull request into staging merged (fapost-lab/jig#509). Landing and "prepare for
-  prod" have no button; Jig answers neither as JSON.
+  a task once its pull request into staging merged (fapost-lab/jig#509). From Jig 0.46.0 the person's
+  own steps are first in the card's menu, where Jig offers them: **Land on staging** on a Review card, one
+  press, and on Jig's `not-approved` **Land without review** beside its line; **Request review…**, a panel
+  on the card with the reviewers `jig pr reviewers` offers, read only then; **Prepare for prod…** on an On
+  staging card, after a question (`WriteConfirm`, the close's question made one for both), its line linking
+  the promotion and saying who merges it
+  (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card).
 - A change Jig refuses as `stale-revision` shows the conflict: the page compares the board the
   change was made on with the read the change itself started (`web/lib/conflict.ts`), marks each
   card that is new, in another column, moved within its own, or shows other facts — "Changed while

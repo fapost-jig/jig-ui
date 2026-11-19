@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, unnamedRefusal, writeRefusal } from './refusal';
+import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, stagingRefusal, unnamedRefusal, writeRefusal } from './refusal';
 
 describe('reasonsOf', () => {
   it("reads Jig's reasons as lines, and none from an answer without them or with them in another shape", () => {
@@ -113,5 +113,40 @@ describe('writeRefusal', () => {
     ['already-exists', [], 'Jig refused archiving a (already-exists).'],
   ])('says %s with %j in its own words', (code, reasons, line) => {
     expect(writeRefusal(code, reasons, 'archiving', 'a')).toBe(line);
+  });
+});
+
+describe('stagingRefusal', () => {
+  it("says whom a landing waits for in Jig's words, and what the person can do where there is something", () => {
+    expect(
+      stagingRefusal(
+        'not-approved',
+        ['not landed: u is not approved (waiting for alice); land it without review, or wait for review'],
+        'landing',
+        'a',
+      ),
+    ).toBe('Jig did not land a: not landed: u is not approved (waiting for alice); land it without review, or wait for review');
+    expect(stagingRefusal('review-required', [], 'landing', 'a')).toBe(
+      "Only an approval lands a here: the project's git.staging_review is require.",
+    );
+    expect(stagingRefusal('conflict', [], 'landing', 'a')).toBe(
+      "a's pull request conflicts with staging. Ask your agent to land a: it resolves the conflict.",
+    );
+    expect(stagingRefusal('base-conflict', ['conflicts in app.ts'], 'preparing for prod', 'a')).toBe(
+      "a's branch conflicts with the main branch (conflicts in app.ts): ask your agent to merge it in, then prepare for prod again.",
+    );
+    expect(stagingRefusal('ci-pending', [], 'landing', 'a')).toBe("a's checks are still running: try again in a moment.");
+    expect(stagingRefusal('autopilot-running', [], 'asking review for', 'a')).toBe("a's autopilot run is on: the agent is on it.");
+  });
+
+  it("says a write that may have happened as one, and the rest in Jig's words", () => {
+    expect(stagingRefusal('timeout', [], 'landing', 'a')).toBe('Jig did not answer in time and may have done it: look at the board again.');
+    expect(stagingRefusal('incompatible', [], 'landing', 'a')).toBe(
+      'Jig answered in a way Jig UI does not read, and may have done it: look at the board again.',
+    );
+    expect(stagingRefusal('ci-red', ['a check of u failed'], 'landing', 'a')).toBe('Jig refused landing a: a check of u failed');
+    expect(stagingRefusal('not-found', [], 'preparing for prod', 'a')).toBe(
+      'a does not offer this any more: look at it again as it is now.',
+    );
   });
 });

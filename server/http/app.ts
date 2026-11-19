@@ -106,6 +106,15 @@ const isTaskWrite = (v: unknown): v is TaskWrite =>
 /** An item of Jig's queue a task waits for: `task:<id>` or `epic:<spec>`, the id never a flag. */
 const isQueueRef = (v: unknown): v is string => typeof v === 'string' && /^(task|epic):[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(v);
 
+/** A login on the forge as `jig task request-review --reviewer` takes one: never empty, never led by `-`, so never a flag. */
+const isLogin = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(v);
+
+/** The logins a review is asked of: one to twenty, each once; `undefined` where any is invalid. */
+function logins(v: unknown): string[] | undefined {
+  if (!Array.isArray(v) || v.length === 0 || v.length > 20 || !v.every(isLogin)) return undefined;
+  return new Set(v).size === v.length ? v : undefined;
+}
+
 /** A decision on a knowledge document, as Jig's command is named: `reviewed` keeps a changed linked file. */
 const isDecision = (v: unknown): v is KnowledgeDecision => v === 'accept' || v === 'reject' || v === 'reviewed';
 
@@ -327,6 +336,13 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
       })
 
       // The settings, read through the project's Jig at each call: the project's, and the person's own in this clone.
+      // Whom the forge offers to review a pull request into the staging branch: Jig asks the forge, so only on a press.
+      .get('/api/projects/:id/reviewers', async (c) => {
+        const read = await source.reviewers(c.req.param('id'));
+        if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
+        return c.json({ reviewers: read }, 200);
+      })
+
       .get('/api/projects/:id/settings', async (c) => {
         const read = await source.settings(c.req.param('id'));
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
@@ -582,6 +598,43 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         }
         return edited(c, await source.act(c.req.param('id'), task, action, action === 'abandon' ? (reason ?? null) : null, revision));
       })
+
+      // A person's landing on staging, as Jig's `land` offers it; `withoutReview` lands one not approved, where the project
+      // lets it. Answered with what Jig did once the project was read again.
+      .post(
+        '/api/projects/:id/tasks/land',
+        validator('json', (body: unknown) => ({ ...taskAt(body), withoutReview: field(body, 'withoutReview') === true })),
+        async (c) => {
+          const { task, withoutReview, revision } = c.req.valid('json');
+          if (task === undefined || revision === undefined) return refuse(c, 422, 'usage', 'Give a task and the revision it was read at.');
+          const w = await source.landOnStaging(c.req.param('id'), task, withoutReview, revision);
+          if (w?.state === 'written' && w.landed) return c.json({ landed: w.landed }, 200);
+          return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
+        },
+      )
+
+      // Preparing a task tested on staging for prod: Jig pushes its branch and opens its pull request into the base.
+      .post('/api/projects/:id/tasks/promote', validator('json', taskAt), async (c) => {
+        const { task, revision } = c.req.valid('json');
+        if (task === undefined || revision === undefined) return refuse(c, 422, 'usage', 'Give a task and the revision it was read at.');
+        const w = await source.promote(c.req.param('id'), task, revision);
+        if (w?.state === 'written' && w.promoted) return c.json({ promoted: w.promoted }, 200);
+        return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
+      })
+
+      .post(
+        '/api/projects/:id/tasks/request-review',
+        validator('json', (body: unknown) => ({ ...taskAt(body), reviewers: logins(field(body, 'reviewers')) })),
+        async (c) => {
+          const { task, reviewers, revision } = c.req.valid('json');
+          if (task === undefined || reviewers === undefined || revision === undefined) {
+            return refuse(c, 422, 'usage', 'Give a task, one to twenty reviewers by login, and the revision it was read at.');
+          }
+          const w = await source.requestReview(c.req.param('id'), task, reviewers, revision);
+          if (w?.state === 'written' && w.requested) return c.json({ requested: w.requested }, 200);
+          return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
+        },
+      )
 
       .post('/api/projects/:id/queue/depend', validator('json', dependAt), async (c) => {
         const { task, on, reason, revision } = c.req.valid('json');

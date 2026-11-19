@@ -117,6 +117,8 @@ function project(
     };
     /** What `refresh --json` prints: an envelope's `data`, or a refusal's code. */
     refresh?: unknown;
+    /** What `pr reviewers --json` prints: an envelope's `data`, or a refusal's code. */
+    reviewers?: unknown;
     /** What `housekeeping` prints on stdout and stderr, and its exit code. */
     housekeeping?: {
       out?: string;
@@ -173,6 +175,7 @@ function project(
   writeFileSync(join(dir, 'upgrade.json'), typeof answers.upgrade === 'string' ? answers.upgrade : envelope(answers.upgrade ?? {}));
   writeFileSync(join(dir, 'land.json'), typeof answers.land === 'string' ? answers.land : envelope(answers.land ?? {}));
   writeFileSync(join(dir, 'refresh.json'), answer(answers.refresh ?? {}));
+  writeFileSync(join(dir, 'reviewers.json'), answer(answers.reviewers ?? { source: 'assignable', candidates: [] }));
   const self = answers.selfUpdate ?? {};
   writeFileSync(join(dir, 'self.out'), self.out ?? 'self-update: already current');
   writeFileSync(join(dir, 'self.err'), self.err ?? '');
@@ -193,7 +196,7 @@ case "$*" in
   "task list --status abandoned --json") while [ -f hold-finished ]; do sleep 0.05; done; cat abandoned.json; if grep -q '"error"' abandoned.json; then exit 1; fi ;;
   "spec list --json") cat specs.json ;;
   "queue list --json") cat queue.json ;;
-  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*|"task gate "*|"task abandon "*|"task archive "*|"task unarchive "*|"spec drop "*|"queue depend "*|"queue undepend "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
+  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*|"task gate "*|"task abandon "*|"task archive "*|"task unarchive "*|"spec drop "*|"queue depend "*|"queue undepend "*|"task land "*|"task promote "*|"task request-review "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
   "spec item "*) while [ -f hold ]; do sleep 0.05; done; cat item.json; if grep -q '"error"' item.json; then exit 1; fi ;;
   "task artifacts "*) while [ -f hold-artifacts ]; do sleep 0.05; done; cat artifacts.json; if grep -q '"error"' artifacts.json; then exit 1; fi ;;
   "config keys --json") cat settings.json ;;
@@ -205,6 +208,7 @@ case "$*" in
   "task artifact read "*) cat artifact.json; if grep -q '"error"' artifact.json; then exit 1; fi ;;
   "task set "*) cat set.err >&2; exit ${answers.set?.code ?? 0} ;;
   "refresh --json") cat refresh.json; if grep -q '"error"' refresh.json; then exit 1; fi ;;
+  "pr reviewers --json") cat reviewers.json; if grep -q '"error"' reviewers.json; then exit 1; fi ;;
   housekeeping) cat housekeeping.out; cat housekeeping.err >&2; exit ${answers.housekeeping?.code ?? 0} ;;
   "upgrade --dry-run --json") cat plan.json ;;
   "self-update") while [ -f hold-self ]; do sleep 0.05; done; cat self.out; echo; cat self.err >&2; if [ -f status-after.json ] && [ ${self.code ?? 0} -eq 0 ]; then cp status-after.json status.json; fi; exit ${self.code ?? 0} ;;
@@ -600,6 +604,9 @@ describe('localSource', () => {
           pausable: false,
           resumable: false,
           closable: false,
+          landable: false,
+          reviewRequestable: false,
+          promotable: false,
           staging: null,
           parked: null,
           stagingFlow: false,
@@ -3294,5 +3301,152 @@ describe("localSource, a person's writes on a task", () => {
       'queue depend task:plain --on epic:shop --reason Needs the cart --revision 7 --json',
       'queue undepend task:gated --on task:plain --revision 7 --json',
     ]);
+  });
+});
+
+describe('localSource, a person on the staging flow', () => {
+  const source = localSource(join(root, 'staging-writes-config'));
+  const offered = (task: string, ...ids: string[]) => ids.map((id) => ({ id, command: `jig ${id} ${task}`, offered: true, reason: null }));
+  const flow = { staging: null, parked: null, promotion: null };
+  const rows = [
+    task('review-me', 'ready', false, {
+      ...flow,
+      parked: { reason: 'review', hint: 'landing', review: { state: 'approved', waiting_for: [] } },
+      actions: offered('review-me', 'land', 'request-review'),
+    }),
+    task('tested', 'ready', false, {
+      ...flow,
+      staging: 'on',
+      parked: { reason: 'signal', hint: null, review: null },
+      actions: offered('tested', 'promote'),
+    }),
+    // Jig offers a review on every open pull request; the board asks only a Review card's.
+    task('direct', 'ready', false, { ...flow, actions: offered('direct', 'request-review') }),
+  ];
+  const answers = (write: unknown) => ({
+    tasks: { tasks: rows, hidden: 0, housekeeping: null },
+    write,
+    reviewers: {
+      source: 'history',
+      candidates: [
+        { login: 'alice', name: 'Alice Smith', reviews: 2 },
+        { login: 'bob', name: null, reviews: 1 },
+      ],
+    },
+  });
+  const writes = (dir: string) => calls(dir).filter((c) => /^(task (land|promote|request-review)|pr reviewers) /.test(c));
+
+  it("offers on a card what Jig offers there from Jig 0.46.0, a review only on Review's", async () => {
+    const dir = project('staging-offers', '0.46.0', answers({}));
+    await source.connect(dir);
+    const shown = await source.tasks('staging-offers');
+    const flags = shown?.state === 'ready' ? shown.tasks.map((t) => [t.id, t.landable, t.reviewRequestable, t.promotable]) : [];
+    expect(flags).toEqual([
+      ['review-me', true, true, false],
+      ['tested', false, false, true],
+      ['direct', false, false, false],
+    ]);
+    const old = project('staging-offers-old', '0.45.0', answers({}));
+    await source.connect(old);
+    const before = await source.tasks('staging-offers-old');
+    expect(before?.state === 'ready' && before.tasks.some((t) => t.landable || t.reviewRequestable || t.promotable)).toBe(false);
+  });
+
+  it('lands and prepares for prod against the revision of the read, answering what Jig did', async () => {
+    const landing = project(
+      'staging-land',
+      '0.46.0',
+      answers({
+        task: {},
+        land: { outcome: 'landed', pull_request: 'https://github.com/o/r/pull/7', staging: 'staging', without_review: 'person' },
+      }),
+    );
+    await source.connect(landing);
+    expect(await source.landOnStaging('staging-land', 'review-me', true, 7)).toEqual({
+      state: 'written',
+      landed: { outcome: 'landed', pullRequest: 'https://github.com/o/r/pull/7', withoutReview: 'person' },
+    });
+    expect(writes(landing)).toEqual(['task land review-me --by human --without-review --revision 7 --json']);
+    const promoting = project(
+      'staging-promote',
+      '0.46.0',
+      answers({
+        task: {},
+        promote: {
+          pull_request: 'https://github.com/o/r/pull/9',
+          already_open: false,
+          pushed: true,
+          tested_commit: 'abc',
+          in_base: false,
+          merge: { outcome: 'auto-merge-on', reason: 'git.promote_merge: auto' },
+        },
+      }),
+    );
+    await source.connect(promoting);
+    expect(await source.promote('staging-promote', 'tested', 7)).toEqual({
+      state: 'written',
+      promoted: {
+        pullRequest: 'https://github.com/o/r/pull/9',
+        inBase: false,
+        merge: { outcome: 'auto-merge-on', reason: 'git.promote_merge: auto' },
+      },
+    });
+    expect(writes(promoting)).toEqual(['task promote tested --by human --revision 7 --json']);
+  });
+
+  it('refuses a landing or a promotion Jig does not offer on the card, without running Jig', async () => {
+    const dir = project('staging-unoffered', '0.46.0', answers({}));
+    await source.connect(dir);
+    expect(await source.landOnStaging('staging-unoffered', 'tested', false, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.promote('staging-unoffered', 'review-me', 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.landOnStaging('staging-unoffered', '--all', false, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(writes(dir)).toEqual([]);
+  });
+
+  it("carries Jig's refusal of a landing with its words", async () => {
+    const dir = project('staging-not-approved', '0.46.0', answers('not-approved'));
+    await source.connect(dir);
+    expect(await source.landOnStaging('staging-not-approved', 'review-me', false, 7)).toEqual({
+      state: 'refused',
+      code: 'not-approved',
+      reasons: ['refused'],
+    });
+  });
+
+  it('asks a review only of logins the last read of the reviewers offered, on a Review card', async () => {
+    const dir = project(
+      'staging-review',
+      '0.46.0',
+      answers({ task: {}, review_request: { pull_request: 'u', requested: ['alice'], author_left_out: false } }),
+    );
+    await source.connect(dir);
+    // Nobody offered yet: no read of the reviewers.
+    expect(await source.requestReview('staging-review', 'review-me', ['alice'], 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.reviewers('staging-review')).toEqual({
+      state: 'ready',
+      source: 'history',
+      candidates: [
+        { login: 'alice', name: 'Alice Smith', reviews: 2 },
+        { login: 'bob', name: null, reviews: 1 },
+      ],
+    });
+    expect(await source.requestReview('staging-review', 'review-me', ['alice'], 7)).toEqual({ state: 'written', requested: ['alice'] });
+    expect(await source.requestReview('staging-review', 'review-me', ['alice', 'mallory'], 7)).toEqual({
+      state: 'refused',
+      code: 'not-found',
+    });
+    expect(await source.requestReview('staging-review', 'direct', ['alice'], 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(writes(dir)).toEqual(['pr reviewers --json', 'task request-review review-me --reviewer alice --by human --revision 7 --json']);
+  });
+
+  it("answers a forge Jig could not ask with Jig's why, and none below Jig 0.46.0", async () => {
+    const dir = project('staging-no-forge', '0.46.0', { ...answers({}), reviewers: 'forge-unavailable' });
+    await source.connect(dir);
+    expect(await source.reviewers('staging-no-forge')).toEqual({ state: 'refused', code: 'forge-unavailable', reasons: ['refused'] });
+    const old = project('staging-reviewers-old', '0.45.0', answers({}));
+    await source.connect(old);
+    expect(await source.reviewers('staging-reviewers-old')).toMatchObject({ state: 'unsupported', minimum: '0.46.0' });
+    expect(writes(old)).toEqual([]);
+    expect(await source.reviewers('nobody')).toBeUndefined();
   });
 });

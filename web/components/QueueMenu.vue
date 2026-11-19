@@ -1,5 +1,18 @@
 <script setup lang="ts">
-  import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Ellipsis, Pause, Play, Undo2, Wrench } from '@lucide/vue';
+  import {
+    ArrowDown,
+    ArrowDownToLine,
+    ArrowUp,
+    ArrowUpToLine,
+    Ellipsis,
+    GitMerge,
+    Pause,
+    Play,
+    Rocket,
+    Undo2,
+    UserPlus,
+    Wrench,
+  } from '@lucide/vue';
   import { computed } from 'vue';
   import type { Place, Task } from '@/api';
   import { Button } from '@/components/ui/button';
@@ -17,7 +30,8 @@
 
   /**
    * What a drag does, in one press: a task's place in Jig's queue within its column, its priority, a pause asked of it, a
-   * resume, and taking a task parked at the staging branch back for a fix (Jig's resume too).
+   * resume, and taking a task parked at the staging branch back for a fix (Jig's resume too). First, where Jig offers
+   * them on the staging flow, the person's own steps: landing on staging, asking for reviews, preparing for prod.
    */
   const props = defineProps<{
     task: Task;
@@ -34,6 +48,9 @@
     /** Asks a pause (`true`) — made at once for a task nobody started — or takes the request back (`false`). */
     pause: [ask: boolean];
     resume: [];
+    land: [];
+    review: [];
+    promote: [];
   }>();
 
   const cards = computed(() => props.cards ?? []);
@@ -57,6 +74,12 @@
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" class="w-44">
+      <template v-if="task.landable || task.reviewRequestable || task.promotable">
+        <DropdownMenuItem v-if="task.landable" @select="emit('land')"><GitMerge />Land on staging</DropdownMenuItem>
+        <DropdownMenuItem v-if="task.reviewRequestable" @select="emit('review')"><UserPlus />Request review…</DropdownMenuItem>
+        <DropdownMenuItem v-if="task.promotable" @select="emit('promote')"><Rocket />Prepare for prod…</DropdownMenuItem>
+        <DropdownMenuSeparator />
+      </template>
       <template v-if="props.cards">
         <DropdownMenuItem :disabled="!offered.top" @select="emit('move', 'top')"><ArrowUpToLine />To top</DropdownMenuItem>
         <DropdownMenuItem :disabled="!up" @select="up && emit('move', up)"><ArrowUp />Up</DropdownMenuItem>

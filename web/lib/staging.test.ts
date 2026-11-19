@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Attention, Project } from '../api';
-import { bellOf, countOf, listed } from './staging';
+import { bellOf, countOf, landedLine, listed, named, promotedLine, requestedLine, reviewersLine } from './staging';
 
 const item = (kind: string, more: Partial<Attention> = {}): Attention => ({
   kind,
@@ -59,5 +59,62 @@ describe('countOf', () => {
     expect(countOf({ ...own, commits: 1 })).toBe('1 commit of yours');
     expect(countOf({ ...own, list: [...own.list, ...own.list] })).toBe('2 commits of yours');
     expect(countOf({ commits: 34, list: Array.from({ length: 20 }, () => own.list[0]!) })).toBe('The newest 20 of 34 commits of yours');
+  });
+});
+
+describe('what a staging write came to', () => {
+  it('names one, two or more logins as a sentence does', () => {
+    expect([named(['alice']), named(['alice', 'bob']), named(['alice', 'bob', 'carol'])]).toEqual([
+      'alice',
+      'alice and bob',
+      'alice, bob and carol',
+    ]);
+  });
+
+  it('says a landing, one without review and one Jig found done', () => {
+    const landed = { outcome: 'landed' as const, pullRequest: null, withoutReview: null };
+    expect(landedLine('a', landed)).toBe('Landed a on staging.');
+    expect(landedLine('a', { ...landed, withoutReview: 'person' })).toBe(
+      'Landed a on staging without review; Jig said so on its pull request.',
+    );
+    // The project asks no approval: an ordinary landing.
+    expect(landedLine('a', { ...landed, withoutReview: 'git.staging_review is none' })).toBe('Landed a on staging.');
+    expect(landedLine('a', { ...landed, outcome: 'already-landed' })).toBe('a was on staging already.');
+  });
+
+  it('says who merges a promotion, and a task whose work is in the base already', () => {
+    const promoted = (outcome: string | null, reason: string | null = null) =>
+      promotedLine('a', {
+        pullRequest: 'https://github.com/o/r/pull/9',
+        inBase: false,
+        merge: outcome === null ? null : { outcome: outcome as 'person', reason },
+      });
+    const said = 'Prepared a for prod: its pull request into the main branch';
+    expect(promoted('person')).toBe(`${said} is yours to merge.`);
+    expect(promoted('auto-merge-on')).toBe(`${said} merges itself once its checks pass.`);
+    expect(promoted('auto-merge-already-on')).toBe(`${said} merges itself once its checks pass.`);
+    expect(promoted('merged')).toBe(`${said} was merged at once.`);
+    expect(promoted('not-switched-on', 'the repository allows no auto-merge')).toBe(
+      `${said} is yours to merge: auto-merge was not switched on (the repository allows no auto-merge).`,
+    );
+    expect(promotedLine('a', { pullRequest: null, inBase: true, merge: null })).toBe(
+      "a's work is in the main branch already: nothing to promote.",
+    );
+  });
+
+  it('says whom a review was asked of, and when the card shows it', () => {
+    expect(requestedLine('a', ['alice', 'bob'])).toBe(
+      'Asked alice and bob to review a. Its card shows their review after the next housekeeping run.',
+    );
+  });
+
+  it('says what the review request shows instead of people: asking, nobody, or why Jig could not ask', () => {
+    expect(reviewersLine(undefined)).toBe('Asking the forge who reviews…');
+    expect(reviewersLine({ state: 'ready', source: 'history', candidates: [] })).toBe('Nobody on the forge to ask.');
+    expect(reviewersLine({ state: 'ready', source: 'history', candidates: [{ login: 'alice', name: null, reviews: 1 }] })).toBeUndefined();
+    expect(
+      reviewersLine({ state: 'refused', code: 'forge-unavailable', reasons: ['the forge could not be asked: gh is not signed in'] }),
+    ).toBe('The forge could not be asked: gh is not signed in');
+    expect(reviewersLine({ id: 'shop', state: 'unreadable', code: 'timeout' })).toBe('Jig could not ask the forge (timeout).');
   });
 });

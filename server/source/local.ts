@@ -20,18 +20,21 @@ import {
   KNOWLEDGE_JIG_VERSION,
   KNOWLEDGE_TEXT_JIG_VERSION,
   LAND_JIG_VERSION,
+  landTask,
   landUpgrade,
   jigVersion,
   MIN_JIG_VERSION,
   moveInQueue,
   moveItem,
   planUpgrade,
+  promoteTask,
   type QueueItem,
   readArtifact,
   readArtifacts,
   readKnowledge,
   readKnowledgeText,
   readQueue,
+  readReviewers,
   readSettings,
   readSourceDiff,
   readSpecs,
@@ -53,6 +56,7 @@ import {
   pauseTask,
   PAUSE_JIG_VERSION,
   requestPause,
+  requestReview,
   RESUME_JIG_VERSION,
   resumeTask,
   ROADMAP_JIG_VERSION,
@@ -182,10 +186,14 @@ function closable(t: Live): boolean {
 
 const offers = (t: Live, action: string): boolean => t.actions.some((a) => a.id === action && a.offered);
 
-/** What the project's Jig takes, for the writes a card offers: `task resume --revision`, and `task pause --revision`. */
+/**
+ * What the project's Jig takes, for the writes a card offers: `task resume --revision`, `task pause --revision`, and a
+ * person's landing, promotion and review request (`WRITES_JIG_VERSION`).
+ */
 interface Takes {
   resume: boolean;
   pause: boolean;
+  writes: boolean;
 }
 
 /** A live task as a board's card shows it, with its place in the queue if it has one. */
@@ -202,6 +210,10 @@ const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
   pausable: takes.pause && t.branch === null && offers(t, 'pause') && !offers(t, 'request-pause'),
   resumable: takes.resume && offers(t, 'resume'),
   closable: closable(t),
+  landable: takes.writes && offers(t, 'land'),
+  // Jig offers it on every open pull request; on the board only a Review card's, the one into staging, asks.
+  reviewRequestable: takes.writes && t.parked?.reason === 'review' && offers(t, 'request-review'),
+  promotable: takes.writes && offers(t, 'promote'),
   staging: t.staging,
   parked: t.parked,
   stagingFlow: t.stagingFlow,
@@ -310,7 +322,11 @@ async function readProject(project: Project): Promise<Read> {
   };
   // The oldest of the reads the board is made of: a write against it is refused if anything was written after any of them.
   const revision = Math.min(status.revision, list.revision, queue.revision);
-  const takes = { resume: supports(jigVersion, RESUME_JIG_VERSION), pause: supports(jigVersion, PAUSE_JIG_VERSION) };
+  const takes = {
+    resume: supports(jigVersion, RESUME_JIG_VERSION),
+    pause: supports(jigVersion, PAUSE_JIG_VERSION),
+    writes: supports(jigVersion, WRITES_JIG_VERSION),
+  };
   return {
     view: {
       id: project.id,
@@ -400,6 +416,8 @@ interface Entry {
   writes: Set<Promise<unknown>>;
   /** What the last read of the finished tasks offered on each: a write on one runs only when it is there. */
   finished?: Map<string, FinishedTask['offers']>;
+  /** The logins the last read of the reviewers offered: a review is asked only of them. */
+  reviewers?: Set<string>;
   /**
    * The pull request the page's last upgrade left open, kept until a landing brings it here: before housekeeping hears
    * of it, it is all that says the project waits — a `not-merged` Check merge must not forget it.
@@ -822,7 +840,11 @@ export function localSource(
   async function writing(
     id: string,
     taskIds: string[],
-    write: (root: string, jigVersion: string, read: Read) => Promise<string | string[] | Refreshed | null | void>,
+    write: (
+      root: string,
+      jigVersion: string,
+      read: Read,
+    ) => Promise<string | string[] | Refreshed | Extract<Written, { state: 'written' }> | null | void>,
     specIds: string[] = [],
     allowed: (task: Task) => boolean = () => true,
   ): Promise<Written | undefined> {
@@ -845,7 +867,7 @@ export function localSource(
     try {
       const note = await run;
       if (Array.isArray(note)) written = { state: 'written', report: note };
-      else if (typeof note === 'object' && note) written = { state: 'written', refreshed: note };
+      else if (typeof note === 'object' && note) written = 'state' in note ? note : { state: 'written', refreshed: note };
       else if (note) written = { state: 'written', note };
     } catch (error) {
       // Only the code goes on, and reasons Jig UI cut the paths out of: Jig's message may name a path. An answer in a
@@ -1082,6 +1104,55 @@ export function localSource(
         if (!offers.includes(write)) throw new JigRefusal('not-found');
         return writeTask(root, taskId, write, write === 'abandon' ? reason : null, revision);
       });
+    },
+    landOnStaging(id, taskId, withoutReview, revision) {
+      return writing(
+        id,
+        [taskId],
+        async (root) => ({ state: 'written', landed: await landTask(root, taskId, withoutReview, revision) }),
+        [],
+        (t) => t.landable,
+      );
+    },
+    promote(id, taskId, revision) {
+      return writing(
+        id,
+        [taskId],
+        async (root) => ({ state: 'written', promoted: await promoteTask(root, taskId, revision) }),
+        [],
+        (t) => t.promotable,
+      );
+    },
+    requestReview(id, taskId, logins, revision) {
+      return writing(
+        id,
+        [taskId],
+        async (root) => {
+          // Only a login the forge offered reaches Jig's arguments, never one the page made up (`--by`).
+          const offered = entries.get(id)?.reviewers;
+          if (!logins.every((l) => offered?.has(l))) throw new JigRefusal('not-found');
+          return { state: 'written', requested: await requestReview(root, taskId, logins, revision) };
+        },
+        [],
+        (t) => t.reviewRequestable,
+      );
+    },
+    async reviewers(id) {
+      const answer = await onDemand(id, WRITES_JIG_VERSION, (root) =>
+        readReviewers(root).catch((error: unknown) => {
+          // The forge not asked is the panel's to say, with Jig's why: a missing CLI or sign-in, not a broken project.
+          if (error instanceof JigRefusal && error.code === 'forge-unavailable') return error;
+          throw error;
+        }),
+      );
+      if (answer?.state !== 'ready') return answer;
+      const read = answer.read;
+      if (read === null || read instanceof JigRefusal) {
+        return { state: 'refused', code: read?.code ?? 'failed', reasons: read?.reasons ?? [] };
+      }
+      const entry = entries.get(id);
+      if (entry) entry.reviewers = new Set(read.candidates.map((c) => c.login));
+      return { state: 'ready', ...read };
     },
     depend(id, taskId, on, reason, revision) {
       const [kind, other] = on.split(':') as [string, string];

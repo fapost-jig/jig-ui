@@ -89,3 +89,27 @@ export function writeRefusal(code: string, reasons: string[], doing: string, tas
   if (reasons.length > 0) return `Jig refused ${doing} ${task}: ${reasons.join(' ')}`;
   return refusal(code, doing, task);
 }
+
+/**
+ * The line for a landing, a promotion or a review request Jig refused, in Jig UI's words where the person has a next
+ * step — the review it waits for, a conflict the agent resolves, a check still running — and Jig's own words where only
+ * Jig knows why; a timeout or an answer this Jig UI does not read may have done it. The rest as `writeRefusal` says it.
+ */
+export function stagingRefusal(code: string, reasons: string[], doing: string, task: string): string {
+  if (code === 'not-approved') {
+    return reasons.length > 0 ? `Jig did not land ${task}: ${reasons.join(' ')}` : `${task}'s pull request is not approved yet.`;
+  }
+  if (code === 'review-required') return `Only an approval lands ${task} here: the project's git.staging_review is require.`;
+  if (code === 'conflict')
+    return `${task}'s pull request conflicts with staging. Ask your agent to land ${task}: it resolves the conflict.`;
+  if (code === 'base-conflict') {
+    const paths = reasons.length > 0 ? ` (${reasons.join(' ')})` : '';
+    return `${task}'s branch conflicts with the main branch${paths}: ask your agent to merge it in, then prepare for prod again.`;
+  }
+  if (code === 'ci-pending') return `${task}'s checks are still running: try again in a moment.`;
+  if (code === 'mergeable-unknown') return `The forge cannot say yet whether ${task}'s pull request merges cleanly: try again in a moment.`;
+  if (code === 'autopilot-running') return `${task}'s autopilot run is on: the agent is on it.`;
+  if (code === 'timeout') return 'Jig did not answer in time and may have done it: look at the board again.';
+  if (code === 'incompatible') return 'Jig answered in a way Jig UI does not read, and may have done it: look at the board again.';
+  return writeRefusal(code, reasons, doing, task);
+}

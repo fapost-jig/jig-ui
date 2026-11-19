@@ -1,0 +1,1 @@
+{"schema":1,"revision":1794936907,"generated_at":"2026-11-19T10:52:03Z","error":{"code":"not-ready","message":"task land: requires knowledge_consolidated true; record the knowledge decision first: jig task set rev-ok knowledge_consolidated true"}}

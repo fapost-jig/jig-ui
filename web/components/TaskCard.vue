@@ -1,16 +1,18 @@
 <script setup lang="ts">
   import { ExternalLink, X } from '@lucide/vue';
   import { computed } from 'vue';
-  import type { Place, ReadyDetails, Task } from '@/api';
+  import type { Place, ReadyDetails, Reviewers, Task } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { toneRule } from '@/lib/tones';
   import { minute } from '@/lib/clock';
   import { cardKey } from '@/lib/task-key';
+  import type { StagingStep } from '@/lib/staging';
   import { requested, waits } from '@/lib/waits';
-  import CloseConfirm from './CloseConfirm.vue';
+  import WriteConfirm from './WriteConfirm.vue';
   import QueueMenu from './QueueMenu.vue';
+  import ReviewRequest from './ReviewRequest.vue';
   import SpecMark from './SpecMark.vue';
   import TaskBrief from './TaskBrief.vue';
 
@@ -31,6 +33,10 @@
     changed?: boolean;
     /** Its spec is one of the project's: its mark opens it on the Specs view. */
     specOpens?: boolean;
+    /** Its review request is open: whom the forge offers, `undefined` while the view reads them. */
+    reviewing?: {
+      reviewers?: Reviewers;
+    };
   }>();
 
   defineEmits<{
@@ -41,10 +47,13 @@
     resume: [];
     close: [];
     openSpec: [spec: string];
+    staging: [step: StagingStep];
   }>();
 
   /** The question before closing the task is open: one press asks, the question's button closes. */
   const confirming = defineModel<boolean>('confirming', { default: false });
+  /** The question before preparing it for prod is open, as the close's is. */
+  const promoting = defineModel<boolean>('promoting', { default: false });
 
   const note = computed(() => waits(props.task));
   const request = computed(() => requested(props.task, minute.value.getTime()));
@@ -81,6 +90,9 @@
         @prioritise="(p) => $emit('prioritise', p)"
         @pause="(ask) => $emit('pause', ask)"
         @resume="$emit('resume')"
+        @land="$emit('staging', 'land')"
+        @review="$emit('staging', 'review')"
+        @promote="promoting = true"
       />
       <Button
         v-if="task.closable"
@@ -96,14 +108,33 @@
       </Button>
     </div>
     <SpecMark v-if="task.spec" :spec="task.spec" :openable="specOpens" @open="(spec) => $emit('openSpec', spec)" />
-    <CloseConfirm
+    <WriteConfirm
       v-if="task.closable && confirming && !busy"
+      write="close"
       :task="task.id"
-      @close="
+      @confirm="
         confirming = false;
         $emit('close');
       "
       @cancel="confirming = false"
+    />
+    <WriteConfirm
+      v-if="task.promotable && promoting && !busy"
+      write="promote"
+      :task="task.id"
+      @confirm="
+        promoting = false;
+        $emit('staging', 'promote');
+      "
+      @cancel="promoting = false"
+    />
+    <ReviewRequest
+      v-if="reviewing && !busy"
+      :task="task.id"
+      :reviewers="reviewing.reviewers"
+      :asked="task.parked?.review?.waitingFor ?? []"
+      @ask="(logins) => $emit('staging', { ask: logins })"
+      @cancel="$emit('staging', 'unreview')"
     />
     <p v-if="busy" class="text-[13px] text-muted-foreground" role="status">sending to Jig…</p>
     <p v-if="changed" class="text-[13px]" :class="toneRule.attention">Changed while you acted</p>

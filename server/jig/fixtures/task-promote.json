@@ -1,0 +1,1 @@
+{"schema":1,"revision":1794936907,"generated_at":"2026-11-19T10:52:04Z","data":{"task":{"id":"on-stg"},"promote":{"pull_request":"https://github.com/o/r/pull/9","already_open":false,"pushed":true,"tested_commit":"3f2a9c1","in_base":false,"merge":{"outcome":"person","reason":"git.promote_merge: human"}}}}

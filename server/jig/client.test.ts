@@ -18,11 +18,13 @@ import {
   JigRefusal,
   JigShapeError,
   jigVersion,
+  landTask,
   landUpgrade,
   planUpgrade,
   MIN_JIG_VERSION,
   moveInQueue,
   moveItem,
+  promoteTask,
   readArtifact,
   readArtifacts,
   readFinishedTasks,
@@ -30,6 +32,7 @@ import {
   readKnowledgeText,
   readMachineJig,
   readQueue,
+  readReviewers,
   readSettings,
   readSourceDiff,
   readSpecs,
@@ -38,6 +41,7 @@ import {
   refresh,
   releaseNamed,
   requestPause,
+  requestReview,
   resumeTask,
   runUpgrade,
   selfUpdate,
@@ -2036,6 +2040,105 @@ describe('writeTask', () => {
     ['spec-drop-git-not-allowed.json', 'drop-item' as const, 'git-not-allowed'],
   ])('carries the refusal in %s as its code', async (json, write, code) => {
     await expect(writeTask(answering(`case-${cases++}`, json, 1), 'gated', write, null, 1)).rejects.toEqual(refusal(code));
+  });
+});
+
+// pr-reviewers-forge-unavailable.json, task-request-review-forge-unavailable.json and task-land-not-ready.json are what Jig
+// 0.46.0 printed in a scratch repository on the staging flow with a local origin, where no forge answers. The rest are
+// written from Jig's contract (schemas/json.md), untested on a forge; their `task` is not read.
+describe('a person on the staging flow', () => {
+  it('lands a pull request on staging as the person, against the revision it was read at', async () => {
+    const dir = logging(`case-${cases++}`, 'task-land.json');
+    await expect(landTask(dir, 'rev-ok', false, 7)).resolves.toEqual({
+      outcome: 'landed',
+      pullRequest: 'https://github.com/o/r/pull/7',
+      withoutReview: null,
+    });
+    expect(args(dir)).toEqual(['task', 'land', 'rev-ok', '--by', 'human', '--revision', '7', '--json']);
+  });
+
+  it('lands one not approved only when asked to, and reads how', async () => {
+    const dir = logging(
+      `case-${cases++}`,
+      changed('task-land.json', (d) => (d.land.without_review = 'person')),
+    );
+    await expect(landTask(dir, 'rev-ok', true, 7)).resolves.toMatchObject({ withoutReview: 'person' });
+    expect(args(dir)).toEqual(['task', 'land', 'rev-ok', '--by', 'human', '--without-review', '--revision', '7', '--json']);
+  });
+
+  it("carries a landing Jig refused, with whom it waits for in Jig's words", async () => {
+    await expect(landTask(answering(`case-${cases++}`, 'task-land-not-approved.json', 1), 'rev-ok', false, 7)).rejects.toMatchObject({
+      code: 'not-approved',
+      reasons: [
+        'not landed: https://github.com/o/r/pull/7 is not approved (waiting for alice and bob); land it without review, or wait for review',
+      ],
+    });
+    await expect(landTask(answering(`case-${cases++}`, 'task-land-not-ready.json', 1), 'rev-ok', false, 7)).rejects.toMatchObject({
+      code: 'not-ready',
+      reasons: [
+        'requires knowledge_consolidated true; record the knowledge decision first: jig task set rev-ok knowledge_consolidated true',
+      ],
+    });
+  });
+
+  it('prepares a task for prod as the person, and reads who merges', async () => {
+    const dir = logging(`case-${cases++}`, 'task-promote.json');
+    await expect(promoteTask(dir, 'on-stg', 7)).resolves.toEqual({
+      pullRequest: 'https://github.com/o/r/pull/9',
+      inBase: false,
+      merge: { outcome: 'person', reason: 'git.promote_merge: human' },
+    });
+    expect(args(dir)).toEqual(['task', 'promote', 'on-stg', '--by', 'human', '--revision', '7', '--json']);
+  });
+
+  it('asks each reviewer by login, as the person', async () => {
+    const dir = logging(`case-${cases++}`, 'task-request-review.json');
+    await expect(requestReview(dir, 'rev-wait', ['alice', 'bob'], 7)).resolves.toEqual(['alice', 'bob']);
+    expect(args(dir)).toEqual([
+      'task',
+      'request-review',
+      'rev-wait',
+      '--reviewer',
+      'alice',
+      '--reviewer',
+      'bob',
+      '--by',
+      'human',
+      '--revision',
+      '7',
+      '--json',
+    ]);
+  });
+
+  it("reads whom the forge offers to review, the clone's own account left out", async () => {
+    const dir = logging(`case-${cases++}`, 'pr-reviewers.json');
+    await expect(readReviewers(dir)).resolves.toEqual({
+      source: 'history',
+      candidates: [
+        { login: 'alice', name: 'Alice Smith', reviews: 2 },
+        { login: 'bob', name: null, reviews: 1 },
+      ],
+    });
+    expect(args(dir)).toEqual(['pr', 'reviewers', '--json']);
+  });
+
+  it("carries the forge Jig could not ask as forge-unavailable, with Jig's why", async () => {
+    await expect(readReviewers(answering(`case-${cases++}`, 'pr-reviewers-forge-unavailable.json', 1))).rejects.toMatchObject({
+      code: 'forge-unavailable',
+      reasons: ['the forge could not be asked: no forge configured: origin is on no forge Jig knows; set forge to github or gitlab'],
+    });
+    await expect(
+      requestReview(answering(`case-${cases++}`, 'task-request-review-forge-unavailable.json', 1), 'rev-wait', ['alice'], 7),
+    ).rejects.toEqual(refusal('forge-unavailable'));
+  });
+
+  it.each([
+    ['task-land.json', (d: Record<string, any>) => (d.land.outcome = 'queued')],
+    ['task-promote.json', (d: Record<string, any>) => (d.promote.merge.outcome = 'later')],
+  ])('reads an answer of a later Jig in %s as one it does not read', async (json, change) => {
+    const dir = answering(`case-${cases++}`, changed(json, change));
+    const run = json === 'task-land.json' ? landTask(dir, 'a', false, 1) : promoteTask(dir, 'a', 1);
+    await expect(run).rejects.toBeInstanceOf(JigShapeError);
   });
 });
 

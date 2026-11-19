@@ -7,7 +7,7 @@ paths:
   - "server/source/**"
   - "server/board/**"
 summary: "MAY/MUST/MUST NOT for the ProjectSource port: ids not paths, typed data, no files or processes leak"
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-19
 ---
 # ProjectSource — how the server reaches a project
 
@@ -74,7 +74,12 @@ Jig's report on `written` as `report` —, `refresh(id)` — what it did on `wri
 writes on a task `act(id, taskId, write, reason, revision)` — only one Jig offers in the last read of the task, or of
 the finished list for a finished one — and `depend(id, taskId, on, reason, revision)` and `undepend(id, taskId, on,
 revision)` — between live tasks or onto an open epic, and only a dependency of the task's own —, all three
-`unsupported` below `WRITES_JIG_VERSION` without Jig (adr-20261118-a-person-writes-on-a-task-from-its-page), and the
+`unsupported` below `WRITES_JIG_VERSION` without Jig (adr-20261118-a-person-writes-on-a-task-from-its-page), a person's
+steps on the staging flow `landOnStaging(id, taskId, withoutReview, revision)` — `land(id)` is the upgrade's —,
+`promote(id, taskId, revision)` and `requestReview(id, taskId, logins, revision)`, each only for a task its last read
+shows `landable`, `promotable` or `reviewRequestable`, any other `not-found` without Jig, and the logins only among
+those the last `reviewers(id)` named, a forge read on demand whose logins the adapter keeps in memory
+(adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), and the
 knowledge waiting for a decision — `knowledge(id)`, with a revision of its own and whether the project's Jig
 reads a document's text, drops a link and decides several documents in one write (`canRead`, `canDrop`,
 `canDecideMany`), a linked file's diff `knowledgeDiff(id, doc)`

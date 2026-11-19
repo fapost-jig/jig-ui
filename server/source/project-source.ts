@@ -6,10 +6,13 @@ import type {
   ItemPlace,
   Knowledge,
   KnowledgeDecision,
+  Landed,
   MachineJig,
   Origin,
   Place,
+  Promoted,
   Refreshed,
+  Reviewers,
   Setting,
   Spec,
   SpecItem,
@@ -27,10 +30,13 @@ export type {
   ItemPlace,
   Knowledge,
   KnowledgeDecision,
+  Landed,
   MachineJig,
   Origin,
   Place,
+  Promoted,
   Refreshed,
+  Reviewers,
   Setting,
   Spec,
   SpecItem,
@@ -249,6 +255,15 @@ export interface Task {
    * Jig itself asks the forge when it closes. On the staging flow, only once housekeeping found its work in the base.
    */
   closable: boolean;
+  /**
+   * On the staging flow, from Jig 0.46.0: its pull request into staging is the person's to land from the page (Jig offers
+   * `land`) — approved or not, Jig says which when it runs.
+   */
+  landable: boolean;
+  /** Parked at staging for a review, from Jig 0.46.0, and Jig offers to ask the forge for reviewers (`request-review`). */
+  reviewRequestable: boolean;
+  /** Tested on staging, from Jig 0.46.0, and Jig offers to prepare it for prod (`promote`): its pull request into the base. */
+  promotable: boolean;
   /** On Jig's staging flow, whether the task's own work is on the staging branch (`on`) or has commits after it (`behind`); `null` elsewhere. */
   staging: 'on' | 'behind' | null;
   /**
@@ -410,6 +425,21 @@ export type TaskArtifacts =
  * The project's settings and the person's own in this clone, every key Jig reads, with the revision they were read at; or
  * why they cannot be read — a project whose Jig is older than 0.40.0 is `unsupported`, with 0.40.0 as its minimum.
  */
+/**
+ * Whom the forge offers to review a pull request into the staging branch, read when a person is about to choose; or why
+ * Jig could not ask it (`forge-unavailable`, with Jig's reasons); or why the project cannot be read.
+ */
+export type ProjectReviewers =
+  | ({
+      state: 'ready';
+    } & Reviewers)
+  | {
+      state: 'refused';
+      code: string;
+      reasons: string[];
+    }
+  | Exclude<ProjectView, { state: 'ready' }>;
+
 export type ProjectSettings =
   | {
       state: 'ready';
@@ -529,6 +559,12 @@ export type Written =
       report?: string[];
       /** What a refresh did, without git's messages or a path. */
       refreshed?: Refreshed;
+      /** What a person's landing on staging did. */
+      landed?: Landed;
+      /** What preparing a task for prod did: its pull request into the base, and who merges it. */
+      promoted?: Promoted;
+      /** The logins a review was asked of. */
+      requested?: string[];
     }
   | {
       state: 'refused';
@@ -647,6 +683,25 @@ export interface ProjectSource {
    * `approve-gate` the revision is the design's read: a design rewritten since is refused `stale-revision`.
    */
   act(id: string, taskId: string, write: TaskWrite, reason: string | null, revision: number): Promise<Written | undefined>;
+  /**
+   * Lands a landable task's pull request on the staging branch as the person, as `move` writes — `withoutReview` one not
+   * approved —; any other is refused `not-found` without running Jig. Jig's refusal comes back with its reasons: whom it
+   * waits for, for `not-approved`.
+   */
+  landOnStaging(id: string, taskId: string, withoutReview: boolean, revision: number): Promise<Written | undefined>;
+  /** Prepares a promotable task for prod — its pull request into the base —, as `landOnStaging` writes. */
+  promote(id: string, taskId: string, revision: number): Promise<Written | undefined>;
+  /**
+   * Asks the forge for reviews of a task whose review may be asked, as `landOnStaging` writes, of logins the last `reviewers` read
+   * offered only — anything else `not-found`, Jig not run.
+   */
+  requestReview(id: string, taskId: string, logins: string[], revision: number): Promise<Written | undefined>;
+  /**
+   * Whom the forge offers to review a pull request into the project's staging branch, read through its Jig at each call —
+   * it asks the forge, so only when a person is about to choose; the logins are kept in memory for `requestReview`.
+   * Below Jig 0.46.0 `unsupported`. `undefined` when no project has that id.
+   */
+  reviewers(id: string): Promise<ProjectReviewers | undefined>;
   /** Makes a live task wait for another live task or an open epic (`task:<id>`, `epic:<spec>`) with a reason, as `move` writes. */
   depend(id: string, taskId: string, on: string, reason: string, revision: number): Promise<Written | undefined>;
   /** Takes back what a live task waits for, its own dependency only — not one its epic gives it —, as `move` writes. */

@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import { ChevronDown, ChevronRight } from '@lucide/vue';
   import { computed, ref } from 'vue';
-  import type { Column, Place, ReadyDetails } from '@/api';
+  import type { Column, Place, ReadyDetails, Reviewers } from '@/api';
+  import type { StagingStep } from '@/lib/staging';
   import { Badge } from '@/components/ui/badge';
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
   import { useDrop } from '@/lib/drop';
@@ -30,6 +31,11 @@
     filtered?: boolean;
     /** The ids of the project's specs: a card's spec among them opens on the Specs view. */
     specs?: string[];
+    /** The task whose review request is open, and whom the forge offers once read. */
+    reviewing?: {
+      task: string;
+      reviewers?: Reviewers;
+    };
   }>();
 
   const emit = defineEmits<{
@@ -40,6 +46,7 @@
     resume: [task: string];
     close: [task: string];
     openSpec: [spec: string];
+    staging: [task: string, step: StagingStep];
   }>();
 
   const drag = useDrop(
@@ -131,6 +138,7 @@
                   :busy="pending === task.id"
                   :changed="changed?.includes(task.id)"
                   :spec-opens="!!task.spec && !!specs?.includes(task.spec.id)"
+                  :reviewing="reviewing?.task === task.id ? reviewing : undefined"
                   @select="$emit('select', task.id)"
                   @move="(place) => $emit('move', task.id, place)"
                   @prioritise="(p) => $emit('prioritise', task.id, p)"
@@ -138,6 +146,7 @@
                   @resume="$emit('resume', task.id)"
                   @close="$emit('close', task.id)"
                   @open-spec="(spec) => $emit('openSpec', spec)"
+                  @staging="(step) => $emit('staging', task.id, step)"
                 />
                 <span
                   v-if="gap?.list === column.id && gap.index === column.cards.length && i === column.cards.length - 1"

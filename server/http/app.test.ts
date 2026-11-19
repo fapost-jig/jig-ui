@@ -789,6 +789,63 @@ describe('/api/projects/:id/queue', () => {
     expect((await post(fake, '/api/projects/x/tasks/close', { task: 'a', revision: 3 }, {})).status).toBe(401);
   });
 
+  it('lands, prepares for prod and asks a review through the port, answering what Jig did, the logins checked', async () => {
+    const asked: unknown[][] = [];
+    const landed = { outcome: 'landed' as const, pullRequest: 'https://github.com/o/r/pull/7', withoutReview: null };
+    const promoted = { pullRequest: 'https://github.com/o/r/pull/9', inBase: false, merge: { outcome: 'person' as const, reason: null } };
+    let outcome: Written | undefined;
+    const source: ProjectSource = {
+      ...localSource(join(webRoot, 'fake-config')),
+      landOnStaging: (...args) => (asked.push(['land', ...args]), Promise.resolve(outcome ?? { state: 'written', landed })),
+      promote: (...args) => (asked.push(['promote', ...args]), Promise.resolve(outcome ?? { state: 'written', promoted })),
+      requestReview: (...args) => (asked.push(['review', ...args]), Promise.resolve(outcome ?? { state: 'written', requested: ['alice'] })),
+      reviewers: () =>
+        Promise.resolve({ state: 'ready', source: 'assignable', candidates: [{ login: 'alice', name: null, reviews: null }] }),
+    };
+    const fake = createApp({ port: PORT, token: TOKEN, source, webRoot });
+    expect(await (await post(fake, '/api/projects/x/tasks/land', { task: 'a', revision: 3 })).json()).toEqual({ landed });
+    await post(fake, '/api/projects/x/tasks/land', { task: 'a', withoutReview: true, revision: 3 });
+    expect(await (await post(fake, '/api/projects/x/tasks/promote', { task: 'a', revision: 3 })).json()).toEqual({ promoted });
+    expect(
+      await (await post(fake, '/api/projects/x/tasks/request-review', { task: 'a', reviewers: ['alice'], revision: 3 })).json(),
+    ).toEqual({
+      requested: ['alice'],
+    });
+    expect(asked).toEqual([
+      ['land', 'x', 'a', false, 3],
+      ['land', 'x', 'a', true, 3],
+      ['promote', 'x', 'a', 3],
+      ['review', 'x', 'a', ['alice'], 3],
+    ]);
+    const reviewers = await fake.request('/api/projects/x/reviewers', { headers: { host: HOST, cookie: COOKIE } });
+    expect(await reviewers.json()).toEqual({
+      reviewers: { state: 'ready', source: 'assignable', candidates: [{ login: 'alice', name: null, reviews: null }] },
+    });
+    for (const [route, body] of [
+      ['tasks/land', { task: 'a' }],
+      ['tasks/promote', { revision: 3 }],
+      ['tasks/request-review', { task: 'a', revision: 3 }],
+      ['tasks/request-review', { task: 'a', reviewers: [], revision: 3 }],
+      ['tasks/request-review', { task: 'a', reviewers: ['--by'], revision: 3 }],
+      ['tasks/request-review', { task: 'a', reviewers: ['alice', 'alice'], revision: 3 }],
+      ['tasks/request-review', { task: 'a', reviewers: Array.from({ length: 21 }, (_, i) => `p${i}`), revision: 3 }],
+    ] as const) {
+      const res = await post(fake, `/api/projects/x/${route}`, body);
+      expect([route, res.status, ((await res.json()) as { error?: { code: string } }).error?.code]).toEqual([route, 422, 'usage']);
+    }
+    expect(asked).toHaveLength(4);
+    outcome = { state: 'refused', code: 'not-approved', reasons: ['not landed: it waits for alice'] };
+    const refused = await post(fake, '/api/projects/x/tasks/land', { task: 'a', revision: 3 });
+    expect([refused.status, await refused.json()]).toEqual([
+      422,
+      { error: { code: 'not-approved', message: 'Jig refused the change.', reasons: ['not landed: it waits for alice'] } },
+    ]);
+    outcome = { state: 'refused', code: 'stale-revision' };
+    expect((await post(fake, '/api/projects/x/tasks/promote', { task: 'a', revision: 2 })).status).toBe(409);
+    expect((await post(fake, '/api/projects/x/tasks/land', { task: 'a', revision: 3 }, {})).status).toBe(401);
+    expect((await fake.request('/api/projects/x/reviewers', { headers: { host: HOST } })).status).toBe(401);
+  });
+
   it("runs a person's write on a task through the port, an abandon's reason required, and answers Jig's note", async () => {
     const asked: unknown[][] = [];
     let outcome: Written = { state: 'written' };
