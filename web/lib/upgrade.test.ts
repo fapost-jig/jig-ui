@@ -40,6 +40,8 @@ const ready = (id: string, attention: Attention[] = []): Project => ({
   origin: null,
   stagingFlow: false,
   closable: [],
+  shipping: [],
+  agentGit: null,
   revision: 0,
   upgrade: null,
 });

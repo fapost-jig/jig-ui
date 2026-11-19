@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, stagingRefusal, unnamedRefusal, writeRefusal } from './refusal';
+import {
+  closeRefusal,
+  fileItemRefusal,
+  mergeRefusal,
+  reasonsOf,
+  refusal,
+  roadmapRefusal,
+  stagingRefusal,
+  unnamedRefusal,
+  writeRefusal,
+} from './refusal';
 
 describe('reasonsOf', () => {
   it("reads Jig's reasons as lines, and none from an answer without them or with them in another shape", () => {
@@ -148,5 +158,32 @@ describe('stagingRefusal', () => {
     expect(stagingRefusal('not-found', [], 'preparing for prod', 'a')).toBe(
       'a does not offer this any more: look at it again as it is now.',
     );
+  });
+});
+
+describe('mergeRefusal', () => {
+  it("says what holds a merge back in words where the person has a next step, and whom the review waits for in Jig's", () => {
+    expect(mergeRefusal('ci-red', ['x'], 'a')).toBe("A check of a's pull request failed: nothing was merged.");
+    expect(mergeRefusal('ci-pending', [], 'a')).toBe("a's checks are still running: try again once they pass.");
+    expect(mergeRefusal('not-approved', ['not merged: it waits for alice'], 'a')).toBe(
+      'Jig did not merge a: not merged: it waits for alice',
+    );
+    expect(mergeRefusal('not-approved', [], 'a')).toBe("a's pull request is not approved yet.");
+    expect(mergeRefusal('conflict', [], 'a')).toBe("a's pull request conflicts with its base: ask your agent to merge the base in.");
+    expect(mergeRefusal('ship-running', [], 'a')).toBe("The agent's ship of a waits for CI and merges it itself.");
+    expect(mergeRefusal('notes-stale', [], 'a')).toBe(
+      "a's release notes no longer reach the base: ask your agent to bring them up to date.",
+    );
+  });
+
+  it('says the rest as a staging write or any write does', () => {
+    expect(mergeRefusal('mergeable-unknown', [], 'a')).toBe(
+      "The forge cannot say yet whether a's pull request merges cleanly: try again in a moment.",
+    );
+    expect(mergeRefusal('stale-revision', [], 'a')).toBe('The project changed while you were merging a. Look at it again as it is now.');
+    expect(mergeRefusal('wrong-flow', ['task merge-pr: land it: jig task land a --by human'], 'a')).toBe(
+      'Jig refused merging a: task merge-pr: land it: jig task land a --by human',
+    );
+    expect(mergeRefusal('forge-refused', [], 'a')).toBe('Jig refused merging a (forge-refused).');
   });
 });

@@ -59,7 +59,10 @@ absent; on 0.46.0 a staging task's `pull_request` carries the pull request into 
 gave the promotion's. An attention item's `staging` is read on `staging-unowned` only, as `{commits, list}` — absent
 before Jig 0.46.0, where the item counted everyone's commits, and never its `ack` command
 (adr-20261118-mark-as-known-carries-the-count-the-person-saw); `staging-unpromoted`'s `staging` of another shape is not
-read. The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
+read. From Jig 0.46.0 the items `pull-request-waiting` and `pull-request-was-open` are read with the forge cache's
+`pull_request` as `taskPullRequest` (`null` while the cache has no entry) and the ids of the actions Jig offers on them
+as `offers` — never a command or a withheld action's reason; an older Jig's item is its texts alone. A task row's
+`shipping` (`{since}`, its ship waiting for CI to merge it itself) is read as `null` when absent (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card). The schema reads 0.45.0 into 0.46.0's shape — for a task on staging or parked, with no
 `promotion`, the state, CI and `fetched_at` become the promotion's, without a link — so nothing past `server/jig/` tells the two apart
 (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns).
 
@@ -126,6 +129,13 @@ request; it keeps the source and each candidate's login, name and count, and its
 refusal with Jig's line. The success fixtures of these four are written from Jig's contract; their refusal fixtures
 come from a scratch project with a local bare origin
 (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card).
+`mergePr` (`jig task merge-pr <id> --by human --revision <n> --json`, 2 minutes) reads the merge's outcome — `merged` or
+`already-merged` —, its pull request, whether the task closed with it and what blocked the close; its refusals add
+`notes-stale`. `readPrStatus` (`jig task pr-status <id> --json`, 60 s, `FORGE_READ_TIMEOUT_MS` as for the reviewers) is a
+forge read asked only when a person presses Status…: the pull request, each check with its duration, the review and
+whom it waits for, the base branch's rules and Jig's blocker words; its `forge-unavailable` and `no-pull-request` come
+back as refusals with Jig's line. Their success fixtures are written from Jig's contract, their refusals from a scratch
+project (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 `fileTask` (`jig task new <id> --goal <text>`) takes no revision — Jig has none for it — and its
 tests pin that a person's goal reaches Jig as one argument, unglobbed
 (adr-20261022-filing-a-task-carries-no-revision). `closeTask` (`jig task set <id> status consolidated`) takes the

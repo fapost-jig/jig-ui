@@ -65,7 +65,9 @@ readable project's card shows:
 - **Its live tasks counted** — `active`, `paused` and `ready` (finished tasks are not counted).
 - **What needs you** — the same items `jig status` lists under "Needs you", most urgent first: a
   design waiting at its gate, a stopped autopilot run, a pull request waiting for review, a task to
-  close. Each says what happened and what to do; a pull request comes with a link to it,
+  close. Each says what happened and what to do; a pull request comes with a link to it — and with Jig 0.46.0 says
+  where it stands and who merges it, with **Merge…** and **Status…** where Jig offers them
+  ([Merging a task's pull request](#merging-a-tasks-pull-request)) —,
   knowledge waiting for your decision with **Decide on the page** ([Deciding knowledge](#deciding-knowledge)),
   a merged task with **Close task** where its card in **Ready** could close it ([Closing a task](#closing-a-task)),
   and *This checkout is behind origin* with **Refresh** ([Bringing the clone up to origin](#bringing-the-clone-up-to-origin)).
@@ -339,7 +341,8 @@ A drop on any other column does nothing.
 
 ## Closing a task
 
-A card in **Ready** whose task can be closed carries a **✕** beside its ⋯ menu. Press it,
+A card in **Ready** whose task can be closed carries a **✕** beside its ⋯ menu — not one that offers **Merge…**,
+whose merge closes it ([Merging a task's pull request](#merging-a-tasks-pull-request)). Press it,
 then **Close task** in the question below it, to close the task as done: Jig UI runs
 `jig task set <id> status consolidated` — the command Jig's own `close` action names — in the
 project, checked against the board you saw: from Jig 0.40.0 Jig itself refuses the close when
@@ -362,6 +365,36 @@ known to have closed unmerged. What Jig knows of pull requests between commands 
 to close the task yet, and the ✕ is there anyway, since closing asks the forge. A task without a
 recorded knowledge decision has no ✕, and its item no **Close task**: record it first (the
 `jig-consolidate` skill). Closing cannot be undone from the page.
+
+## Merging a task's pull request
+
+With Jig 0.46.0 in the project, a card whose pull request Jig offers to merge has **Merge…** first in its ⋯ menu. It
+asks first, since only a revert on the forge takes a merge back; **Merge** then merges the pull request into its base as
+you (`jig task merge-pr <id> --by human`), checked against the board you saw. Jig asks the forge once and merges nothing
+while the pull request is a draft, conflicts with its base, waits for an approval, or has a check that failed or still
+runs: the line above the board says why, whom the review waits for in Jig's words, with **Status…** beside it. Once it
+merged, Jig closes the task in the same write when its knowledge decision is recorded, and the line says so, linking to
+the pull request; otherwise it says the close waits for that decision.
+
+Jig holds **Merge…** back while what it last heard from the forge says a check failed or runs, or the pull request
+conflicts; while an autopilot run is on the task; and while your agent's `jig task ship` waits for CI to merge it
+itself. A card that cannot be merged or landed from the board has **Status…** instead: it asks the forge, only when you
+press, where the pull request stands now (`jig task pr-status <id>`) — each check with what came of it and how long it
+ran or has been running, a link to the one that failed, whom the review waits for, what the base branch's rules ask,
+and in one line what holds the merge back. **Close** puts it away.
+
+On a project's card, Jig's items *A pull request is waiting for review* and *A pull request was open at the last
+housekeeping run* say the pull request in words — CI green, red, running or none; merges cleanly or conflicts with its
+base; approved, changes requested, or whom the review waits for — as Jig last heard it from the forge, and how long ago.
+Off the staging flow they say who merges it: the agent, whose ship waits for CI and merges it itself; nobody, when your
+`agent.git` is `merge` and the agent's ship stopped before the merge; else you. They carry **Merge…**, **Land on
+staging** and **Status…** where Jig offers them, the same writes as on the board, checked against the project as the
+card shows it; what Jig did, or why it refused, stays on the card until you **Dismiss** it. A landing Jig refused while
+the review is not approved points to the Board, where **Land without review** is. A task's page says the same words,
+without the buttons.
+
+Merging and asking reach the forge with your git credentials, so the macOS keychain may ask. Below Jig 0.46.0 the
+merge stays with your agent or the forge.
 
 ## Tasks on staging
 
@@ -410,6 +443,8 @@ offers them:
   staging most often first, else everyone the repository may ask (`jig pr reviewers`, only when you press) — and asks
   the ones you tick (`jig task request-review <id> --reviewer <login>`). Those the review already waits for are ticked.
   The card shows their review after the next `jig housekeeping`.
+- **Status…**, on a card in Review that cannot be landed — the review waits, changes were asked —, says where its pull
+  request stands on the forge ([Merging a task's pull request](#merging-a-tasks-pull-request)).
 - **Prepare for prod…**, on a card in On staging, asks first, then pushes the task's branch and opens its promotion,
   the pull request into the main branch (`jig task promote <id> --by human`). The line above the board links to it and
   says who merges it: you, or the forge itself once its checks pass where the project merges promotions itself. The

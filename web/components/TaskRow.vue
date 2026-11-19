@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { X } from '@lucide/vue';
   import { computed } from 'vue';
-  import type { Place, Reviewers, Task } from '@/api';
+  import type { Place, PrStatus as Status, Reviewers, Task } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
   import { toneText } from '@/lib/tones';
@@ -9,6 +9,7 @@
   import type { StagingStep } from '@/lib/staging';
   import { requested, waits } from '@/lib/waits';
   import WriteConfirm from './WriteConfirm.vue';
+  import PrStatus from './PrStatus.vue';
   import QueueMenu from './QueueMenu.vue';
   import ReviewRequest from './ReviewRequest.vue';
   import SpecMark from './SpecMark.vue';
@@ -32,6 +33,10 @@
     reviewing?: {
       reviewers?: Reviewers;
     };
+    /** Where its pull request stands is open: the forge's answer, `undefined` while the view asks it. */
+    prStatus?: {
+      read?: Status;
+    };
   }>();
 
   defineEmits<{
@@ -49,6 +54,8 @@
   const confirming = defineModel<boolean>('confirming', { default: false });
   /** The question before preparing it for prod is open, as the close's is. */
   const promoting = defineModel<boolean>('promoting', { default: false });
+  /** The question before merging its pull request is open, as the close's is. */
+  const merging = defineModel<boolean>('merging', { default: false });
 
   const note = computed(() => waits(props.task));
   const request = computed(() => requested(props.task, minute.value.getTime()));
@@ -92,6 +99,8 @@
         @land="$emit('staging', 'land')"
         @review="$emit('staging', 'review')"
         @promote="promoting = true"
+        @merge="merging = true"
+        @status="$emit('staging', 'status')"
       />
       <Button
         v-if="task.closable"
@@ -135,6 +144,18 @@
       "
       @cancel="promoting = false"
     />
+    <WriteConfirm
+      v-if="task.mergeable && merging && !busy"
+      write="merge"
+      :task="task.id"
+      class="mx-4 mb-2.5"
+      @confirm="
+        merging = false;
+        $emit('staging', 'merge');
+      "
+      @cancel="merging = false"
+    />
+    <PrStatus v-if="prStatus && !busy" :task="task.id" :status="prStatus.read" class="mx-4 mb-2.5" @close="$emit('staging', 'unstatus')" />
     <ReviewRequest
       v-if="reviewing && !busy"
       :task="task.id"

@@ -7,6 +7,7 @@
     type FoundProjects as Found,
     type Machine,
     onChange,
+    type PrStatus,
     type Project,
     readAgain,
     readSettings,
@@ -25,6 +26,7 @@
     chosen,
     type ClosingState,
     type HousekeepingState,
+    type ItemWrite,
     landed,
     type Listed,
     readOnes,
@@ -32,8 +34,9 @@
     type RefreshState,
   } from '@/lib/projects';
   import { refreshReport } from '@/lib/refresh';
-  import type { AckState } from '@/lib/staging';
-  import { closeRefusal, reasonsOf } from '@/lib/refusal';
+  import { mergedLine } from '@/lib/pr-status';
+  import { type AckState, landedLine as landedOnStaging, STAGING_DOING } from '@/lib/staging';
+  import { closeRefusal, mergeRefusal, reasonsOf, stagingRefusal } from '@/lib/refusal';
   import { withConnected } from '@/lib/scan';
   import { settingRefusal } from '@/lib/settings';
   import { toneRule, toneText } from '@/lib/tones';
@@ -69,8 +72,19 @@
   const acks = ref<Record<string, AckState>>({});
   /** Housekeeping run from each card, until dismissed; a reload forgets it. */
   const housekept = ref<Record<string, HousekeepingState>>({});
-  /** A task closed from each card's items, while Jig closes it and, refused, until dismissed. */
+  /** A task closed, merged or landed from each card's items, while Jig writes it and, after, until dismissed. */
   const closing = ref<Record<string, ClosingState>>({});
+  /** The pull request whose status is open under its item on each card, and the forge's answer once read. */
+  const statuses = ref<
+    Record<
+      string,
+      {
+        task: string;
+        read?: PrStatus;
+      }
+    >
+  >({});
+
   const upgrades = computed(() => projects.value && upgradeLine(read.value));
   /** Upgrade all's confirmation is open. */
   const confirmingAll = ref(false);
@@ -386,25 +400,56 @@
   }
 
   /**
-   * Closes a merged task from its item on the card, with the revision of the read the card shows, as its card on the
-   * board does; Jig's refusal — its pull request not merged, say — stays on the card in Jig's words.
+   * Closes a merged task, merges a task's pull request or lands it on staging from its item on the card, with the
+   * revision of the read the card shows, as its card on the board does; what Jig did, or its refusal in words, stays on
+   * the card. A landing refused as not approved sends to the Board, which lands one without review.
    */
-  async function closeTask(id: string, task: string): Promise<void> {
+  async function writeTask(id: string, task: string, write: ItemWrite): Promise<void> {
     const project = projects.value?.find((p) => p.id === id);
     if (project?.state !== 'ready' || closing.value[id]?.state === 'running') return;
-    closing.value[id] = { task, state: 'running' };
-    const res = await call(() =>
-      client.api.projects[':id'].tasks.close.$post({ ...param(id), json: { task, revision: project.revision } }),
-    );
+    closing.value[id] = { task, write, state: 'running' };
+    const json = { task, revision: project.revision };
+    const tasks = client.api.projects[':id'].tasks;
+    const res =
+      write === 'close'
+        ? await call(() => tasks.close.$post({ ...param(id), json }))
+        : write === 'merge'
+          ? await call(() => tasks.merge.$post({ ...param(id), json }))
+          : await call(() => tasks.land.$post({ ...param(id), json: { ...json, withoutReview: false } }));
 
-    const error = res && res.status !== 200 ? (await res.json()).error : undefined;
+    const body = res && (await res.json());
+    const error = body && 'error' in body ? body.error : undefined;
     if (error !== undefined) {
       const reasons = reasonsOf(error);
-      closing.value[id] = { task, state: 'refused', message: closeRefusal(error.code, reasons, task) };
+      const message =
+        write === 'close'
+          ? closeRefusal(error.code, reasons, task)
+          : write === 'merge'
+            ? mergeRefusal(error.code, reasons, task)
+            : stagingRefusal(error.code, reasons, STAGING_DOING.land, task);
+
+      closing.value[id] = { task, write, state: 'refused', message, board: write === 'land' && error.code === 'not-approved' };
     }
-    // A close that went through stays running until the read without the task has landed, as the board's does.
+    // A write that went through stays running until the read after it has landed, as the board's does.
     await load();
-    if (error === undefined) delete closing.value[id];
+    if (error !== undefined) return;
+    if (body && 'merged' in body) closing.value[id] = { task, write, state: 'done', message: mergedLine(task, body.merged) };
+    else if (body && 'landed' in body) closing.value[id] = { task, write, state: 'done', message: landedOnStaging(task, body.landed) };
+    else delete closing.value[id];
+  }
+
+  /** Opens where an item's pull request stands and asks the forge, through Jig: only now, never on a timer. */
+  async function openStatus(id: string, task: string): Promise<void> {
+    statuses.value[id] = { task };
+    const res = await call(() =>
+      client.api.projects[':id'].tasks[':task']['pr-status'].$get({
+        param: { id: encodeURIComponent(id), task: encodeURIComponent(task) },
+      }),
+    );
+
+    const read: PrStatus = res?.status === 200 ? (await res.json()).prStatus : { id, state: 'unreadable', code: 'failed' };
+    // Closed, or opened on another item, meanwhile: that one stays.
+    if (statuses.value[id]?.task === task && statuses.value[id].read === undefined) statuses.value[id] = { task, read };
   }
 
   /** Opens the card's upgrade panel with Jig's dry run of the upgrade. */
@@ -503,6 +548,7 @@
         :refresh="refreshes[shown.id]"
         :ack="acks[shown.id]"
         :closing="closing[shown.id]"
+        :pr-status="statuses[shown.id]"
         class="min-w-0 flex-1"
         @settings="openSettings(shown.id)"
         @disconnect="disconnect(shown.id)"
@@ -519,8 +565,12 @@
         @dismiss-refresh="delete refreshes[shown.id]"
         @ack-staging="(n, shas) => ackStaging(shown!.id, n, shas)"
         @dismiss-ack="delete acks[shown.id]"
-        @close-task="(task) => closeTask(shown!.id, task)"
+        @close-task="(task) => writeTask(shown!.id, task, 'close')"
+        @merge-task="(task) => writeTask(shown!.id, task, 'merge')"
+        @land-task="(task) => writeTask(shown!.id, task, 'land')"
         @dismiss-close="delete closing[shown.id]"
+        @open-status="(task) => openStatus(shown!.id, task)"
+        @close-status="delete statuses[shown.id]"
       />
     </div>
     <SettingsDialog

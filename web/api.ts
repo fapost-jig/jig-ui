@@ -35,8 +35,16 @@ type Tasks = Api['projects'][':id']['tasks'];
 export type Landed = Extract<Ok<Tasks['land']['$post']>, { landed: unknown }>['landed'];
 /** What preparing a task for prod did. */
 export type Promoted = Extract<Ok<Tasks['promote']['$post']>, { promoted: unknown }>['promoted'];
-/** The answer to a person's landing, promotion or review request on the staging flow. */
-export type Staged = Awaited<ReturnType<Tasks['land']['$post'] | Tasks['promote']['$post'] | Tasks['request-review']['$post']>>;
+/** The answer to a person's landing, promotion or review request on the staging flow, or a merge. */
+export type Staged = Awaited<
+  ReturnType<Tasks['land']['$post'] | Tasks['promote']['$post'] | Tasks['request-review']['$post'] | Tasks['merge']['$post']>
+>;
+/** What a person's merge of a task's pull request did, and whether the task closed with it. */
+export type Merged = Extract<Ok<Tasks['merge']['$post']>, { merged: unknown }>['merged'];
+/** Where a task's pull request stands on the forge now, or why Jig could not ask it. */
+export type PrStatus = Ok<Tasks[':task']['pr-status']['$get']>['prStatus'];
+/** An attention item's task pull request as the forge cache had it (Jig 0.46.0). */
+export type TaskPullRequest = NonNullable<Attention['taskPullRequest']>;
 export type Setting = Extract<Settings, { state: 'ready' }>['keys'][number];
 export type Specs = Ok<Api['projects'][':id']['specs']['$get']>['specs'];
 export type Spec = Extract<Specs, { state: 'ready' }>['specs'][number];

@@ -12,16 +12,31 @@ export type Listed = Project | Reading;
 
 const isRead = (p: Listed): p is Project => p.state !== 'reading';
 
-/** A task closed from a project's card: under way, or what Jig refused, until dismissed. */
+/** A person's write on a task from an item on a project's card: closing it as done, merging its pull request, landing it on staging. */
+export type ItemWrite = 'close' | 'merge' | 'land';
+
+/**
+ * A write on a task from a project's card: under way, what Jig did, or what it refused, until dismissed; `board` when
+ * the next step is on the project's Board — a landing Jig refused as not approved, which only the Board lands without review.
+ */
 export type ClosingState =
   | {
       task: string;
+      write: ItemWrite;
       state: 'running';
     }
   | {
       task: string;
+      write: ItemWrite;
+      state: 'done';
+      message: string;
+    }
+  | {
+      task: string;
+      write: ItemWrite;
       state: 'refused';
       message: string;
+      board?: boolean;
     };
 
 /**

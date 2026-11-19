@@ -4,6 +4,7 @@ import type {
   Column,
   Decision,
   DocumentText,
+  PrStatus,
   Project,
   ReadyDetails,
   ReadyKnowledge,
@@ -38,6 +39,8 @@ const task = (id: string, more: Partial<Task>): Task => ({
   landable: false,
   reviewRequestable: false,
   promotable: false,
+  mergeable: false,
+  statusable: false,
   staging: null,
   parked: null,
   stagingFlow: false,
@@ -200,6 +203,14 @@ export const tasks: Task[] = [
     promotion: { url: 'https://github.com/fapost-lab/jig-ui/pull/61', state: 'open', ci: 'pending', fetchedAt: null },
     goal: 'Prepared for prod: its promotion into the base is open.',
   }),
+  // Jig 0.46.0 off the staging flow: its pull request merged from the card's menu, and where one stands that cannot be.
+  task('merge-ready', {
+    status: 'ready',
+    mergeable: true,
+    pullRequest: pr('open', 'green'),
+    goal: "Its pull request is green and approved: the person's to merge.",
+  }),
+  task('merge-held', { status: 'ready', statusable: true, pullRequest: pr('open', 'red'), goal: 'A check of its pull request failed.' }),
 ];
 
 /** The samples placed as the board places them: every column with cards. */
@@ -208,7 +219,7 @@ export const board: Column[] = [
   { id: 'in-progress', title: 'In progress', cards: [tasks[3]!, tasks[12]!, tasks[11]!, tasks[17]!] },
   { id: 'review', title: 'Review', cards: [tasks[14]!, tasks[15]!, tasks[18]!] },
   { id: 'on-staging', title: 'On staging', cards: [tasks[16]!] },
-  { id: 'ready', title: 'Ready', cards: [...tasks.slice(4, 9), tasks[19]!] },
+  { id: 'ready', title: 'Ready', cards: [...tasks.slice(4, 9), tasks[19]!, tasks[20]!, tasks[21]!] },
   { id: 'backlog', title: 'Backlog', cards: [tasks[10]!] },
   { id: 'paused', title: 'Paused', cards: [tasks[9]!, tasks[13]!] },
 ];
@@ -375,6 +386,8 @@ const ready = (id: string, more: Partial<Extract<Project, { state: 'ready' }>> =
   origin: null,
   stagingFlow: false,
   closable: [],
+  shipping: [],
+  agentGit: null,
   revision: 0,
   upgrade: null,
   ...more,
@@ -984,6 +997,121 @@ export const mergedAttention: Attention = {
   versions: null,
 };
 
+/** Jig 0.46.0's items about a task's pull request, with the forge cache's word and what Jig offers on it. */
+const cachedPr = (ci: string, review: NonNullable<Attention['taskPullRequest']>['review']) => ({
+  state: 'open',
+  url: 'https://github.com/fapost-lab/jig-ui/pull/64',
+  ci,
+  mergeable: 'mergeable',
+  review,
+  fetchedAt: '2026-10-18T09:40:00Z',
+});
+const pullRequestItem = (id: string, more: Partial<Attention>): Attention => ({
+  kind: 'pull-request-waiting',
+  subject: { type: 'task', id },
+  tasks: [id],
+  title: 'A pull request is waiting for review',
+  detail: 'open, CI green',
+  todo: `Merge it: jig task merge-pr ${id} --by human`,
+  url: 'https://github.com/fapost-lab/jig-ui/pull/64',
+  versions: null,
+  ...more,
+});
+export const pullRequestItems: Attention[] = [
+  pullRequestItem('merge-ready', {
+    taskPullRequest: cachedPr('green', { state: 'approved', waitingFor: [] }),
+    offers: ['merge', 'pr-status'],
+  }),
+  pullRequestItem('merge-held', {
+    taskPullRequest: cachedPr('pending', { state: 'waiting', waitingFor: ['alice'] }),
+    offers: ['pr-status'],
+  }),
+  pullRequestItem('staging-landing', {
+    taskPullRequest: { ...cachedPr('green', { state: 'approved', waitingFor: [] }), mergeable: null },
+    offers: ['land', 'pr-status'],
+  }),
+  pullRequestItem('was-open', {
+    kind: 'pull-request-was-open',
+    title: 'A pull request was open at the last housekeeping run',
+    taskPullRequest: cachedPr('red', null),
+    offers: ['pr-status'],
+  }),
+  // No entry in the forge cache: Jig's own lines.
+  pullRequestItem('not-cached', { taskPullRequest: null, offers: ['pr-status'] }),
+];
+
+/** A project off the staging flow with a pull request the person merges, one the agent's ship merges itself, and one held. */
+export const mergingProject: Project = ready('jig-ui', {
+  jigVersion: '0.46.0',
+  attention: [pullRequestItems[0]!, { ...pullRequestItems[1]!, subject: { type: 'task', id: 'shipping' } }, pullRequestItems[3]!],
+  shipping: ['shipping'],
+  agentGit: 'pr',
+});
+
+/** Where a pull request stands, each way its status shows it. */
+export const prStatusReads: {
+  note: string;
+  read?: PrStatus;
+}[] = [
+  { note: 'asking the forge' },
+  {
+    note: 'held back: a check failed after 7 min with its link, one running for 20 min, the review waits for alice, what main asks',
+    read: {
+      state: 'ready',
+      pullRequest: { url: 'https://github.com/o/r/pull/12', state: 'open', draft: false, base: 'main', mergeable: 'clean' },
+      checks: {
+        state: 'red',
+        list: [
+          {
+            name: 'test (ubuntu)',
+            state: 'fail',
+            url: 'https://github.com/o/r/actions/runs/1/job/2',
+            startedAt: '2026-11-19T16:40:00Z',
+            completedAt: '2026-11-19T16:47:00Z',
+            durationS: 420,
+          },
+          { name: 'test (macos)', state: 'pending', url: null, startedAt: '2026-11-19T16:40:00Z', completedAt: null, durationS: 1200 },
+          { name: 'lint', state: 'pass', url: null, startedAt: null, completedAt: null, durationS: 35 },
+        ],
+      },
+      review: { state: 'waiting', waitingFor: ['alice'] },
+      protection: { mergeState: 'blocked', requiredApprovals: 1, requiredChecks: ['test (ubuntu)', 'test (macos)'] },
+      blockers: ['ci-red', 'not-approved'],
+    },
+  },
+  {
+    note: 'nothing holds it back',
+    read: {
+      state: 'ready',
+      pullRequest: { url: 'https://github.com/o/r/pull/12', state: 'open', draft: false, base: 'main', mergeable: 'clean' },
+      checks: { state: 'green', list: [{ name: 'test', state: 'pass', url: null, startedAt: null, completedAt: null, durationS: 240 }] },
+      review: { state: 'approved', waitingFor: [] },
+      protection: { mergeState: 'clean', requiredApprovals: 0, requiredChecks: [] },
+      blockers: [],
+    },
+  },
+  {
+    note: 'a draft that conflicts, no check run, changes asked, the rules not said',
+    read: {
+      state: 'ready',
+      pullRequest: { url: 'https://github.com/o/r/pull/12', state: 'open', draft: true, base: 'main', mergeable: 'conflict' },
+      checks: { state: 'none', list: [] },
+      review: { state: 'changes', waitingFor: [] },
+      protection: { mergeState: null, requiredApprovals: null, requiredChecks: null },
+      blockers: ['draft', 'conflict', 'ci-none'],
+    },
+  },
+  {
+    note: 'the forge not asked',
+    read: {
+      state: 'refused',
+      code: 'forge-unavailable',
+      reasons: ['the forge cannot be asked: no forge configured: origin is on no forge Jig knows; set forge to github or gitlab'],
+    },
+  },
+  { note: 'no longer offered', read: { state: 'refused', code: 'not-found', reasons: [] } },
+];
+
 /** A project with a merged task to close from its card. */
 export const closingProject: Project = ready('jig-ui', { attention: [mergedAttention], closable: ['close-from-attention'] });
 
@@ -1061,13 +1189,27 @@ export const refreshRuns: RefreshState[] = [
   { state: 'refused', message: 'Jig did not finish within two minutes.' },
 ];
 
-/** A close from a card: under way, and Jig's refusal. */
+/** A write from a card: a close under way and refused, a merge done, a landing refused as not approved. */
 export const closings: ClosingState[] = [
-  { task: 'close-from-attention', state: 'running' },
+  { task: 'close-from-attention', write: 'close', state: 'running' },
   {
     task: 'close-from-attention',
+    write: 'close',
     state: 'refused',
     message: 'Jig did not close close-from-attention: its pull request has not merged (https://github.com/o/r/pull/12 is open).',
+  },
+  {
+    task: 'close-from-attention',
+    write: 'merge',
+    state: 'done',
+    message: "Merged close-from-attention's pull request and closed the task.",
+  },
+  {
+    task: 'close-from-attention',
+    write: 'land',
+    state: 'refused',
+    message: 'Jig did not land close-from-attention: not landed: it waits for review from alice',
+    board: true,
   },
 ];
 

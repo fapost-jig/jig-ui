@@ -150,7 +150,9 @@ request, a pause of a task nobody started and a resume from the board, a close f
 and from a project's card, and from Jig 0.46.0 a design's approval, an abandon and an archive on the
 task's page and a bring-back, a roadmap item's close and an archive on the finished list
 (adr-20261118-a-person-writes-on-a-task-from-its-page), and on the staging flow a landing, a review request and a
-promotion from a card's menu, and a landing by a drop on On staging (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card).
+promotion from a card's menu, and a landing by a drop on On staging (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card);
+off it a merge of the task's pull request from a card's menu and from a project's card, and the forge's word on where
+it stands on a press, Status… (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 
 Informal synonyms: legal move, button.
 Use in: source code, API, documentation.

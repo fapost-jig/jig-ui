@@ -1,0 +1,1 @@
+{"schema":1,"revision":1794936909,"generated_at":"2026-11-19T16:52:10Z","error":{"code":"forge-unavailable","message":"task merge-pr: the forge cannot be asked: no forge configured: origin is on no forge Jig knows; set forge to github or gitlab"}}

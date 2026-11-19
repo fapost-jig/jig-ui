@@ -26,6 +26,7 @@
   import ProgressBar from '@/components/ProgressBar.vue';
   import ProjectList from '@/components/ProjectList.vue';
   import ProjectMark from '@/components/ProjectMark.vue';
+  import PrStatus from '@/components/PrStatus.vue';
   import MachineJig from '@/components/MachineJig.vue';
   import ProjectSwitcher from '@/components/ProjectSwitcher.vue';
   import ReviewRequest from '@/components/ReviewRequest.vue';
@@ -72,6 +73,9 @@
     finished,
     closingProject,
     closings,
+    mergingProject,
+    prStatusReads,
+    pullRequestItems,
     housekeepingRuns,
     knowledge,
     knowledgeAttention,
@@ -330,12 +334,14 @@
 
     <CanvasSection
       title="ProjectCard"
-      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal; on the staging flow, the bell lit with your work there (press it), and dark with none"
+      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal, a merge done, a landing refused as not approved (to the Board); pull requests in words with who merges each — the person, the agent's ship, the last housekeeping run's —, Merge… and Status… on them, a status open; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal; on the staging flow, the bell lit with your work there (press it), and dark with none"
     >
       <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
       <ProjectCard v-for="(run, i) in housekeepingRuns" :key="`housekeeping-${i}`" :project="projects[1]!" :housekeeping="run" />
       <ProjectCard :project="closingProject" />
       <ProjectCard v-for="(run, i) in closings" :key="`closing-${i}`" :project="closingProject" :closing="run" />
+      <ProjectCard :project="mergingProject" />
+      <ProjectCard :project="mergingProject" :pr-status="{ task: 'merge-ready', read: prStatusReads[2]!.read }" />
       <ProjectCard :project="behindProject" />
       <ProjectCard :project="staleProject" />
       <ProjectCard v-for="(run, i) in refreshRuns" :key="`refresh-${i}`" :project="behindProject" :refresh="run" />
@@ -441,7 +447,7 @@
 
     <CanvasSection
       title="AttentionItem"
-      note="no link; a pull request; another link; knowledge, on a project's card; a merged task to close, asking, closing; a clone behind origin, Refresh, refreshing"
+      note="no link; a pull request; another link; knowledge, on a project's card; a merged task to close, asking, closing; a clone behind origin, Refresh, refreshing; Jig 0.46.0's pull requests in the forge cache's words — to merge, held, to land on staging, open on the last housekeeping run, none in the cache (Jig's lines) —, on a card with Merge…, Land on staging, Status… where offered, asking before the merge, merging, landing, the status open; on a task's page, words only"
     >
       <AttentionItem v-for="(item, i) in attention" :key="i" :item="item" />
       <AttentionItem :item="knowledgeAttention" project="acme" />
@@ -450,6 +456,19 @@
       <AttentionItem :item="mergedAttention" project="acme" closes="close-from-attention" closing />
       <AttentionItem :item="behindAttention" project="acme" refreshable />
       <AttentionItem :item="behindAttention" project="acme" refreshable refreshing />
+      <AttentionItem
+        v-for="item in pullRequestItems"
+        :key="item.subject.id!"
+        :item="item"
+        project="acme"
+        writes
+        who="The merge is yours."
+      />
+      <AttentionItem :item="pullRequestItems[0]!" project="acme" writes who="The merge is yours." asking />
+      <AttentionItem :item="pullRequestItems[0]!" project="acme" writes who="The merge is yours." writing="merge" />
+      <AttentionItem :item="pullRequestItems[2]!" project="acme" writes writing="land" />
+      <AttentionItem :item="pullRequestItems[1]!" project="acme" writes :pr-status="{ read: prStatusReads[1]!.read }" />
+      <AttentionItem :item="pullRequestItems[1]!" />
     </CanvasSection>
 
     <CanvasSection title="ColumnHeader" note="each column's title and count">
@@ -480,7 +499,7 @@
 
     <CanvasSection
       title="QueueMenu"
-      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused under a Jig that cannot resume it (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown); on the staging flow (Jig 0.46.0) first Land on staging and Request review… on an approved Review card, Request review… alone, Prepare for prod… on an On staging card"
+      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused under a Jig that cannot resume it (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown); on the staging flow (Jig 0.46.0) first Land on staging and Request review… on an approved Review card, Request review… alone, Prepare for prod… on an On staging card; off it Merge… where Jig offers the merge, Status… where it cannot"
     >
       <div class="flex flex-wrap items-center gap-6">
         <span
@@ -493,7 +512,11 @@
         <span class="flex items-center gap-1">{{ tasks[1]!.id }}<QueueMenu :task="tasks[1]!" :cards="tasks" disabled /></span>
         <span class="flex items-center gap-1">{{ tasks[1]!.id }}<QueueMenu :task="tasks[1]!" /></span>
         <span class="flex items-center gap-1">{{ tasks[0]!.id }}<QueueMenu :task="tasks[0]!" :cards="tasks" filtered /></span>
-        <span v-for="id in ['staging-landing', 'staging-review', 'staging-signal']" :key="id" class="flex items-center gap-1">
+        <span
+          v-for="id in ['staging-landing', 'staging-review', 'staging-signal', 'merge-ready', 'merge-held']"
+          :key="id"
+          class="flex items-center gap-1"
+        >
           {{ id }}<QueueMenu :task="sample(id)" :cards="tasks" />
         </span>
       </div>
@@ -513,7 +536,7 @@
 
     <CanvasSection
       title="TaskCard"
-      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open; on the staging flow asking before it prepares for prod, and its review request while the forge is asked and with whom it offers"
+      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open; on the staging flow asking before it prepares for prod, and its review request while the forge is asked and with whom it offers; off it asking before the merge, where its pull request stands while the forge is asked and once it answered"
     >
       <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
         <TaskCard v-for="task in tasks" :key="task.id" project="jig-ui" :task="task" :open="false" />
@@ -535,6 +558,15 @@
           :cards="tasks"
           :reviewing="{ reviewers: reviewerReads[1]!.read }"
         />
+        <TaskCard project="jig-ui" :task="sample('merge-ready')" :open="false" :cards="tasks" merging />
+        <TaskCard project="jig-ui" :task="sample('merge-held')" :open="false" :cards="tasks" :pr-status="{}" />
+        <TaskCard
+          project="jig-ui"
+          :task="sample('merge-held')"
+          :open="false"
+          :cards="tasks"
+          :pr-status="{ read: prStatusReads[1]!.read }"
+        />
       </div>
       <div class="mt-2 grid w-[23rem] grid-cols-2 gap-2">
         <TaskCard v-for="task in trackerTasks" :key="task.id" project="jig-ui" :task="task" :open="false" :cards="trackerTasks" />
@@ -555,7 +587,7 @@
 
     <CanvasSection
       title="TaskRow"
-      note="each note and priority, the spec it was filed from; selected; with its queue menu; while its change is on its way; changed since a refused change; ready and closable, asking before it closes"
+      note="each note and priority, the spec it was filed from; selected; with its queue menu; while its change is on its way; changed since a refused change; ready and closable, asking before it closes; asking before it prepares for prod, its review request; asking before the merge, where its pull request stands"
     >
       <div>
         <TaskRow v-for="(task, i) in tasks" :key="task.id" :task="task" :selected="i === 2" />
@@ -565,16 +597,25 @@
         <TaskRow :task="tasks[7]!" :selected="false" :cards="tasks" confirming />
         <TaskRow :task="sample('staging-signal')" :selected="false" :cards="tasks" promoting />
         <TaskRow :task="sample('staging-review')" :selected="false" :cards="tasks" :reviewing="{ reviewers: reviewerReads[1]!.read }" />
+        <TaskRow :task="sample('merge-ready')" :selected="false" :cards="tasks" merging />
+        <TaskRow :task="sample('merge-held')" :selected="false" :cards="tasks" :pr-status="{ read: prStatusReads[1]!.read }" />
       </div>
     </CanvasSection>
 
     <CanvasSection
       title="WriteConfirm"
-      note="before a write the page cannot take back: closing a ready task as done, preparing one for prod"
+      note="before a write the page cannot take back: closing a ready task as done, preparing one for prod, merging a pull request"
     >
       <div class="flex w-72 flex-col gap-2">
         <WriteConfirm write="close" task="close-ready-task" />
         <WriteConfirm write="promote" task="staging-signal" />
+        <WriteConfirm write="merge" task="merge-ready" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection title="PrStatus" :note="prStatusReads.map((r) => r.note).join('; ')">
+      <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
+        <PrStatus v-for="r in prStatusReads" :key="r.note" task="merge-held" :status="r.read" />
       </div>
     </CanvasSection>
 
@@ -773,6 +814,8 @@
             origin: null,
             stagingFlow: false,
             closable: [],
+            shipping: [],
+            agentGit: null,
             revision: 0,
           }"
         />

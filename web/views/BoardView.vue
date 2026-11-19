@@ -15,6 +15,7 @@
     link,
     onChange,
     type Place,
+    type PrStatus,
     readAgain,
     readTask,
     type ReadyDetails,
@@ -48,7 +49,17 @@
   import { DOING } from '@/lib/writes';
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
-  import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, stagingRefusal, writeRefusal } from '@/lib/refusal';
+  import { mergedLine } from '@/lib/pr-status';
+  import {
+    closeRefusal,
+    fileItemRefusal,
+    mergeRefusal,
+    reasonsOf,
+    refusal,
+    roadmapRefusal,
+    stagingRefusal,
+    writeRefusal,
+  } from '@/lib/refusal';
   import { filtered, fromQuery, reorders, sift, type Sift, specsOf, toQuery } from '@/lib/sift';
   import { landedLine, promotedLine, requestedLine, STAGING_DOING, type StagingStep } from '@/lib/staging';
   import { toneText } from '@/lib/tones';
@@ -316,6 +327,56 @@
     }
   }
 
+  /** Refusals where the pull request's status says nothing more: it is gone, the forge cannot be asked, or the merge was never Jig's to make. */
+  const NO_STATUS = new Set([
+    'pull-request-closed',
+    'no-pull-request',
+    'wrong-flow',
+    'forge-unavailable',
+    'not-found',
+    'timeout',
+    'incompatible',
+  ]);
+
+  /**
+   * Merges a task's pull request into its base, once asked on its card: the notice says whether the task closed with it.
+   * Where Jig refused and the pull request is still open, the notice offers where it stands.
+   */
+  async function merge(task: string): Promise<void> {
+    const body = await write(
+      task,
+      'merging',
+      (revision) => client.api.projects[':id'].tasks.merge.$post({ param, json: { task, revision } }),
+      (code, reasons) => ({
+        text: mergeRefusal(code, reasons, task),
+        ...(NO_STATUS.has(code) ? {} : { action: { label: 'Status…', run: () => void openStatus(task) } }),
+      }),
+    );
+
+    if (body && 'merged' in body) notice.value = { text: mergedLine(task, body.merged), changed: [], url: link(body.merged.pullRequest) };
+  }
+
+  /** The card whose pull request's status is open, one at a time, and the forge's answer once read. */
+  const prStatus = ref<{
+    task: string;
+    read?: PrStatus;
+  }>();
+
+  let statusReads = 0;
+
+  /** Opens where a card's pull request stands and asks the forge, through Jig: only now, never on a timer. */
+  async function openStatus(task: string): Promise<void> {
+    const read = ++statusReads;
+    prStatus.value = { task };
+    const res = await call(() =>
+      client.api.projects[':id'].tasks[':task']['pr-status'].$get({ param: { ...param, task: encodeURIComponent(task) } }),
+    );
+
+    const answer: PrStatus = res?.status === 200 ? (await res.json()).prStatus : { id: props.id, state: 'unreadable', code: 'failed' };
+    // Closed, or opened again, meanwhile: that one's read lands instead.
+    if (read === statusReads && prStatus.value?.task === task) prStatus.value = { task, read: answer };
+  }
+
   /** The card whose review request is open, one at a time, and whom the forge offers once read. */
   const reviewing = ref<{
     task: string;
@@ -348,10 +409,13 @@
     if (body && 'requested' in body) notice.value = { text: requestedLine(task, body.requested), changed: [] };
   }
 
-  /** A step a card's menu took on the staging flow. */
+  /** A step a card's menu took on its pull request. */
   function staging(task: string, step: StagingStep): void {
     if (step === 'land') void land(task);
     else if (step === 'promote') void promote(task);
+    else if (step === 'merge') void merge(task);
+    else if (step === 'status') void openStatus(task);
+    else if (step === 'unstatus') prStatus.value = undefined;
     else if (step === 'review') void openReview(task);
     else if (step === 'unreview') reviewing.value = undefined;
     else void askReview(task, step.ask);
@@ -784,6 +848,7 @@
       :changed="notice?.changed"
       :specs="specIds"
       :reviewing="reviewing"
+      :pr-status="prStatus"
       @toggle="(task) => (selected = selected === task ? undefined : task)"
       @move="move"
       @prioritise="prioritise"
@@ -878,6 +943,7 @@
       :changed="notice?.changed"
       :specs="specIds"
       :reviewing="reviewing"
+      :pr-status="prStatus"
       @select="(task) => (selected = task)"
       @move="move"
       @prioritise="prioritise"

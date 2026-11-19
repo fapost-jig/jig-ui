@@ -16,6 +16,8 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
   landable: false,
   reviewRequestable: false,
   promotable: false,
+  mergeable: false,
+  statusable: false,
   staging: null,
   parked: null,
   stagingFlow: false,

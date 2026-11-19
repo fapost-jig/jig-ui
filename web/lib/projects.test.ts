@@ -23,6 +23,8 @@ const ready = (id: string, attention: Attention[] = [], closable: string[] = [])
   origin: null,
   stagingFlow: false,
   closable,
+  shipping: [],
+  agentGit: null,
   revision: 0,
   upgrade: null,
 });

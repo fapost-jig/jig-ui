@@ -21,7 +21,7 @@ paths:
   - web/lib/writes.ts
   - web/components/ActionList.vue
 summary: What a task's details show from Jig's task row and queue, and its documents on the full page; why only offered actions reach the page and a document is shown as written
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-19
 ---
 # Task details
 
@@ -36,7 +36,8 @@ in full — column (the board's rule), status, class, branch and base, worktree'
 knowledge decision, dates, gate, autopilot run with its stage and stop question, pull request with
 CI — on the staging flow the pull request into staging apart from the promotion, each with its state, CI, link and
 when Jig's housekeeping heard it (`pullRequests` in `web/lib/waits.ts`, tasks `staging-task-details-pr`,
-`review-staging-columns`, `staging-nits`) —, housekeeping flags — the attention items that name it, the actions Jig offers with their
+`review-staging-columns`, `staging-nits`) —, housekeeping flags — the attention items that name it, an item about its pull request in the forge cache's words
+(adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), the actions Jig offers with their
 commands, and from `jig queue list` its priority, its place and what it waits for. Its place is
 counted among the live tasks and open epics of its level (`server/source/local.ts`): Jig keeps a
 finished task or epic in its queue until `jig queue remove`, and counting it would put a task

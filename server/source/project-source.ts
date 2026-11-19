@@ -8,8 +8,10 @@ import type {
   KnowledgeDecision,
   Landed,
   MachineJig,
+  Merged,
   Origin,
   Place,
+  PrStatus,
   Promoted,
   Refreshed,
   Reviewers,
@@ -32,8 +34,10 @@ export type {
   KnowledgeDecision,
   Landed,
   MachineJig,
+  Merged,
   Origin,
   Place,
+  PrStatus,
   Promoted,
   Refreshed,
   Reviewers,
@@ -70,6 +74,13 @@ export type ProjectView =
       stagingFlow: boolean;
       /** The live tasks closable as done from the page, as their cards on the board say (`Task.closable`). */
       closable: string[];
+      /** The live tasks whose `jig task ship` waits for CI and merges the pull request itself (Jig 0.46.0). */
+      shipping: string[];
+      /**
+       * The person's `agent.git` in this clone — whether their agent merges its own pull requests —, read only off the
+       * staging flow and only while Jig lists an item about a task's pull request; `null` otherwise.
+       */
+      agentGit: string | null;
       /** The revision a close from the card carries: the board's, from the same read. */
       revision: number;
     }
@@ -264,6 +275,17 @@ export interface Task {
   reviewRequestable: boolean;
   /** Tested on staging, from Jig 0.46.0, and Jig offers to prepare it for prod (`promote`): its pull request into the base. */
   promotable: boolean;
+  /**
+   * From Jig 0.46.0, its pull request into its own base is the person's to merge from the page (Jig offers `merge`): Jig
+   * withholds it while the forge cache says CI is red or running or the pull request conflicts, and while a ship of the
+   * task waits for CI to merge it itself. Jig closes the task in the same write once its knowledge decision is recorded.
+   */
+  mergeable: boolean;
+  /**
+   * From Jig 0.46.0, where its pull request stands on the forge may be asked from the page (Jig offers `pr-status`): offered
+   * on the card while it can be neither merged nor landed from there.
+   */
+  statusable: boolean;
   /** On Jig's staging flow, whether the task's own work is on the staging branch (`on`) or has commits after it (`behind`); `null` elsewhere. */
   staging: 'on' | 'behind' | null;
   /**
@@ -422,6 +444,21 @@ export type TaskArtifacts =
   | Exclude<ProjectView, { state: 'ready' }>;
 
 /**
+ * Where a task's pull request stands on the forge now, read when a person asks; or why Jig could not ask it
+ * (`forge-unavailable`, `no-pull-request`, with Jig's reasons); or why the project cannot be read.
+ */
+export type ProjectPrStatus =
+  | ({
+      state: 'ready';
+    } & PrStatus)
+  | {
+      state: 'refused';
+      code: string;
+      reasons: string[];
+    }
+  | Exclude<ProjectView, { state: 'ready' }>;
+
+/**
  * The project's settings and the person's own in this clone, every key Jig reads, with the revision they were read at; or
  * why they cannot be read — a project whose Jig is older than 0.40.0 is `unsupported`, with 0.40.0 as its minimum.
  */
@@ -565,6 +602,8 @@ export type Written =
       promoted?: Promoted;
       /** The logins a review was asked of. */
       requested?: string[];
+      /** What a person's merge of the task's pull request did, and whether the task closed with it. */
+      merged?: Merged;
     }
   | {
       state: 'refused';
@@ -702,6 +741,18 @@ export interface ProjectSource {
    * Below Jig 0.46.0 `unsupported`. `undefined` when no project has that id.
    */
   reviewers(id: string): Promise<ProjectReviewers | undefined>;
+  /**
+   * Merges a mergeable task's pull request into its base as the person, as `landOnStaging` writes — any other task is
+   * refused `not-found` without running Jig; Jig closes the task with it once its knowledge decision is recorded, and
+   * says why not otherwise.
+   */
+  merge(id: string, taskId: string, revision: number): Promise<Written | undefined>;
+  /**
+   * Where a live task's pull request stands on the forge, read through its Jig at each call — it asks the forge, so only
+   * when a person presses —, for a task Jig offered `pr-status` on in the last read; any other `not-found` without Jig.
+   * Below Jig 0.46.0 `unsupported`. `undefined` when no project has that id.
+   */
+  prStatus(id: string, taskId: string): Promise<ProjectPrStatus | undefined>;
   /** Makes a live task wait for another live task or an open epic (`task:<id>`, `epic:<spec>`) with a reason, as `move` writes. */
   depend(id: string, taskId: string, on: string, reason: string, revision: number): Promise<Written | undefined>;
   /** Takes back what a live task waits for, its own dependency only — not one its epic gives it —, as `move` writes. */

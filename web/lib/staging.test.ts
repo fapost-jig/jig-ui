@@ -24,6 +24,8 @@ const ready = (attention: Attention[], stagingFlow = true, jigVersion = '0.46.0'
   origin: null,
   stagingFlow,
   closable: [],
+  shipping: [],
+  agentGit: null,
   revision: 1,
   upgrade: null,
 });
