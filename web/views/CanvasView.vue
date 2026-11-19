@@ -17,6 +17,7 @@
   import KnowledgeView from '@/components/KnowledgeView.vue';
   import NewTaskForm from '@/components/NewTaskForm.vue';
   import CopyButton from '@/components/CopyButton.vue';
+  import StagingWork from '@/components/StagingWork.vue';
   import StateLine from '@/components/StateLine.vue';
   import CopyCommand from '@/components/CopyCommand.vue';
   import GroupPanel from '@/components/GroupPanel.vue';
@@ -82,6 +83,10 @@
     sendingDrop,
     behindAttention,
     behindProject,
+    manyOnStaging,
+    ownStaging,
+    quietStagingProject,
+    stagingProject,
     refreshRuns,
     staleProject,
     manySpecIds,
@@ -319,7 +324,7 @@
 
     <CanvasSection
       title="ProjectCard"
-      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal"
+      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal; on the staging flow, the bell lit with your work there (press it), and dark with none"
     >
       <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
       <ProjectCard v-for="(run, i) in housekeepingRuns" :key="`housekeeping-${i}`" :project="projects[1]!" :housekeeping="run" />
@@ -328,6 +333,31 @@
       <ProjectCard :project="behindProject" />
       <ProjectCard :project="staleProject" />
       <ProjectCard v-for="(run, i) in refreshRuns" :key="`refresh-${i}`" :project="behindProject" :refresh="run" />
+      <ProjectCard :project="stagingProject" />
+      <ProjectCard :project="quietStagingProject" />
+    </CanvasSection>
+
+    <CanvasSection
+      title="StagingWork"
+      note="opened from the bell beside a project's name: the person's own commits on staging, all of them; Jig's newest 20 of 34; Mark as known under way; refused, the list changed since the read; refused with Jig's reasons"
+    >
+      <StagingWork project="parcel-desk" :staging="ownStaging" />
+      <StagingWork project="parcel-desk" :staging="manyOnStaging" />
+      <StagingWork project="parcel-desk" :staging="ownStaging" :ack="{ state: 'running' }" />
+      <StagingWork
+        project="parcel-desk"
+        :staging="ownStaging"
+        :ack="{ state: 'refused', message: 'Your work on staging changed since the card was read: look at the list again.', reasons: [] }"
+      />
+      <StagingWork
+        project="parcel-desk"
+        :staging="ownStaging"
+        :ack="{
+          state: 'refused',
+          message: 'Jig refused the change.',
+          reasons: ['this project is not on a sound staging flow (git.flow; jig doctor names what is wrong)'],
+        }"
+      />
     </CanvasSection>
 
     <CanvasSection
@@ -705,6 +735,7 @@
             attention: [],
             housekeepingStale: false,
             origin: null,
+            stagingFlow: false,
             closable: [],
             revision: 0,
           }"

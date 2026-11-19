@@ -69,6 +69,8 @@ readable project's card shows:
   knowledge waiting for your decision with **Decide on the page** ([Deciding knowledge](#deciding-knowledge)),
   a merged task with **Close task** where its card in **Ready** could close it ([Closing a task](#closing-a-task)),
   and *This checkout is behind origin* with **Refresh** ([Bringing the clone up to origin](#bringing-the-clone-up-to-origin)).
+- **A bell beside the project's name**, on Jig's staging flow: lit when commits of yours are on the staging branch that
+  no task brings to the main branch ([Your work on staging](#your-work-on-staging)), dark when there are none.
 - **A note when pull request facts may be out of date.** Jig reads pull requests only during
   `jig housekeeping`; when its last run is old or the forge did not answer, a waiting pull request
   may be missing until it runs.
@@ -400,6 +402,22 @@ finish a task, yet on Jig 0.45.0 `jig task set <id> status consolidated` closes 
 request into staging merged (fapost-jig/jig#509).
 On this flow Jig UI offers the close only once `jig housekeeping` saw the work in the main branch: the
 task's item *Merged: the task can be closed*. **Housekeeping** on the project's card runs it.
+
+### Your work on staging
+
+Commits can reach the staging branch without a task: a fix pushed there by hand, or a task given up after it landed.
+Jig 0.46.0 counts the ones that are yours — their author's email or name is this clone's git identity — and that the
+main branch does not have and no live task's branch holds. While there are any, the bell beside the project's name on
+its card is lit; press it for the list: each commit's subject, how long ago it was made and its short sha, the newest 20
+with the exact count. Nobody else's commits are shown.
+
+Bring what the main branch still needs to it through a task. **Mark as known** marks the rest as known in this clone
+(`jig staging ack`), and the bell stays dark until a new commit of yours lands; nothing is taken off staging. It marks
+only the commits you were shown: if one arrived or left since the page read the project, the mark is refused, and the
+list shows what is there now.
+A commit fetched from a terminal lights the bell when the page next reads the project; **Refresh** and
+**Housekeeping** read it again after their fetch. On a Jig before 0.46.0 the card shows Jig's item about staging work
+as it says it, with no bell. When Jig refuses the mark for another reason, the list says why.
 
 ## Specs
 

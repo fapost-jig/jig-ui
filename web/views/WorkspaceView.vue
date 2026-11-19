@@ -32,6 +32,7 @@
     type RefreshState,
   } from '@/lib/projects';
   import { refreshReport } from '@/lib/refresh';
+  import type { AckState } from '@/lib/staging';
   import { closeRefusal, reasonsOf } from '@/lib/refusal';
   import { withConnected } from '@/lib/scan';
   import { settingRefusal } from '@/lib/settings';
@@ -65,6 +66,7 @@
   const plans = ref<Record<string, PlanState>>({});
   /** Refresh run from each card, until dismissed; a reload forgets it. */
   const refreshes = ref<Record<string, RefreshState>>({});
+  const acks = ref<Record<string, AckState>>({});
   /** Housekeeping run from each card, until dismissed; a reload forgets it. */
   const housekept = ref<Record<string, HousekeepingState>>({});
   /** A task closed from each card's items, while Jig closes it and, refused, until dismissed. */
@@ -360,6 +362,17 @@
     await load();
   }
 
+  /** Mark as known on a card's bell: Jig marks the person's own commits on staging, those the card showed. */
+  async function ackStaging(id: string, expect: number, shas: string[]): Promise<void> {
+    acks.value[id] = { state: 'running' };
+    const res = await call(() => client.api.projects[':id'].staging.ack.$post({ ...param(id), json: { expect, shas } }));
+    if (!res) return void delete acks.value[id];
+    const body = await res.json();
+    if ('error' in body) acks.value[id] = { state: 'refused', message: body.error.message, reasons: reasonsOf(body.error) };
+    else delete acks.value[id]; // marked, or the project cannot be read now: its card says which
+    await load();
+  }
+
   /** Refresh on a card: Jig brings the clone up to origin, and the card says what came of it until dismissed. */
   async function refreshClone(id: string): Promise<void> {
     refreshes.value[id] = { state: 'running' };
@@ -488,6 +501,7 @@
         :reading="reading.has(shown.id)"
         :housekeeping="housekept[shown.id]"
         :refresh="refreshes[shown.id]"
+        :ack="acks[shown.id]"
         :closing="closing[shown.id]"
         class="min-w-0 flex-1"
         @settings="openSettings(shown.id)"
@@ -503,6 +517,8 @@
         @dismiss-housekeeping="delete housekept[shown.id]"
         @refresh="refreshClone(shown.id)"
         @dismiss-refresh="delete refreshes[shown.id]"
+        @ack-staging="(n, shas) => ackStaging(shown!.id, n, shas)"
+        @dismiss-ack="delete acks[shown.id]"
         @close-task="(task) => closeTask(shown!.id, task)"
         @dismiss-close="delete closing[shown.id]"
       />

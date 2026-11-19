@@ -1,15 +1,17 @@
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
-  import { Ellipsis, ExternalLink, Settings, Unplug } from '@lucide/vue';
+  import { computed, ref, watch } from 'vue';
+  import { Bell, BellDot, Ellipsis, ExternalLink, Settings, Unplug } from '@lucide/vue';
   import { link, type Project } from '@/api';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
   import { type ClosingState, closableTask, type HousekeepingState, type RefreshState } from '@/lib/projects';
   import { staleFetch } from '@/lib/refresh';
+  import { type AckState, bellOf, listed } from '@/lib/staging';
   import { toneRule, toneText } from '@/lib/tones';
   import { mergeWaitOf, needsUpgrade, type PlanState, upgradeMark } from '@/lib/upgrade';
   import AttentionItem from './AttentionItem.vue';
+  import StagingWork from './StagingWork.vue';
   import StateLine from './StateLine.vue';
   import UpgradePanel from './UpgradePanel.vue';
 
@@ -29,6 +31,8 @@
     closing?: ClosingState;
     /** Refresh from the card: under way, or what came of it until dismissed. */
     refresh?: RefreshState;
+    /** Mark as known on the bell's list: under way, or what Jig refused until dismissed. */
+    ack?: AckState;
   }>();
 
   const board = computed(() => `/projects/${encodeURIComponent(props.project.id)}`);
@@ -39,6 +43,15 @@
   const stale = computed(() => (props.project.state === 'ready' ? staleFetch(props.project.origin) : undefined));
   const behind = computed(() => props.project.state === 'ready' && props.project.attention.some((a) => a.kind === 'base-behind-origin'));
   const merge = computed(() => mergeWaitOf(props.project));
+  const bell = computed(() => bellOf(props.project));
+  /** The bell's list is open; it closes when the bell goes dark, so a new commit of the person's lights it shut. */
+  const showing = ref(false);
+  watch(bell, (b) => {
+    if (typeof b !== 'object') showing.value = false;
+  });
+
+  /** What needs the person, without the work on staging the bell says. */
+  const items = computed(() => (props.project.state === 'ready' ? listed(props.project.attention) : []));
   // Check merge while the upgrade waits and nothing runs on the card.
   const checkable = computed(() => merge.value !== undefined && props.project.upgrade?.state !== 'running' && !props.held);
   // Offered on a project with an upgrade to make — now, or after a self-update — and nothing about one on the card yet.
@@ -68,6 +81,9 @@
     /** Close task on a merged task's item, confirmed: the view closes it as done. */
     closeTask: [task: string];
     dismissClose: [];
+    /** Mark as known on the bell's list: the view asks Jig to mark the person's commits on staging it lists. */
+    ackStaging: [expect: number, shas: string[]];
+    dismissAck: [];
   }>();
 </script>
 
@@ -78,6 +94,24 @@
         <RouterLink v-if="project.state === 'ready'" :to="board" class="underline-offset-2 hover:underline">{{ project.id }}</RouterLink>
         <template v-else>{{ project.id }}</template>
       </h2>
+      <Button
+        v-if="typeof bell === 'object'"
+        variant="ghost"
+        size="icon-xs"
+        :class="toneText.attention"
+        :aria-label="`Your work on staging: ${bell.lit.commits} commit${bell.lit.commits === 1 ? '' : 's'}`"
+        :aria-expanded="showing"
+        @click="showing = !showing"
+        ><BellDot
+      /></Button>
+      <span
+        v-else-if="bell === 'dark'"
+        role="img"
+        class="text-muted-foreground/60"
+        aria-label="Nothing of yours on staging"
+        title="Nothing of yours on staging that the base does not have"
+        ><Bell class="size-3.5"
+      /></span>
       <StateLine :project="project" :reading="reading" class="text-[13px] text-muted-foreground" @read-again="$emit('readAgain')" />
       <span v-if="mark" class="text-[13px]" :class="toneText.attention">{{ mark }}</span>
       <div class="ml-auto flex shrink-0 items-center gap-2">
@@ -102,6 +136,14 @@
         </DropdownMenu>
       </div>
     </div>
+    <StagingWork
+      v-if="typeof bell === 'object' && showing"
+      :project="project.id"
+      :staging="bell.lit"
+      :ack="ack"
+      @ack="(n, shas) => $emit('ackStaging', n, shas)"
+      @dismiss="$emit('dismissAck')"
+    />
     <div v-if="merge" :class="toneRule.attention" class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span>
         {{ merge.state === 'open' ? 'The upgrade' : 'The merged upgrade' }}{{ merge.to ? ` to ${merge.to}` : '' }}
@@ -130,9 +172,9 @@
     />
     <template v-if="project.state === 'ready'">
       <p>{{ project.counts.active }} active · {{ project.counts.paused }} paused · {{ project.counts.ready }} ready</p>
-      <p v-if="project.attention.length === 0" class="text-[13px] text-muted-foreground">Nothing needs you here.</p>
-      <ul v-else class="flex flex-col gap-3" :aria-label="`What needs you in ${project.id}`">
-        <li v-for="(item, i) in project.attention" :key="i">
+      <p v-if="items.length === 0 && typeof bell !== 'object'" class="text-[13px] text-muted-foreground">Nothing needs you here.</p>
+      <ul v-else-if="items.length > 0" class="flex flex-col gap-3" :aria-label="`What needs you in ${project.id}`">
+        <li v-for="(item, i) in items" :key="i">
           <AttentionItem
             :item="item"
             :project="project.id"

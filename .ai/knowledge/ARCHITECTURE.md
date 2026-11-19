@@ -53,7 +53,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `jig knowledge accept|reject|reviewed` (from Jig 0.40.0, feature-knowledge) and several in one write `jig knowledge
   decide` (from Jig 0.44.0, adr-20261114-knowledge-decisions-are-queued-on-the-page), a proposed document's text
   `jig knowledge read` (from Jig 0.41.0, adr-20261109-knowledge-text-and-drop-from-jig-0-41), `jig refresh` (from Jig
-  0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), a person's writes on a task `jig task gate
+  0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), `jig staging ack` (from Jig 0.46.0,
+  adr-20261118-mark-as-known-carries-the-count-the-person-saw), a person's writes on a task `jig task gate
   approved`, `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend` (from
   Jig 0.46.0, adr-20261118-a-person-writes-on-a-task-from-its-page), and
   `jig upgrade`, its dry run and its run (from Jig 0.34.0), and `jig self-update` (its text line), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
@@ -65,7 +66,7 @@ one line that brings its own (the install flow). Jig works exactly as before wit
 - `server/source/` — the ProjectSource port (`project-source.ts`: the workspace, the connected ids
   (`connected`), one project as the workspace shows it (`project`), the Jig projects under a folder (`scan`, walked
   by `scan.ts`), a project's live tasks, its finished tasks on demand (`finished`), one task in full, a live task's documents (`artifacts`, `artifact`), the settings (`settings`), the knowledge waiting for a decision (`knowledge`, `knowledgeDiff`, `knowledgeText`), connect, disconnect, subscribe to changes, and the writes `move`,
-  `prioritise`, `moveEpic`, `prioritiseEpic`, `requestPause`, `cancelPause`, `pause`, `resume`, `close` and `fileTask`, a person's writes on a task `act`, `depend` and `undepend`, `housekeeping` and `refresh`, `setSetting` and `unsetSetting`, `addItem`, `moveItem` and `fileItem`, `decideKnowledge`, `planUpgrade`, `upgrade` and
+  `prioritise`, `moveEpic`, `prioritiseEpic`, `requestPause`, `cancelPause`, `pause`, `resume`, `close` and `fileTask`, a person's writes on a task `act`, `depend` and `undepend`, `housekeeping`, `refresh` and `ackStaging`, `setSetting` and `unsetSetting`, `addItem`, `moveItem` and `fileItem`, `decideKnowledge`, `planUpgrade`, `upgrade` and
   `dismissUpgrade`, `land` and `landAll`, and the machine's runs `machine`, `selfUpdate`, `upgradeAll` and `dismissUpgradeAll`, and the machine's Jig
   `machineJig`, read from the `jig` on PATH outside any project, adr-20261118-the-header-shows-the-machines-jig) and its local adapter (`local.ts`), which holds the
   registry, runs Jig and, while someone subscribes, follows each project through a Watcher (feature-live-updates). A
@@ -89,6 +90,7 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `POST /api/projects/:id/tasks` (adr-20261022-filing-a-task-carries-no-revision),
   `POST /api/projects/:id/housekeeping` (adr-20261110-housekeeping-runs-from-the-project-card),
   `POST /api/projects/:id/refresh` (adr-20261113-refresh-brings-the-clone-up-from-the-card),
+  `POST /api/projects/:id/staging/ack` (adr-20261118-mark-as-known-carries-the-count-the-person-saw),
   `POST /api/projects/:id/specs/items/add`, `/move` and `/file` (adr-20261106-editing-a-roadmap-from-the-page),
   `GET` and `POST /api/projects/:id/settings` and `POST /api/projects/:id/settings/unset` (feature-settings),
   `GET /api/projects/:id/knowledge`, `/knowledge/:doc/diff`, `/knowledge/:doc/text` and

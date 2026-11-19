@@ -21,6 +21,7 @@ const ready = (id: string, attention: Attention[] = [], closable: string[] = [])
   attention,
   housekeepingStale: false,
   origin: null,
+  stagingFlow: false,
   closable,
   revision: 0,
   upgrade: null,

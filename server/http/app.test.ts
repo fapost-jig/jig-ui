@@ -229,6 +229,7 @@ describe('/api/projects and /api/workspace', () => {
     attention: [],
     housekeepingStale: false,
     origin: null,
+    stagingFlow: false,
     closable: [],
     revision: 1,
   };
@@ -1407,6 +1408,72 @@ describe('/api/projects/:id/tasks', () => {
   it('is refused without the token and from another origin', async () => {
     expect((await post(app, { task: 'a', goal: 'g' }, {})).status).toBe(401);
     expect((await post(app, { task: 'a', goal: 'g' }, { cookie: COOKIE, origin: 'https://evil.example' })).status).toBe(403);
+  });
+});
+
+describe('POST /api/projects/:id/staging/ack', () => {
+  const asked: [number, string[]][] = [];
+  const appOf = (outcome: Awaited<ReturnType<ProjectSource['ackStaging']>>) =>
+    createApp({
+      port: PORT,
+      token: TOKEN,
+      source: {
+        ...localSource(join(webRoot, 'fake-ack')),
+        ackStaging: (_id, expect, shas) => {
+          asked.push([expect, shas]);
+          return Promise.resolve(outcome);
+        },
+      },
+      webRoot,
+    });
+  const post = (
+    target: Hono,
+    body: unknown = { expect: 2, shas: ['29b3236', '4f9b92d'] },
+    headers: Record<string, string> = { cookie: COOKIE },
+  ) =>
+    target.request('/api/projects/x/staging/ack', {
+      method: 'POST',
+      headers: { host: HOST, 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+
+  it('marks as known as many commits as the card showed', async () => {
+    const res = await post(appOf({ state: 'written' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ acknowledged: true });
+    expect(asked.at(-1)).toEqual([2, ['29b3236', '4f9b92d']]);
+  });
+
+  it.each([
+    ['a count that moved since the read', { state: 'refused', code: 'stale-revision' }, 409, 'stale-revision'],
+    ['an upgrade under way', { state: 'refused', code: 'upgrading' }, 409, 'upgrading'],
+    ['a Jig older than 0.46.0', { state: 'refused', code: 'unsupported' }, 422, 'unsupported'],
+    ["Jig's failure", { state: 'refused', code: 'failed' }, 422, 'failed'],
+    ['a project not connected', undefined, 404, 'not-connected'],
+  ] as const)('answers %s', async (_, outcome, status, code) => {
+    const res = await post(appOf(outcome));
+    expect(res.status).toBe(status);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(code);
+  });
+
+  it.each([
+    [{}],
+    [{ expect: -1, shas: [] }],
+    [{ expect: '2', shas: [] }],
+    [{ expect: 1.5, shas: [] }],
+    [{ expect: 2 }],
+    [{ expect: 2, shas: 'abc' }],
+    [{ expect: 2, shas: ['../x'] }],
+  ])('refuses %j without running Jig', async (body) => {
+    const before = asked.length;
+    const res = await post(appOf({ state: 'written' }), body);
+    expect(res.status).toBe(422);
+    expect(asked).toHaveLength(before);
+  });
+
+  it('is refused without the token', async () => {
+    const res = await post(appOf({ state: 'written' }), { expect: 2, shas: [] }, {});
+    expect(res.status).toBe(401);
   });
 });
 

@@ -60,6 +60,8 @@ export type ProjectView =
       housekeepingStale: boolean;
       /** How the clone stands against origin as of its last fetch (Jig 0.45.0); `null` from an older Jig. */
       origin: Origin;
+      /** The project is on Jig's staging flow, as its board says (`ProjectTasks.stagingFlow`). */
+      stagingFlow: boolean;
       /** The live tasks closable as done from the page, as their cards on the board say (`Task.closable`). */
       closable: string[];
       /** The revision a close from the card carries: the board's, from the same read. */
@@ -663,6 +665,13 @@ export interface ProjectSource {
    * 0.45.0 and `upgrading` while the project's upgrade runs. `undefined` when no project has that id.
    */
   refresh(id: string): Promise<Written | undefined>;
+  /**
+   * Marks the person's own commits on staging as known (`jig staging ack`, Jig 0.46.0) — those of the `staging-unowned`
+   * item they were shown, its count `expect` and the shas it listed; then reads the project again. No revision: refused
+   * `stale-revision` when the count or the list has moved since, nothing marked. Refused `unsupported` below 0.46.0 and
+   * `upgrading` while the project's upgrade runs. `undefined` when no project has that id.
+   */
+  ackStaging(id: string, expect: number, shas: string[]): Promise<Written | undefined>;
   /** A connected project's settings, read through its Jig at each call; `undefined` when no project has that id. */
   settings(id: string): Promise<ProjectSettings | undefined>;
   /**

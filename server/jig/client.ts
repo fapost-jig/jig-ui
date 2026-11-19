@@ -62,6 +62,11 @@ export const STAGING_JIG_VERSION = '0.45.0';
  * `task gate`, `abandon`, `archive`, `unarchive` and `spec drop`, and the action `drop-item`.
  */
 export const WRITES_JIG_VERSION = '0.46.0';
+/**
+ * The first Jig whose `staging-unowned` item is the reader's own commits only, listed (`staging`), and that marks them
+ * as known (`jig staging ack`; fapost-lab/jig#511).
+ */
+export const STAGING_ACK_JIG_VERSION = '0.46.0';
 
 const SCRIPT = '.ai/scripts/jig';
 /** A read's limit: 10 s ran out with several projects read at once, each four Jig runs (task `read-timeout`). */
@@ -437,15 +442,29 @@ const Attention = z
       .transform((v) => v ?? null),
     // Only on the `upgrade-pull-request-*` kinds: the upgrade's branch, the base it goes into, `open` or `merged`.
     pull_request: z.object({ branch: text, base: text, state: text, fetched_at: maybe }).nullish(),
+    // On `staging-unowned` from Jig 0.46.0: how many of the reader's own commits it is about, and the newest 20 of them.
+    // Jig 0.45.0 gives the count alone, of everyone's commits; `staging-unpromoted` a `staging` of another shape. Jig UI
+    // reads neither.
+    staging: z
+      .object({
+        commits: count.optional(),
+        list: z.array(z.object({ sha: text, subject: text, date: text })).optional(),
+      })
+      .nullish(),
   })
   .refine((a) => a.kind !== 'upgrade-available' || (typeof a.versions?.from === 'string' && typeof a.versions.to === 'string'))
   .refine((a) => !['upgrade-pull-request-waiting', 'upgrade-pull-request-merged'].includes(a.kind) || a.pull_request != null)
-  .transform(({ versions, pull_request, ...item }) => ({
+  .refine((a) => a.kind !== 'staging-unowned' || a.staging == null || a.staging.commits !== undefined)
+  .transform(({ versions, pull_request, staging, ...item }) => ({
     ...item,
     versions: item.kind === 'upgrade-available' && versions ? { from: versions.from as string, to: versions.to as string } : null,
     // The upgrade's pull request, as the forge cache of the last `jig housekeeping` had it; only on its two kinds.
     ...(pull_request
       ? { pullRequest: { branch: pull_request.branch, base: pull_request.base, state: pull_request.state, to: versions?.to ?? null } }
+      : {}),
+    // The person's own work on staging, never the command that marks it as known: Jig UI puts that together itself.
+    ...(item.kind === 'staging-unowned' && staging?.commits !== undefined && staging.list
+      ? { staging: { commits: staging.commits, list: staging.list } }
       : {}),
   }));
 export type Attention = z.output<typeof Attention>;
@@ -1516,6 +1535,32 @@ export async function housekeeping(
       .filter((line) => line.trim() !== '')
       .map((line) => withoutPaths(line).replace(PROJECT_PATH, '…'));
   return [...lines(out.stderr), ...lines(out.stdout)];
+}
+
+/**
+ * Marks the person's own commits on staging as known (`jig staging ack --expect <n>`, Jig 0.46.0) — the ones the
+ * `staging-unowned` item counts — so that the item goes until a new one lands. It reads only the clone, never origin.
+ * `expect` is the count the person was shown: when it has moved since, Jig refuses and writes nothing, and so does this,
+ * `stale-revision`; Jig says so only in its message (`… now, not <n>; …`). It prints no JSON. Any other refusal is
+ * `failed` with Jig's error lines, without a path; past the limit, `timeout`.
+ */
+export async function ackStaging(
+  root: string,
+  expect: number,
+  platform: NodeJS.Platform = process.platform,
+  timeout = TIMEOUT_MS,
+): Promise<void> {
+  try {
+    await ran(root, ['staging', 'ack', '--expect', String(expect)], platform, timeout);
+  } catch (error) {
+    if (timedOut(error)) throw new JigRefusal('timeout');
+    const reasons = ((error as { stderr?: string }).stderr ?? '').split('\n').flatMap((line) => {
+      const m = /^jig: error: (?:staging ack: )?(.+)$/.exec(line.trim());
+      return m?.[1] ? [withoutPaths(m[1])] : [];
+    });
+    if (reasons.some((r) => /\bnow, not \d+\b/.test(r))) throw new JigRefusal('stale-revision');
+    throw new JigRefusal('failed', reasons);
+  }
 }
 
 /** `jig refresh` fetches origin as the clone's own account: a network round trip Jig bounds, never a prompt. */

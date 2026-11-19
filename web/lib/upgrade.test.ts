@@ -38,6 +38,7 @@ const ready = (id: string, attention: Attention[] = []): Project => ({
   attention,
   housekeepingStale: false,
   origin: null,
+  stagingFlow: false,
   closable: [],
   revision: 0,
   upgrade: null,
