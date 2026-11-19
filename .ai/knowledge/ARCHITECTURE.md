@@ -174,7 +174,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   person's writes on a task's page — approving its design with the revision its documents were read at, abandoning,
   archiving, what it waits for — and on the finished list's rows, with that list's revision
   (adr-20261118-a-person-writes-on-a-task-from-its-page); and, on the staging flow, for landing a task on staging,
-  asking for its review and preparing it for prod from its card's menu, each asking the forge as Jig writes
+  asking for its review and preparing it for prod from its card's menu — landing also by a drop on On staging —, each
+  asking the forge as Jig writes
   (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card). Filing a task is a write with no revision: it
   names a new id, which Jig claims or refuses `already-exists`
   (adr-20261022-filing-a-task-carries-no-revision); housekeeping is another, a sweep of the clone as it is, under
@@ -239,8 +240,10 @@ The start flow, read-and-follow and change, with its conflict display, are built
   (adr-20261014-board-columns-are-derived-from-jig-state), except a drop out of Paused, which
   resumes the task at once (adr-20261026-a-drop-out-of-paused-resumes-at-once), and a drop of a task
   parked at a staging branch on the column it resumes to, which takes it back for a fix
-  (adr-20261113-a-task-parked-at-staging-is-not-done), and a drop on Paused of a task nobody started,
-  which pauses it at once (adr-20261113-a-task-nobody-started-is-paused-at-once).
+  (adr-20261113-a-task-parked-at-staging-is-not-done), a drop on Paused of a task nobody started,
+  which pauses it at once (adr-20261113-a-task-nobody-started-is-paused-at-once), and a drop of a
+  Review card on On staging where Jig offers `land`, which lands it at once
+  (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card, task `drop-to-land`).
 - A hosted or self-hosted Jig UI stays possible: projects by id, access behind a replaceable
   guard, writes carrying a revision (adr-20261014-project-source-port-keeps-hosting-open) — all but
   the upgrade (adr-20261027-upgrading-a-project-runs-in-the-background), filing a task

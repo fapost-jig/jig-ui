@@ -400,9 +400,10 @@ ships again its fix lands on the staging branch as the first change did.
 With Jig 0.46.0 in the project, a card's ⋯ menu holds the steps of this flow that are yours, first in it, where Jig
 offers them:
 
-- **Land on staging**, on a card in Review, merges its pull request into the staging branch
-  (`jig task land <id> --by human`). Jig asks the forge first: while the review is not approved it lands nothing, and
-  the line above the board says whom it waits for, with **Land without review** beside it — the same landing, which
+- **Land on staging**, on a card in Review, or a drag of the card onto **On staging**, merges its pull request into the
+  staging branch (`jig task land <id> --by human`). Jig asks the forge first: while the review is not approved it lands
+  nothing — a dragged card stays in Review —, and the line above the board says whom it waits for, with **Land without
+  review** beside it — the same landing, which
   Jig notes on the pull request. Where the project asks for an approval (`git.staging_review: require`) only an
   approval lands it. A pull request that conflicts with staging is your agent's to land: it resolves the conflict.
 - **Request review…**, on a card in Review, asks the forge whom it offers — those who reviewed pull requests into

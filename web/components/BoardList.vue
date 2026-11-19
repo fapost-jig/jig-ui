@@ -53,6 +53,7 @@
     (task, place) => emit('move', task, place),
     (task) => emit('pause', task, true),
     (task) => emit('resume', task),
+    (task) => emit('staging', task, 'land'),
   );
 
   const { gap } = drag;
