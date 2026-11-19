@@ -7,6 +7,7 @@ import type {
   Project,
   ReadyDetails,
   ReadyKnowledge,
+  Reviewers,
   SourceDiff,
   Setting,
   Settings,
@@ -34,6 +35,9 @@ const task = (id: string, more: Partial<Task>): Task => ({
   pausable: false,
   resumable: false,
   closable: false,
+  landable: false,
+  reviewRequestable: false,
+  promotable: false,
   staging: null,
   parked: null,
   stagingFlow: false,
@@ -154,6 +158,7 @@ export const tasks: Task[] = [
     status: 'ready',
     stagingFlow: true,
     parked: { reason: 'review', hint: null, review: { state: 'waiting', waitingFor: ['alice', 'bob'] } },
+    reviewRequestable: true,
     pullRequest: pr('open', 'green'),
     goal: 'Its pull request into staging waits for a review.',
   }),
@@ -161,6 +166,9 @@ export const tasks: Task[] = [
     status: 'ready',
     stagingFlow: true,
     parked: { reason: 'review', hint: 'landing', review: { state: 'approved', waitingFor: [] } },
+    // Jig 0.46.0: landed from the card's menu, and reviews asked there.
+    landable: true,
+    reviewRequestable: true,
     pullRequest: pr('open', 'green'),
     goal: 'Its pull request into staging waits for the person to land it.',
   }),
@@ -171,6 +179,7 @@ export const tasks: Task[] = [
     parked: { reason: 'signal', hint: null, review: null },
     resumable: true,
     resumesTo: 'in-progress',
+    promotable: true,
     pullRequest: pr('merged', 'none'),
     goal: 'On staging, tested there, waiting for prepare for prod.',
   }),
@@ -1068,3 +1077,33 @@ export const sendingAccept = new Map<string, Decision>([['feature-checkout', 'ac
 export const queuedKeep = new Map<string, Decision>([['convention-team-rules', 'reviewed']]);
 export const queuedDrop = new Map<string, Decision>([['convention-legacy', 'reject']]);
 export const sendingDrop = new Map<string, Decision>([['convention-deploy', 'reject']]);
+
+/** Whom the forge offers to review, each way the review request shows it. */
+export const reviewerReads: {
+  note: string;
+  read?: Reviewers;
+}[] = [
+  { note: 'asking the forge' },
+  {
+    note: 'who reviewed here most often, one asked already',
+    read: {
+      state: 'ready',
+      source: 'history',
+      candidates: [
+        { login: 'alice', name: 'Alice Smith', reviews: 12 },
+        { login: 'bob', name: null, reviews: 3 },
+        { login: 'carol', name: 'Carol Jones', reviews: 1 },
+      ],
+    },
+  },
+  {
+    note: 'nobody reviewed lately: everyone the repository may ask',
+    read: { state: 'ready', source: 'assignable', candidates: [{ login: 'dave', name: 'Dave Lee', reviews: null }] },
+  },
+  { note: 'nobody to ask', read: { state: 'ready', source: 'assignable', candidates: [] } },
+  {
+    note: 'the forge not asked',
+    read: { state: 'refused', code: 'forge-unavailable', reasons: ['the forge could not be asked: gh is not signed in'] },
+  },
+  { note: 'Jig did not answer', read: { id: 'jig-ui', state: 'unreadable', code: 'timeout' } },
+];

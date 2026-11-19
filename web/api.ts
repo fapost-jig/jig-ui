@@ -28,6 +28,15 @@ export type ArtifactKind = Extract<TaskArtifact, { state: 'ready' }>['kind'];
 /** The finished tasks Jig still keeps, or why they cannot be read. */
 export type Finished = Ok<Api['projects'][':id']['finished']['$get']>['finished'];
 export type Settings = Ok<Api['projects'][':id']['settings']['$get']>['settings'];
+/** Whom the forge offers to review a pull request into the staging branch, or why Jig could not ask it. */
+export type Reviewers = Ok<Api['projects'][':id']['reviewers']['$get']>['reviewers'];
+type Tasks = Api['projects'][':id']['tasks'];
+/** What a person's landing on staging did. */
+export type Landed = Extract<Ok<Tasks['land']['$post']>, { landed: unknown }>['landed'];
+/** What preparing a task for prod did. */
+export type Promoted = Extract<Ok<Tasks['promote']['$post']>, { promoted: unknown }>['promoted'];
+/** The answer to a person's landing, promotion or review request on the staging flow. */
+export type Staged = Awaited<ReturnType<Tasks['land']['$post'] | Tasks['promote']['$post'] | Tasks['request-review']['$post']>>;
 export type Setting = Extract<Settings, { state: 'ready' }>['keys'][number];
 export type Specs = Ok<Api['projects'][':id']['specs']['$get']>['specs'];
 export type Spec = Extract<Specs, { state: 'ready' }>['specs'][number];

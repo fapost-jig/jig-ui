@@ -4,7 +4,7 @@
   import { type Attention, link } from '@/api';
   import { Button } from '@/components/ui/button';
   import { toneRule } from '@/lib/tones';
-  import CloseConfirm from './CloseConfirm.vue';
+  import WriteConfirm from './WriteConfirm.vue';
 
   /**
    * `project`: the project the item is about, given where the item can link to its page — the workspace card.
@@ -86,10 +86,11 @@
         {{ closing ? 'Closing…' : 'Close task' }}
       </Button>
     </div>
-    <CloseConfirm
+    <WriteConfirm
       v-if="closes && asking"
+      write="close"
       :task="closes"
-      @close="
+      @confirm="
         asking = false;
         $emit('close', closes);
       "

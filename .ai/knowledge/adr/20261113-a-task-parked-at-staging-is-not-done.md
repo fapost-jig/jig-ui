@@ -15,7 +15,7 @@ paths:
   - web/lib/drop.ts
   - web/lib/refusal.ts
 summary: On Jig's staging flow a parked task's card says why it waits, its close waits for housekeeping's merge into the base, and Take back for a fix is Jig's resume.
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-19
 ---
 # A task parked at a staging branch is shown as waiting there, closed only once its work is in the base, and taken back with Jig's resume
 
@@ -90,6 +90,9 @@ The maintainer asked for the UI to follow the new flow (2026-11-13; task `tasks-
 - **Land and Prepare for prod buttons.** Jig offers `land` only at `agent.git: merge`, and neither
   `task land` nor `task promote` answers as JSON or takes a revision. "Prepare for prod" is a person's
   word to their agent, or CI's.
+  *(Taken after all by adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card, 2026-11-19: Jig
+  0.46.0 gives a person `task land`, `task promote` and `task request-review` with `--by human`, a revision and JSON;
+  they are the first entries of the card's menu, not buttons.)*
 
 ## Consequences
 

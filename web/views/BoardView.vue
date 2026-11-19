@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { BookCheck, Columns3, Milestone, Plus, Rows3 } from '@lucide/vue';
+  import { BookCheck, Columns3, ExternalLink, Milestone, Plus, Rows3 } from '@lucide/vue';
   import { computed, onUnmounted, type Ref, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
@@ -12,14 +12,17 @@
     type Finished,
     type ItemPlace,
     type Knowledge,
+    link,
     onChange,
     type Place,
     readAgain,
     readTask,
     type ReadyDetails,
+    type Reviewers,
     type SourceDiff,
     type SpecItem,
     type Specs,
+    type Staged,
     type Written,
   } from '@/api';
   import BoardColumns from '@/components/BoardColumns.vue';
@@ -45,8 +48,9 @@
   import { DOING } from '@/lib/writes';
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
-  import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, writeRefusal } from '@/lib/refusal';
+  import { closeRefusal, fileItemRefusal, reasonsOf, refusal, roadmapRefusal, stagingRefusal, writeRefusal } from '@/lib/refusal';
   import { filtered, fromQuery, reorders, sift, type Sift, specsOf, toQuery } from '@/lib/sift';
+  import { landedLine, promotedLine, requestedLine, STAGING_DOING, type StagingStep } from '@/lib/staging';
   import { toneText } from '@/lib/tones';
 
   const props = defineProps<{
@@ -205,31 +209,39 @@
 
   /**
    * The task whose change is on its way to Jig, and what the last change came to when Jig refused it — with the cards
-   * that changed since it was made, when the refusal was a stale revision. Dismissing it, or the next change, clears both.
+   * that changed since it was made, when the refusal was a stale revision — or, for a step on the staging flow, what Jig
+   * did, with its pull request's link, and one press that follows from it. Dismissing it, or the next change, clears both.
    */
   const pending = ref<string>();
-  const notice = ref<{
+  interface Notice {
     text: string;
     changed: string[];
-  }>();
+    url?: string;
+    action?: {
+      label: string;
+      run: () => void;
+    };
+  }
+  const notice = ref<Notice>();
 
   /**
    * Sends one change with the revision of the board it was made on, then reads the board again whatever came of it:
    * the card moves when Jig's order does, never before. `explain` words a refusal with the reasons Jig gave, where the
-   * change has any to show.
+   * change has any to show, and may add a press that follows from it. Answers what Jig answered when it wrote.
    */
   async function write(
     task: string,
     doing: string,
-    send: (revision: number) => Promise<Written>,
-    explain?: (code: string, reasons: string[]) => string | undefined,
-  ): Promise<void> {
+    send: (revision: number) => Promise<Written | Staged>,
+    explain?: (code: string, reasons: string[]) => string | Omit<Notice, 'changed'> | undefined,
+  ) {
     const shown = board.value;
-    if (typeof shown !== 'object' || shown.state !== 'ready' || pending.value !== undefined) return;
+    if (typeof shown !== 'object' || shown.state !== 'ready' || pending.value !== undefined) return undefined;
     pending.value = task;
     notice.value = undefined;
     const res = await call(() => send(shown.revision));
-    const error = res && res.status !== 200 ? (await res.json()).error : undefined;
+    const body = res && (await res.json());
+    const error = body && 'error' in body ? body.error : undefined;
     const code = error?.code;
     // The read this change started, not what the board shows: a read started after it may land in its place.
     const read = await load();
@@ -240,12 +252,11 @@
         changed: seen?.changed ?? [],
       };
     } else if (error !== undefined) {
-      notice.value = {
-        text: explain?.(error.code, reasonsOf(error)) ?? refusal(error.code, doing, task),
-        changed: [],
-      };
+      const explained = explain?.(error.code, reasonsOf(error)) ?? refusal(error.code, doing, task);
+      notice.value = typeof explained === 'string' ? { text: explained, changed: [] } : { ...explained, changed: [] };
     }
     pending.value = undefined;
+    return error === undefined ? body : undefined;
   }
 
   const move = (task: string, place: Place) =>
@@ -272,6 +283,79 @@
       (revision) => client.api.projects[':id'].tasks.close.$post({ param, json: { task, revision } }),
       (code, reasons) => closeRefusal(code, reasons, task),
     );
+
+  /**
+   * Lands a task's pull request on staging as the person. Jig refuses one not approved, naming whom it waits for; the
+   * notice then offers to land it without review — the same write, which Jig says so on the pull request.
+   */
+  async function land(task: string, withoutReview = false): Promise<void> {
+    const body = await write(
+      task,
+      STAGING_DOING.land,
+      (revision) => client.api.projects[':id'].tasks.land.$post({ param, json: { task, withoutReview, revision } }),
+      (code, reasons) => ({
+        text: stagingRefusal(code, reasons, STAGING_DOING.land, task),
+        ...(code === 'not-approved' ? { action: { label: 'Land without review', run: () => void land(task, true) } } : {}),
+      }),
+    );
+
+    if (body && 'landed' in body) notice.value = { text: landedLine(task, body.landed), changed: [] };
+  }
+
+  /** Prepares a task tested on staging for prod, once asked on its card: the notice links its pull request into the base. */
+  async function promote(task: string): Promise<void> {
+    const body = await write(
+      task,
+      STAGING_DOING.promote,
+      (revision) => client.api.projects[':id'].tasks.promote.$post({ param, json: { task, revision } }),
+      (code, reasons) => stagingRefusal(code, reasons, STAGING_DOING.promote, task),
+    );
+
+    if (body && 'promoted' in body) {
+      notice.value = { text: promotedLine(task, body.promoted), changed: [], url: link(body.promoted.pullRequest) };
+    }
+  }
+
+  /** The card whose review request is open, one at a time, and whom the forge offers once read. */
+  const reviewing = ref<{
+    task: string;
+    reviewers?: Reviewers;
+  }>();
+
+  let reviewReads = 0;
+
+  /** Opens a card's review request and asks the forge, through Jig, whom to offer: only now, never on a timer. */
+  async function openReview(task: string): Promise<void> {
+    const read = ++reviewReads;
+    reviewing.value = { task };
+    const res = await call(() => client.api.projects[':id'].reviewers.$get({ param }));
+    const reviewers: Reviewers = res?.status === 200 ? (await res.json()).reviewers : { id: props.id, state: 'unreadable', code: 'failed' };
+    // Closed, or opened again, meanwhile: that one's read lands instead.
+    if (read === reviewReads && reviewing.value?.task === task) reviewing.value = { task, reviewers };
+  }
+
+  async function askReview(task: string, logins: string[]): Promise<void> {
+    // Another card's write is on its way, and this one would not be sent: the panel stays open with its ticks.
+    if (pending.value !== undefined) return;
+    const body = await write(
+      task,
+      STAGING_DOING.review,
+      (revision) => client.api.projects[':id'].tasks['request-review'].$post({ param, json: { task, reviewers: logins, revision } }),
+      (code, reasons) => stagingRefusal(code, reasons, STAGING_DOING.review, task),
+    );
+
+    reviewing.value = undefined;
+    if (body && 'requested' in body) notice.value = { text: requestedLine(task, body.requested), changed: [] };
+  }
+
+  /** A step a card's menu took on the staging flow. */
+  function staging(task: string, step: StagingStep): void {
+    if (step === 'land') void land(task);
+    else if (step === 'promote') void promote(task);
+    else if (step === 'review') void openReview(task);
+    else if (step === 'unreview') reviewing.value = undefined;
+    else void askReview(task, step.ask);
+  }
 
   /**
    * A finished task's write from its menu, with the revision of the finished list it was chosen on; then the list and the
@@ -669,6 +753,18 @@
 
     <p v-if="notice" role="status" class="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-[13px]" :class="toneText.attention">
       {{ notice.text }}
+      <a
+        v-if="notice.url"
+        :href="notice.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex shrink-0 items-center gap-1 underline underline-offset-2"
+      >
+        open<ExternalLink class="size-3" />
+      </a>
+      <Button v-if="notice.action" variant="outline" size="xs" class="shrink-0 text-foreground" @click="notice.action.run()">
+        {{ notice.action.label }}
+      </Button>
       <button type="button" class="ml-auto underline underline-offset-2" @click="notice = undefined">dismiss</button>
     </p>
 
@@ -687,6 +783,7 @@
       :pending="pending"
       :changed="notice?.changed"
       :specs="specIds"
+      :reviewing="reviewing"
       @toggle="(task) => (selected = selected === task ? undefined : task)"
       @move="move"
       @prioritise="prioritise"
@@ -694,6 +791,7 @@
       @resume="resume"
       @close="close"
       @open-spec="openSpec"
+      @staging="staging"
     />
 
     <div v-else-if="view === 'specs'" class="min-h-0 flex-1 overflow-y-auto">
@@ -779,6 +877,7 @@
       :pending="pending"
       :changed="notice?.changed"
       :specs="specIds"
+      :reviewing="reviewing"
       @select="(task) => (selected = task)"
       @move="move"
       @prioritise="prioritise"
@@ -786,6 +885,7 @@
       @resume="resume"
       @close="close"
       @open-spec="openSpec"
+      @staging="staging"
     />
   </div>
 </template>

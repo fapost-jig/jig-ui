@@ -9,6 +9,7 @@
   import BoardFilter from '@/components/BoardFilter.vue';
   import BoardList from '@/components/BoardList.vue';
   import ColumnHeader from '@/components/ColumnHeader.vue';
+  import WriteConfirm from '@/components/WriteConfirm.vue';
   import ConnectForm from '@/components/ConnectForm.vue';
   import FoundProjects from '@/components/FoundProjects.vue';
   import DependsEditor from '@/components/DependsEditor.vue';
@@ -27,6 +28,7 @@
   import ProjectMark from '@/components/ProjectMark.vue';
   import MachineJig from '@/components/MachineJig.vue';
   import ProjectSwitcher from '@/components/ProjectSwitcher.vue';
+  import ReviewRequest from '@/components/ReviewRequest.vue';
   import SettingsDialog from '@/components/SettingsDialog.vue';
   import EpicMenu from '@/components/EpicMenu.vue';
   import QueueMenu from '@/components/QueueMenu.vue';
@@ -88,6 +90,7 @@
     quietStagingProject,
     stagingProject,
     refreshRuns,
+    reviewerReads,
     staleProject,
     manySpecIds,
     mergedAttention,
@@ -102,6 +105,9 @@
     trackerTasks,
     waitingSpecs,
   } from './canvas-samples';
+
+  /** A sample task by its id. */
+  const sample = (id: string) => tasks.find((t) => t.id === id)!;
 
   /** The board columns of the samples' live tasks, as the Specs view's cards say them. */
   const specColumns = new Map([
@@ -474,7 +480,7 @@
 
     <CanvasSection
       title="QueueMenu"
-      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused under a Jig that cannot resume it (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown)"
+      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused under a Jig that cannot resume it (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown); on the staging flow (Jig 0.46.0) first Land on staging and Request review… on an approved Review card, Request review… alone, Prepare for prod… on an On staging card"
     >
       <div class="flex flex-wrap items-center gap-6">
         <span
@@ -487,6 +493,9 @@
         <span class="flex items-center gap-1">{{ tasks[1]!.id }}<QueueMenu :task="tasks[1]!" :cards="tasks" disabled /></span>
         <span class="flex items-center gap-1">{{ tasks[1]!.id }}<QueueMenu :task="tasks[1]!" /></span>
         <span class="flex items-center gap-1">{{ tasks[0]!.id }}<QueueMenu :task="tasks[0]!" :cards="tasks" filtered /></span>
+        <span v-for="id in ['staging-landing', 'staging-review', 'staging-signal']" :key="id" class="flex items-center gap-1">
+          {{ id }}<QueueMenu :task="sample(id)" :cards="tasks" />
+        </span>
       </div>
     </CanvasSection>
 
@@ -504,7 +513,7 @@
 
     <CanvasSection
       title="TaskCard"
-      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open"
+      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open; on the staging flow asking before it prepares for prod, and its review request while the forge is asked and with whom it offers"
     >
       <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
         <TaskCard v-for="task in tasks" :key="task.id" project="jig-ui" :task="task" :open="false" />
@@ -517,6 +526,15 @@
         <TaskCard project="jig-ui" :task="tasks[4]!" :open="false" :cards="tasks" />
         <TaskCard project="jig-ui" :task="tasks[7]!" :open="false" :cards="tasks" confirming />
         <TaskCard project="jig-ui" :task="tasks[6]!" :open="false" :cards="tasks" busy />
+        <TaskCard project="jig-ui" :task="sample('staging-signal')" :open="false" :cards="tasks" promoting />
+        <TaskCard project="jig-ui" :task="sample('staging-review')" :open="false" :cards="tasks" :reviewing="{}" />
+        <TaskCard
+          project="jig-ui"
+          :task="sample('staging-review')"
+          :open="false"
+          :cards="tasks"
+          :reviewing="{ reviewers: reviewerReads[1]!.read }"
+        />
       </div>
       <div class="mt-2 grid w-[23rem] grid-cols-2 gap-2">
         <TaskCard v-for="task in trackerTasks" :key="task.id" project="jig-ui" :task="task" :open="false" :cards="trackerTasks" />
@@ -545,6 +563,24 @@
         <TaskRow :task="tasks[0]!" :selected="false" :cards="tasks" busy />
         <TaskRow :task="tasks[3]!" :selected="false" :cards="tasks" changed />
         <TaskRow :task="tasks[7]!" :selected="false" :cards="tasks" confirming />
+        <TaskRow :task="sample('staging-signal')" :selected="false" :cards="tasks" promoting />
+        <TaskRow :task="sample('staging-review')" :selected="false" :cards="tasks" :reviewing="{ reviewers: reviewerReads[1]!.read }" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection
+      title="WriteConfirm"
+      note="before a write the page cannot take back: closing a ready task as done, preparing one for prod"
+    >
+      <div class="flex w-72 flex-col gap-2">
+        <WriteConfirm write="close" task="close-ready-task" />
+        <WriteConfirm write="promote" task="staging-signal" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection title="ReviewRequest" :note="reviewerReads.map((r) => r.note).join('; ')">
+      <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
+        <ReviewRequest v-for="r in reviewerReads" :key="r.note" task="staging-review" :reviewers="r.read" :asked="['alice']" />
       </div>
     </CanvasSection>
 

@@ -6,7 +6,7 @@ domains: []
 paths:
   - "server/jig/**"
 summary: JigClient alone runs jig (execFile, bash on Windows) and validates its JSON; never reads Jig's files
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-19
 ---
 # JigClient — the only module that knows Jig
 
@@ -111,6 +111,21 @@ longer timeout, whose note it answers without a path) — and `depend` / `undepe
 (`queue depend|undepend task:<id> --on <ref>`, a reason with the first); each from `WRITES_JIG_VERSION`, adding the
 codes `no-gate`, `autopilot-running`, `autopilot-stopped`, `already-archived`, `not-archived`, `wrong-status` and
 `already-closed`.
+A person's steps on the staging flow — `landTask` (`jig task land <id> --by human [--without-review]`), `promoteTask`
+(`jig task promote <id> --by human`) and `requestReview` (`jig task request-review <id> --reviewer <login>… --by
+human`), each with `--revision <n> --json` and 2 minutes (`STAGING_WRITE_TIMEOUT_MS`: the forge, and a push for a
+promotion) — read only what the page says: a landing's outcome and whether it went without review, a promotion's pull
+request, whether the work is in the base already and its merge's outcome with its reason through `withoutPaths`, and
+the logins asked. An outcome Jig adds later fails the answer (`JigShapeError`), which the adapter answers
+`incompatible`. Their refusals add the codes of Jig's staging writes — `wrong-flow`, `no-pull-request`,
+`pull-request-closed`, `not-ready`, `not-shipped`, `carries-staging`, `not-approved`, `review-required`, `conflict`,
+`mergeable-unknown`, `draft`, `ci-red`, `ci-pending`, `ci-none`, `forge-refused`, `forge-unavailable`, `ship-running`,
+`base-conflict`, `not-on-staging`, `behind-staging`, `shallow-clone`, `reviewer-unknown`, `git-level` — Jig's line as
+`reasons`. `readReviewers` (`jig pr reviewers --json`, 60 s) is a forge read, asked only when a person opens the review
+request; it keeps the source and each candidate's login, name and count, and its `forge-unavailable` comes back as a
+refusal with Jig's line. The success fixtures of these four are written from Jig's contract; their refusal fixtures
+come from a scratch project with a local bare origin
+(adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card).
 `fileTask` (`jig task new <id> --goal <text>`) takes no revision — Jig has none for it — and its
 tests pin that a person's goal reaches Jig as one argument, unglobbed
 (adr-20261022-filing-a-task-carries-no-revision). `closeTask` (`jig task set <id> status consolidated`) takes the

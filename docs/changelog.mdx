@@ -8,6 +8,12 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- On Jig's staging flow, with Jig 0.46.0 in the project, a card's ⋯ menu takes your steps: **Land on staging** merges
+  its pull request into staging — and when Jig says the review is not approved yet, **Land without review** beside its
+  line —, **Request review…** asks the reviewers you tick among those the forge offers, and **Prepare for prod…**, after
+  asking, opens its promotion into the main branch, the line above the board linking to it. They run `jig task land`,
+  `jig pr reviewers`, `jig task request-review` and `jig task promote`, each as you (`--by human`).
+  ([Land, ask for a review, prepare for prod](/projects#land-ask-for-a-review-prepare-for-prod))
 - On Jig's staging flow, a bell beside a project's name lights up when commits of yours are on the staging branch that
   no task brings to the main branch; press it to see them — subject, when, short sha — and **Mark as known** to keep it
   dark until a new one lands. It replaces the card's item about that work, and nobody else's commits are shown. It reads

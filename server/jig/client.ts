@@ -339,6 +339,30 @@ const CODES = new Set([
   'not-archived',
   'wrong-status',
   'already-closed',
+  // A person's landing, promotion and review request on the staging flow (Jig 0.46.0).
+  'wrong-flow',
+  'no-pull-request',
+  'pull-request-closed',
+  'not-ready',
+  'not-shipped',
+  'carries-staging',
+  'not-approved',
+  'review-required',
+  'conflict',
+  'mergeable-unknown',
+  'draft',
+  'ci-red',
+  'ci-pending',
+  'ci-none',
+  'forge-refused',
+  'forge-unavailable',
+  'ship-running',
+  'base-conflict',
+  'not-on-staging',
+  'behind-staging',
+  'shallow-clone',
+  'reviewer-unknown',
+  'git-level',
   'failed',
 ]);
 
@@ -530,6 +554,9 @@ const ACTIONS = new Set([
   'unarchive',
   'reopen',
   'drop-item',
+  'land',
+  'promote',
+  'request-review',
 ]);
 
 /** What a person may do next with a task, as Jig decides it from the task's state. */
@@ -1153,6 +1180,125 @@ export async function undepend(
   platform: NodeJS.Platform = process.platform,
 ): Promise<void> {
   await readJson(root, ['queue', 'undepend', `task:${task}`, '--on', on, '--revision', String(revision)], platform);
+}
+
+/** A person's landing, promotion or review request asks the forge, and a promotion pushes first: network round trips. */
+const STAGING_WRITE_TIMEOUT_MS = 2 * 60_000;
+
+/** What a person's landing on the staging branch did (`jig task land --by human --json`, Jig 0.46.0). */
+const Landed = z
+  .object({
+    land: z.object({
+      outcome: z.enum(['landed', 'already-landed']),
+      pull_request: maybe,
+      without_review: z.enum(['person', 'git.staging_review is none']).nullable(),
+    }),
+  })
+  .transform(({ land }) => ({ outcome: land.outcome, pullRequest: land.pull_request, withoutReview: land.without_review }));
+export type Landed = z.output<typeof Landed>;
+
+/**
+ * Lands the task's pull request on the staging branch as the person's decision (`jig task land <id> --by human`, Jig
+ * 0.46.0): the git level is not read, CI is looked at once, a conflict is never merged here. `withoutReview` lands one not
+ * approved, and Jig says so on the pull request. Refused as `not-approved` with Jig's words on whom it waits for,
+ * `review-required`, `conflict`, `ci-red`, `ci-pending`, `stale-revision` — nothing sent — and the rest of its landing's
+ * refusals, Jig's line as `reasons`.
+ */
+export async function landTask(
+  root: string,
+  task: string,
+  withoutReview: boolean,
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<Landed> {
+  const args = ['task', 'land', task, '--by', 'human', ...(withoutReview ? ['--without-review'] : []), '--revision', String(revision)];
+  return parsed(Landed, (await readJson(root, args, platform, STAGING_WRITE_TIMEOUT_MS)).data);
+}
+
+/** What a person's promotion did (`jig task promote --by human --json`, Jig 0.46.0): the pull request into the base, and who merges it. */
+const Promoted = z
+  .object({
+    promote: z.object({
+      pull_request: maybe,
+      in_base: z.boolean(),
+      merge: z
+        .object({
+          outcome: z.enum(['person', 'auto-merge-on', 'auto-merge-already-on', 'merged', 'not-switched-on']),
+          reason: maybe,
+        })
+        .nullable(),
+    }),
+  })
+  .transform(({ promote }) => ({
+    pullRequest: promote.pull_request,
+    inBase: promote.in_base,
+    merge: promote.merge && { outcome: promote.merge.outcome, reason: promote.merge.reason && withoutPaths(promote.merge.reason) },
+  }));
+export type Promoted = z.output<typeof Promoted>;
+
+/**
+ * Prepares a task tested on the staging branch for prod (`jig task promote <id> --by human`, Jig 0.46.0): pushes its
+ * branch and opens its pull request into the base, which under `git.promote_merge: auto` merges itself once its checks
+ * pass. Refused as `base-conflict` with the paths as `reasons`, `not-on-staging`, `behind-staging`, `carries-staging`,
+ * `shallow-clone`, `forge-unavailable`, `autopilot-running` and `stale-revision` — nothing pushed.
+ */
+export async function promoteTask(
+  root: string,
+  task: string,
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<Promoted> {
+  const args = ['task', 'promote', task, '--by', 'human', '--revision', String(revision)];
+  return parsed(Promoted, (await readJson(root, args, platform, STAGING_WRITE_TIMEOUT_MS)).data);
+}
+
+const ReviewRequested = z.object({ review_request: z.object({ requested: z.array(text) }) });
+
+/**
+ * Asks the forge for people's reviews of the task's open pull request (`jig task request-review <id> --reviewer <login>…
+ * --by human`, Jig 0.46.0), taking none off; answers the logins asked. Refused as `reviewer-unknown`, `pull-request-closed`,
+ * `forge-unavailable`, `forge-refused`, `autopilot-running` and `stale-revision`.
+ */
+export async function requestReview(
+  root: string,
+  task: string,
+  logins: string[],
+  revision: number,
+  platform: NodeJS.Platform = process.platform,
+): Promise<string[]> {
+  const args = [
+    'task',
+    'request-review',
+    task,
+    ...logins.flatMap((l) => ['--reviewer', l]),
+    '--by',
+    'human',
+    '--revision',
+    String(revision),
+  ];
+  return parsed(ReviewRequested, (await readJson(root, args, platform, STAGING_WRITE_TIMEOUT_MS)).data).review_request.requested;
+}
+
+/** Reading the reviewers asks the forge for the last merged pull requests and their reviews. */
+const REVIEWERS_TIMEOUT_MS = 60_000;
+
+/** Whom the forge offers to review a pull request into the staging branch (`jig pr reviewers --json`, Jig 0.46.0). */
+const Reviewers = z
+  .object({
+    source: z.enum(['history', 'assignable']),
+    candidates: z.array(z.object({ login: text, name: maybe, reviews: count.nullable() })),
+  })
+  .transform(({ source, candidates }) => ({ source, candidates }));
+export type Reviewers = z.output<typeof Reviewers>;
+
+/**
+ * The people who reviewed the last merged pull requests into the staging branch, most often first (`history`), or, with
+ * none of them left to ask, everyone the repository may ask (`assignable`) — never the clone's own account. The read
+ * asks the forge: made when a person is about to choose, never on a timer. Refused as `forge-unavailable`, Jig's line as
+ * `reasons`.
+ */
+export async function readReviewers(root: string, platform: NodeJS.Platform = process.platform): Promise<Reviewers> {
+  return parsed(Reviewers, (await readJson(root, ['pr', 'reviewers'], platform, REVIEWERS_TIMEOUT_MS)).data);
 }
 
 /**

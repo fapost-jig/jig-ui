@@ -376,12 +376,12 @@ on the staging branch, waiting for "prepare for prod", is in **On staging**:
 | --- | --- | --- |
 | Review | Waits for review from alice, bob | its pull request into the staging branch waits for the reviewers named |
 | Review | Changes requested | a reviewer asked for changes: take it back for a fix |
-| Review | Approved — yours to land | the review is approved and landing it is yours: your `agent.git` is below `merge`, so merge it on the forge |
+| Review | Approved — yours to land | the review is approved and landing it is yours: your `agent.git` is below `merge`, so choose **Land on staging** in its ⋯ menu, or merge it on the forge |
 | Review | Pull request into staging — yours to land | the project asks for no review (`git.staging_review: none`), and landing it is yours |
 | Review | Approved | the review is approved; your agent lands it |
-| Review | No review requested yet | nobody was asked to review it |
+| Review | No review requested yet | nobody was asked to review it: **Request review…** in its ⋯ menu asks someone |
 | Review | Pull request into staging waits for review | Jig does not know the review's state yet: it learns it at the next `jig housekeeping`, and Jig 0.45.0 never does |
-| On staging | On staging, waits for prepare for prod | once it passed its test there, tell your agent "prepare for prod" |
+| On staging | On staging, waits for prepare for prod | once it passed its test there, choose **Prepare for prod…** in its ⋯ menu, or tell your agent "prepare for prod" |
 | Ready | Promotion open, CI green | its promotion, the pull request into the main branch, is open; the note follows its state and CI and links to it (from Jig 0.46.0) |
 | Ready | Promotion opened | your agent just opened its promotion; its state and CI show after the next `jig housekeeping` |
 | Ready | Fix not on staging yet | you took it back for a fix, and the fix has commits the staging branch does not have yet |
@@ -393,9 +393,30 @@ Jig 0.45.0 the promotion has no link, and the pull request into staging no state
 
 **Take back for a fix** in a parked card's ⋯ menu, or a drag of the card onto **In progress**, runs
 `jig task resume <id>` with the revision of the board you saw: the task is active again, and once it
-ships again its fix lands on the staging branch as the first change did. Landing and "prepare for
-prod" have no button: Jig answers neither as data the page can read, so they stay with your agent,
-or your CI.
+ships again its fix lands on the staging branch as the first change did.
+
+### Land, ask for a review, prepare for prod
+
+With Jig 0.46.0 in the project, a card's ⋯ menu holds the steps of this flow that are yours, first in it, where Jig
+offers them:
+
+- **Land on staging**, on a card in Review, merges its pull request into the staging branch
+  (`jig task land <id> --by human`). Jig asks the forge first: while the review is not approved it lands nothing, and
+  the line above the board says whom it waits for, with **Land without review** beside it — the same landing, which
+  Jig notes on the pull request. Where the project asks for an approval (`git.staging_review: require`) only an
+  approval lands it. A pull request that conflicts with staging is your agent's to land: it resolves the conflict.
+- **Request review…**, on a card in Review, asks the forge whom it offers — those who reviewed pull requests into
+  staging most often first, else everyone the repository may ask (`jig pr reviewers`, only when you press) — and asks
+  the ones you tick (`jig task request-review <id> --reviewer <login>`). Those the review already waits for are ticked.
+  The card shows their review after the next `jig housekeeping`.
+- **Prepare for prod…**, on a card in On staging, asks first, then pushes the task's branch and opens its promotion,
+  the pull request into the main branch (`jig task promote <id> --by human`). The line above the board links to it and
+  says who merges it: you, or the forge itself once its checks pass where the project merges promotions itself. The
+  card moves to Ready with *Promotion opened*.
+
+Each carries the revision of the board you saw, as every change from the board does, and a refusal is said above the
+board, in Jig's words where only Jig knows why. Each reaches the forge with your git credentials, so the macOS
+keychain may ask. Below Jig 0.46.0 they stay with your agent, or your CI.
 
 A task on the staging flow has no ✕ until its work is in the main branch. Landing on staging does not
 finish a task, yet on Jig 0.45.0 `jig task set <id> status consolidated` closes one as soon as its pull
