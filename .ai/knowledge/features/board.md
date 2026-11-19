@@ -91,8 +91,8 @@ done, or moving.
   that the card names `jig task resume <id>`. Jig's refusals are said in Jig UI's own words
   (`web/lib/refusal.ts`), never Jig's message: `wrong-checkout` — the pause kept a stash and the
   main checkout is not on the task's branch — and `stash-conflict` — the stash did not apply, the
-  task is still paused — both send the person to the terminal. Any other drop on another column
-  does nothing.
+  task is still paused — both send the person to the terminal. A drop on another column does
+  nothing else, except a Review card's on On staging, which lands it (below).
 - A ready card carries a ✕ beside its menu where the task is `closable`: a press asks, **Close
   task** in the question runs `jig task set <id> status consolidated` (adr-20261029-close-a-ready-task-from-the-board).
   Unlike the other refusals, a refused close is said in Jig's own words — its `jig: error:` lines with
@@ -109,7 +109,8 @@ done, or moving.
   for housekeeping's `needs-consolidation`, the merge into the base: Jig 0.45.0's close command closes
   a task once its pull request into staging merged (fapost-lab/jig#509). From Jig 0.46.0 the person's
   own steps are first in the card's menu, where Jig offers them: **Land on staging** on a Review card, one
-  press, and on Jig's `not-approved` **Land without review** beside its line; **Request review…**, a panel
+  press — or a drop of the card on On staging, the same write, offered only where Jig offers `land` (task
+  `drop-to-land`) —, and on Jig's `not-approved` **Land without review** beside its line; **Request review…**, a panel
   on the card with the reviewers `jig pr reviewers` offers, read only then; **Prepare for prod…** on an On
   staging card, after a question (`WriteConfirm`, the close's question made one for both), its line linking
   the promotion and saying who merges it

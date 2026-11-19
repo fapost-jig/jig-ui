@@ -5,17 +5,25 @@ import { placement } from './placement';
 /**
  * Dragging a card: within its list (a column), with the gap it would land in and the place Jig's queue would give it;
  * onto the Paused column, a pause — asked of the task, or made at once for a task nobody started; out of Paused, or a
- * task parked at the staging branch out of Review or On staging, a resume. A drop is allowed only where `placement`
- * says one `jig queue move` puts it, on Paused when Jig offers the request or pauses the task at once, or on the one
- * list a resume would put the task in; any other list allows none.
+ * task parked at the staging branch out of Review or On staging, a resume; out of Review onto On staging, a landing.
+ * A drop is allowed only where `placement` says one `jig queue move` puts it, on Paused when Jig offers the request or
+ * pauses the task at once, on the one list a resume would put the task in, or on On staging when Jig offers to land a
+ * Review card; any other list allows none.
  */
-export function useDrop(onMove: (task: string, place: Place) => void, onPause: (task: string) => void, onResume: (task: string) => void) {
+export function useDrop(
+  onMove: (task: string, place: Place) => void,
+  onPause: (task: string) => void,
+  onResume: (task: string) => void,
+  onLand: (task: string) => void,
+) {
   const dragged = ref<{
     task: string;
     list: string;
     /** May go onto Paused: a pause asked of it, or made at once. */
     toPaused: boolean;
     resumesTo: string | null;
+    /** May go onto On staging: a Review card Jig offers to land. */
+    lands: boolean;
   }>();
   /** Where the card would land: a gap in its own list, or another list as a whole (`index` -1, no place). */
   const gap = ref<{
@@ -25,7 +33,13 @@ export function useDrop(onMove: (task: string, place: Place) => void, onPause: (
   }>();
 
   function start(event: DragEvent, list: string, task: Task): void {
-    dragged.value = { task: task.id, list, toPaused: task.pauseRequestable || task.pausable, resumesTo: task.resumesTo };
+    dragged.value = {
+      task: task.id,
+      list,
+      toPaused: task.pauseRequestable || task.pausable,
+      resumesTo: task.resumesTo,
+      lands: list === 'review' && task.landable,
+    };
     event.dataTransfer?.setData('text/plain', task.id);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
@@ -38,7 +52,7 @@ export function useDrop(onMove: (task: string, place: Place) => void, onPause: (
     const d = dragged.value;
     if (!d) return;
     if (d.list !== list) {
-      if (list === 'paused' ? !d.toPaused : list !== d.resumesTo) return;
+      if (!(list === 'paused' ? d.toPaused : list === d.resumesTo || (list === 'on-staging' && d.lands))) return;
       gap.value = { list, index: -1 };
       event.preventDefault(); // allows the drop here
       return;
@@ -64,7 +78,8 @@ export function useDrop(onMove: (task: string, place: Place) => void, onPause: (
     if (!d || g?.list !== list) return;
     if (g.place) onMove(d.task, g.place);
     else if (list === 'paused') onPause(d.task);
-    else onResume(d.task);
+    else if (list === d.resumesTo) onResume(d.task);
+    else onLand(d.task);
   }
 
   function end(): void {

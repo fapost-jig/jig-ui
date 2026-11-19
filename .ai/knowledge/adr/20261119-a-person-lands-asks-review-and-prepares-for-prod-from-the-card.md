@@ -79,7 +79,8 @@ card"; task `staging-from-card`, design approved at the gate on 2026-11-19.
 
 - **Buttons on the card** — the step in plain view, but a button on every Review and On staging card is noise on a
   quiet board (adr-20261110-the-page-speaks-a-quiet-design-language); the menu holds **Take back for a fix** already,
-  and dragging to land is a task of its own.
+  and dragging to land is a task of its own. *(Built by task `drop-to-land`, 2026-11-19: a drop of a Review card on On
+  staging is the same landing, at once.)*
 - **A question before Land**, as before the close — staging exists to be tried on, and landing without review is
   already a second press after the refusal was read.
 - **No Land until the card reads Approved** — the forge cache lags behind the forge; Jig asks the forge as it lands and
