@@ -7,7 +7,7 @@ paths:
   - "server/http/**"
   - server/team/access.ts
 summary: MAY/MUST/MUST NOT for the replaceable access guards — the local one in server/http (the token) and the team server's in server/team/access.ts (public Host and Origin, setup, sessions, the webhook's HMAC); no route decides access
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-19
 ---
 # AccessGuard — who may use the server
 
@@ -51,7 +51,8 @@ every route of `createTeamApp`, after `secureHeaders` and a one-megabyte body li
 TeamAccess (server/team/access.ts: publicOnly, teamAccess)
 
 MAY:      admit or refuse a request; set and clear the setup and session cookies (`__Host-`,
-          Secure, HttpOnly, SameSite=Lax); answer 401/403/404 itself
+          Secure, HttpOnly, SameSite=Lax); answer 401/403/404 itself, or, to a navigation —
+          a GET of `/auth/*` or `/setup/done` —, send the browser back to `/?problem=<code>`
 MUST:     run before every route, the page included; refuse a Host not the public address's, an
           Origin not its origin, and a write naming no origin but /webhook/github, which it holds
           to its HMAC; open the setup only while there is no admin, the App's creation only while
@@ -67,6 +68,10 @@ What a sign-in proves is the callback's to check, not the guard's: `/auth/callba
 answer only for a round this browser started (`Secrets.takeRound` against its cookie), links an
 account only to the person whose session began the link, and makes the admin only through a setup
 the code opened while there is no admin. These check a credential's round, not access to a route.
+`/setup/done` likewise takes GitHub's answer to the manifest only for the setup this browser opened
+(`Secrets.takeManifestState`). A refusal of a navigation — the guard's, `/setup/done`'s or `/auth/callback`'s — lands on the page with its code in `?problem=`,
+which the page says in words (`problems` in `web/team/api.ts`): the person sees why and the way on, never
+the API's JSON.
 
 ## Rationale
 

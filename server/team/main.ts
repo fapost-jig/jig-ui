@@ -39,7 +39,7 @@ export function runTeamServer(port: number, version: string): void {
     store,
     github,
     secrets,
-    pollSoon: () => void polling.soon(),
+    pollSoon: () => polling.soon(),
     pollInstallation: (id) => pollInstallation(deps, id),
     log,
   });

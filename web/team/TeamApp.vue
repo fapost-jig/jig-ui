@@ -16,6 +16,8 @@
   const projects = ref<Projects>();
   /** Why the last sign-in came back without a session, read once from `?problem=`. */
   const problem = ref<string>();
+  /** The installation GitHub returned the admin from installing, read once from `?installation_id=`. */
+  const installed = ref<number>();
 
   // The setup: the code from the log first, then the account the App is created on.
   const code = ref('');
@@ -46,11 +48,12 @@
   onMounted(() => {
     const url = new URL(location.href);
     const said = url.searchParams.get('problem');
-    if (said) {
-      problem.value = problems[said] ?? 'The sign-in did not complete. Sign in again.';
-      url.searchParams.delete('problem');
-      history.replaceState(null, '', url);
-    }
+    if (said) problem.value = problems[said] ?? 'The sign-in did not complete. Sign in again.';
+    // GitHub returns the admin here from installing the App (its setup URL), naming the installation.
+    const id = Number(url.searchParams.get('installation_id'));
+    if (Number.isSafeInteger(id) && id > 0) installed.value = id;
+    for (const name of ['problem', 'installation_id', 'setup_action']) url.searchParams.delete(name);
+    history.replaceState(null, '', url);
     void read();
   });
 
@@ -165,7 +168,7 @@
       <GroupPanel aria-labelledby="projects">
         <template #head><h2 id="projects" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Your projects</h2></template>
         <ul v-if="groups.length" class="flex flex-col gap-2 px-4">
-          <li v-for="group in groups" :key="group.id" class="flex flex-col gap-1 rounded-lg bg-card px-3 py-2">
+          <li v-for="group in groups" :key="group.id" class="flex flex-col gap-1 rounded-lg bg-card px-3 py-2 ring-1 ring-border">
             <span :class="group.writable ? '' : 'text-muted-foreground'">{{ group.fullName }}</span>
             <span v-for="fork in group.forks" :key="fork.id" class="pl-4 text-[13px] text-muted-foreground">fork: {{ fork.fullName }}</span>
           </li>
@@ -187,7 +190,7 @@
         </div>
       </GroupPanel>
 
-      <AdminPanel v-if="me.admin" />
+      <AdminPanel v-if="me.admin" :installed="installed" />
     </template>
   </div>
 </template>

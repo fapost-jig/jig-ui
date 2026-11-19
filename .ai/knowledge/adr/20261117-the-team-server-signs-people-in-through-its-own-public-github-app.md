@@ -12,7 +12,7 @@ paths:
   - server/team/poll.ts
   - "web/team/**"
 summary: Each team server registers its own public Metadata-only GitHub App; a setup code in the log until there is an admin; installations need the admin's approval; OAuth with state, PKCE and a round cookie, the person's token dropped; writers polled with the installation token; __Host- session cookies hashed in the DB; a guard of its own (amends adr-20261014-local-server-access-guard)
-reviewed_at: 2026-11-17
+reviewed_at: 2026-11-19
 ---
 # The team server signs people in through its own public GitHub App, behind a guard of its own
 
@@ -81,7 +81,8 @@ write access, polled with the App's installation token (`.ai/specs/team-board/sp
 - The database holds the App's private key and client secret and no person's token;
   `temp_clone_token`, which GitHub may add to a repository, is dropped by the response schemas.
 - Without webhooks — a server on `localhost` — a change reaches the server by the next poll, and a
-  revoked authorization ends no session until it expires.
+  revoked authorization ends no session until it expires. *(An installation the admin makes is read as
+  GitHub sends them back from it, task `team-server-nits`, 2026-11-19.)*
 - What a real App answers where GitHub's documentation is silent stays open (`team-board`'s open
   questions): the team server was built against a fake GitHub only, its live run dropped on the
   maintainer's word (2026-11-17). If `permission=push` means push alone, an admin misses a project;

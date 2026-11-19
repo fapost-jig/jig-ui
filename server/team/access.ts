@@ -1,7 +1,7 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { sessions } from './auth.js';
+import { same, sessions } from './auth.js';
 import type { Secrets } from './auth.js';
 import type { TeamStore } from './db.js';
 
@@ -17,13 +17,7 @@ export interface TeamVariables {
   webhookBody: string;
 }
 
-const refuse = (status: 401 | 403 | 404, code: string, message: string) => Response.json({ error: { code, message } }, { status });
-
-function same(given: string, expected: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+const refused = (status: 401 | 403 | 404, code: string, message: string) => Response.json({ error: { code, message } }, { status });
 
 /** Refuses a request whose `Host` is not the public address's, and one whose `Origin` is another's; a write must name it. */
 export function publicOnly(publicUrl: URL): MiddlewareHandler {
@@ -63,7 +57,9 @@ export function clearRound(c: Parameters<MiddlewareHandler>[0]): void {
  * Who may reach what, decided here and nowhere else (convention-access-guard): the setup only while the server has no
  * admin, the App's creation only while it has no App, and either only with the setup cookie past its first step;
  * sign-in only once there is an App, the admin's only with the setup cookie while there is no admin; `/api/team/*`
- * with a live session, the admin's routes with the admin's; GitHub's webhook with its signature.
+ * with a live session, the admin's routes with the admin's; GitHub's webhook with its signature. What a sign-in proves
+ * is `/auth/callback`'s to check — the round this browser started, the person a link began with, the setup that makes
+ * the admin —: those check a credential's round, not who may reach a route.
  */
 export interface AccessDeps {
   store: TeamStore;
@@ -75,6 +71,11 @@ export function teamAccess({ store, secrets, now }: AccessDeps): MiddlewareHandl
   return async (c, next) => {
     const path = c.req.path;
     const app = store.app();
+    // A page the browser navigates to — a sign-in link, GitHub's answer — goes back to the page, which says why in words;
+    // the API answers in its own form.
+    const navigation = c.req.method === 'GET' && (path === '/setup/done' || path.startsWith('/auth/'));
+    const refuse = (status: 401 | 403 | 404, code: string, message: string) =>
+      navigation ? c.redirect(`/?problem=${code}`, 302) : refused(status, code, message);
     if (path === '/webhook/github') {
       if (!app?.webhookSecret) return refuse(404, 'no-webhook', 'This server takes no webhook.');
       const body = await c.req.text();

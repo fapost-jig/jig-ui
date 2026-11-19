@@ -1,7 +1,7 @@
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import { Hono } from 'hono';
 
-/** A person on the fake GitHub, with the installations and repositories they reach and may push to. */
+/** An account on the fake GitHub: its user id and login. */
 export interface FakeUser {
   id: number;
   login: string;

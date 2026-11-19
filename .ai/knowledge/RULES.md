@@ -24,7 +24,7 @@ are added as sections of this file.
   token, and never `temp_clone_token`, which its response schemas drop.
   (adr-20261117-a-team-server-keeps-a-reflection-of-its-own,
   adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app. Checked by
-  `server/team/app.test.ts` and `poll.test.ts`, which read the database file, and in review.)
+  `server/team/app.test.ts`, which reads the database file, by `poll.test.ts` and in review.)
 - A board column is computed from Jig's state on every read and never stored.
   (adr-20261014-board-columns-are-derived-from-jig-state. Checked in review.)
 - Only `server/jig/` runs `jig` or knows the shape of its output.
@@ -42,7 +42,7 @@ are added as sections of this file.
   `GET /api/instance`, the CLI's check that an instance is up, never waits on it.
   (adr-20261031-jig-ui-asks-npm-for-a-newer-release. Checked by `server/release.test.ts`; in review:
   no other `fetch` or outbound request in `server/` outside `server/team/`.) The team server asks
-  only GitHub: its API as the App and its installations, and OAuth's token exchange, all in
+  only GitHub: its API as the App, as its installations and, at sign-in, as the person, and OAuth's token exchange, all in
   `server/team/github.ts`. (adr-20261117-the-team-server-signs-people-in-through-its-own-public-github-app.
   Checked in review: no other `fetch` in `server/team/`.) A Jig run may ask the network itself — a fetch, a push,
   the forge — and `jig version --json`, which the header reads, asks Jig's origin for its newest release at most

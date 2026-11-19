@@ -66,6 +66,10 @@ board.example.com {
 
 With nginx, add `proxy_set_header Host $http_host;` to the `location` that proxies to it.
 
+Give `/auth/sign-in` a rate limit at the proxy as well, with nginx's `limit_req` for one. Anyone may
+start a sign-in, and the server keeps at most 1000 under way: a flood of them makes real sign-ins
+fail, as if they had taken too long.
+
 ## Setting it up
 
 Until it has an admin, the server prints a setup code in its log at every start (`docker logs
@@ -102,7 +106,9 @@ The App is public, so anyone may install it on their account. An installation do
 you approve it: nobody signs in through it, and the server keeps none of its repositories. Your
 page lists every installation as **waits for you**, **approved** or **refused**; **Approve** reads
 its repositories at once, **Refuse** takes them off the server. A refused installation stays
-ignored until you approve it.
+ignored until you approve it. When GitHub sends you back from installing the App, your page lists that
+installation at once; one installed by someone else appears within five minutes, or at once when
+GitHub can reach the server's webhook.
 
 ## Signing in
 
