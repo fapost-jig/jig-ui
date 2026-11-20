@@ -20,7 +20,7 @@ paths:
   - web/lib/refusal.ts
   - web/lib/finished.ts
 summary: From Jig 0.46.0 the task's page approves a design as shown, abandons with a reason and archives, changes what the task waits for, and the finished list brings a task back or closes its roadmap item — each only where Jig offers it, with the revision of its read
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-20
 ---
 # A task's page runs the writes Jig 0.46.0 offers a person on it — approving a design, abandoning, archiving, what it waits for — and the finished list brings one back
 
@@ -90,7 +90,7 @@ task `person-writes`. The design was approved at its gate on 2026-11-18.
   with an agent session's id in its environment it records the session in `.ai/runtime/taken/<task>/` and raises the
   revision before it checks the one it was given, so `--revision` is always behind (as Jig #389 was for the
   close, which Jig exempted). A Jig UI started from a terminal or as a service has no such id and is unaffected; one an
-  agent started shows the stale line. The fix is Jig's.
+  agent started shows the stale line. The fix is Jig's: fapost-jig/jig#590, merged after 0.47.0.
 - The page keeps no list of its own of what is allowed: the buttons are Jig's offers, and the refusal lines are Jig's
   codes. A Jig that offers a new write shows it as a command until Jig UI learns it.
 - Undoing a write is the person's, through Jig: `reopen` (a command), **Bring back**, or a new design for the gate.

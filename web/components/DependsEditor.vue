@@ -31,11 +31,14 @@
     choose: [];
   }>();
 
-  const adding = ref(false);
+  /** Add… is open: the view closes it once the dependency is written. */
+  const adding = defineModel<boolean>('adding', { default: false });
   const on = ref<string>();
   const reason = ref('');
 
   function start(): void {
+    on.value = undefined;
+    reason.value = '';
     adding.value = true;
     emit('choose');
   }
@@ -43,15 +46,6 @@
   function add(): void {
     if (on.value && reason.value.trim() !== '') emit('add', on.value, reason.value.trim());
   }
-
-  /** Closes Add… once its dependency is written. */
-  function done(): void {
-    adding.value = false;
-    on.value = undefined;
-    reason.value = '';
-  }
-
-  defineExpose({ done });
 </script>
 
 <template>
