@@ -476,8 +476,8 @@ with the exact count. Nobody else's commits are shown.
 
 Bring what the main branch still needs to it through a task. **Mark as known** marks the rest as known in this clone
 (`jig staging ack`), and the bell stays dark until a new commit of yours lands; nothing is taken off staging. It marks
-only the commits you were shown: if one arrived or left since the page read the project, the mark is refused, and the
-list shows what is there now.
+the commits the list shows and, when Jig counts more than its newest 20, the older ones it counts too: if one arrived or
+left since the page read the project, the mark is refused, and the list shows what is there now.
 A commit fetched from a terminal lights the bell when the page next reads the project; **Refresh** and
 **Housekeeping** read it again after their fetch. On a Jig before 0.46.0 the card shows Jig's item about staging work
 as it says it, with no bell. When Jig refuses the mark for another reason, the list says why.
