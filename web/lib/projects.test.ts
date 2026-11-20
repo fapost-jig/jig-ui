@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Attention, Project } from '../api';
-import { byName, chosen, closableTask, landed, matching, readOnes, readProgress, type Reading } from './projects';
+import { byName, chosen, closableTask, knowledgeWaiting, landed, matching, readOnes, readProgress, type Reading } from './projects';
 
 const item: Attention = {
   kind: 'gate-waiting',
@@ -113,5 +113,25 @@ describe('closableTask', () => {
     expect(closableTask(closing, item)).toBeUndefined();
     expect(closableTask(closing, { ...merged, subject: { type: 'project', id: null } })).toBeUndefined();
     expect(closableTask(moved, merged)).toBeUndefined();
+  });
+});
+
+describe('knowledgeWaiting', () => {
+  const proposed: Attention = { ...item, kind: 'knowledge-proposed', detail: '4 document(s) proposed' };
+  const sources: Attention = { ...item, kind: 'sources-changed', detail: '2 file(s)' };
+
+  it("adds the documents proposed and the linked files changed, as Jig's items count them", () => {
+    expect(knowledgeWaiting([item, proposed, sources])).toBe(6);
+    expect(knowledgeWaiting([sources])).toBe(2);
+  });
+
+  it('counts none without either item, or from a detail that gives no number', () => {
+    expect(knowledgeWaiting([item])).toBe(0);
+    expect(
+      knowledgeWaiting([
+        { ...proposed, detail: null },
+        { ...sources, detail: 'some files' },
+      ]),
+    ).toBe(0);
   });
 });
