@@ -218,7 +218,8 @@
     );
   }
 
-  const editor = ref<InstanceType<typeof DependsEditor>>();
+  /** The dependency editor's Add… is open. */
+  const adding = ref(false);
 
   async function depend(on: string, reason: string): Promise<void> {
     const shown = ready.value;
@@ -230,7 +231,7 @@
       }),
     );
 
-    if (done) editor.value?.done();
+    if (done) adding.value = false;
     await load();
   }
 
@@ -291,7 +292,7 @@
         <TaskFacts :details="details" class="px-4 py-3">
           <template v-if="details.writes" #waits>
             <DependsEditor
-              ref="editor"
+              v-model:adding="adding"
               :task="task"
               :depends-on="details.dependsOn"
               :candidates="candidates"

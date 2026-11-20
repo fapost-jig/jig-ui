@@ -673,17 +673,19 @@ them:
 - **What it waits for.** **✕** beside one of its own dependencies takes it away (`jig queue undepend`);
   one its epic gives it stays. **Add…** makes it wait for another live task or an open epic, with the
   reason Jig asks for (`jig queue depend`).
-- **Starting the task** is your agent's work: in place of `jig task start`, the page gives the request
-  to copy to it, *Start task `<id>` in `<project>`*.
-
 When Jig refuses — somebody did it first, the project changed since you read it, its autopilot run is on —
 the line under the button says why. With an older Jig the page shows only the commands.
 
 <Note>
 A Jig UI that an agent started — from a Claude Code session, say — may be refused every approval as
 *the project changed*: Jig 0.46.0 records the agent's session as it approves, which changes the project
-before it checks. Start Jig UI from a terminal, or as a service, to approve from the page.
+before it checks. Jig has fixed this ([jig#590](https://github.com/fapost-jig/jig/issues/590)) after
+0.47.0; until a Jig with the fix is in the project, start Jig UI from a terminal, or as a service, to
+approve from the page.
 </Note>
+
+Starting the task stays your agent's work: in place of `jig task start`, the page gives the request
+to copy to it, *Start task `<id>` in `<project>`*.
 
 - **Its documents**, on the full page only — the ones its workspace holds (task, discovery, design,
   plan, review…), each with when it was last written and its size. A click opens one below its name,
