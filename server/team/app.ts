@@ -147,13 +147,19 @@ function teamRoutes({
   }
 
   /** Where a sign-in lands: the person it is for, or why there is none. */
-  async function signIn(purpose: Purpose, token: string, setup: string | undefined): Promise<number | 'nothing' | 'taken' | 'no-setup'> {
+  async function signIn(
+    purpose: Purpose,
+    token: string,
+    setup: string | undefined,
+  ): Promise<number | 'nothing' | 'taken' | 'no-setup' | 'set-up'> {
     const user = await github.user(token);
     const account = { githubId: user.id, login: user.login };
     const reached = await reachOf(token, user.id);
     const known = store.personOf(user.id);
     if (purpose.kind === 'admin') {
-      if (setup !== purpose.setup || store.hasAdmin() || !secrets.takeAdmin(purpose.setup)) return 'no-setup';
+      // Another browser's admin may have finished while this one was on GitHub.
+      if (store.hasAdmin()) return 'set-up';
+      if (setup !== purpose.setup || !secrets.takeAdmin(purpose.setup)) return 'no-setup';
       const id = known ?? store.createPerson(account, true, now());
       store.makeAdmin(id);
       return id;

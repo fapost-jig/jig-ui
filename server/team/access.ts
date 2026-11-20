@@ -53,6 +53,13 @@ export function clearRound(c: Parameters<MiddlewareHandler>[0]): void {
   deleteCookie(c, ROUND_COOKIE, { path: '/', secure: true });
 }
 
+/** What the guard reads: the server's store, its secrets and the clock. */
+export interface AccessDeps {
+  store: TeamStore;
+  secrets: Secrets;
+  now: () => Date;
+}
+
 /**
  * Who may reach what, decided here and nowhere else (convention-access-guard): the setup only while the server has no
  * admin, the App's creation only while it has no App, and either only with the setup cookie past its first step;
@@ -62,12 +69,6 @@ export function clearRound(c: Parameters<MiddlewareHandler>[0]): void {
  * began with and the setup that makes the admin; `/setup/done`'s manifest state of this browser's setup —: those check a
  * credential's round, not who may reach a route.
  */
-export interface AccessDeps {
-  store: TeamStore;
-  secrets: Secrets;
-  now: () => Date;
-}
-
 export function teamAccess({ store, secrets, now }: AccessDeps): MiddlewareHandler<{ Variables: TeamVariables }> {
   return async (c, next) => {
     const path = c.req.path;
