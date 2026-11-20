@@ -1,6 +1,9 @@
 import { hc, type InferRequestType, type InferResponseType } from 'hono/client';
 import { ref } from 'vue';
 import type { AppType } from '../server/http/app';
+import type { HousekeepingState, RefreshState } from './lib/projects';
+import { refreshReport } from './lib/refresh';
+import { reasonsOf } from './lib/refusal';
 /** The server's API, typed by its own routes (`AppType`); only its type crosses into the page. */
 export const client = hc<AppType>('/');
 type Api = typeof client.api;
@@ -167,6 +170,30 @@ export async function readArtifact(project: string, task: string, kind: Artifact
 /** Reads a project through Jig now (Read again); `false` when the request did not get through. */
 export async function readAgain(project: string): Promise<boolean> {
   return (await call(() => client.api.projects[':id'].read.$post({ param: { id: encodeURIComponent(project) } }))) !== undefined;
+}
+
+/**
+ * Runs `jig housekeeping` in a project (Housekeeping): Jig's report, or why it did not run with Jig's reasons;
+ * `undefined` when the request did not get through, or the project cannot be read now and its state says why.
+ */
+export async function runHousekeeping(project: string): Promise<HousekeepingState | undefined> {
+  const res = await call(() => client.api.projects[':id'].housekeeping.$post({ param: { id: encodeURIComponent(project) } }));
+  const body = res && (await res.json());
+  if (body && 'report' in body) return { state: 'done', report: body.report };
+  if (body && 'error' in body) return { state: 'refused', message: body.error.message, reasons: reasonsOf(body.error) };
+  return undefined;
+}
+
+/**
+ * Runs `jig refresh` in a project (Refresh): what came of it in the page's words, or why it did not run; `undefined`
+ * when the request did not get through, or the project cannot be read now and its state says why.
+ */
+export async function runRefresh(project: string): Promise<RefreshState | undefined> {
+  const res = await call(() => client.api.projects[':id'].refresh.$post({ param: { id: encodeURIComponent(project) } }));
+  const body = res && (await res.json());
+  if (body && 'refreshed' in body) return { state: 'done', ...refreshReport(body.refreshed) };
+  if (body && 'error' in body) return { state: 'refused', message: body.error.message };
+  return undefined;
 }
 
 /** A project's state as every read of it reports it, without the upgrade the workspace adds. */

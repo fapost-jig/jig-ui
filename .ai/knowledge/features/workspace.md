@@ -22,7 +22,7 @@ paths:
   - web/components/StagingWork.vue
   - web/lib/staging.ts
 summary: "The workspace page: a list of the connected projects with search and the chosen one's card — Jig's attention items, the mark and count of projects whose Jig is older than the machine's, their upgrade from the card — and Find projects, which lists the Jig projects in a folder not connected yet"
-reviewed_at: 2026-11-19
+reviewed_at: 2026-11-20
 ---
 # Workspace — every connected project on one page
 
@@ -42,7 +42,8 @@ adr-20261029-close-a-ready-task-from-the-board) — and the housekeeping note. *
 of Board, runs `jig housekeeping` in the project and leaves Jig's report on the card until **Dismiss**
 (adr-20261110-housekeeping-runs-from-the-project-card). **Refresh**, on Jig's `base-behind-origin` item and beside a
 line saying the clone last fetched more than a day ago, runs `jig refresh` and says what came of it in the page's
-words until **Dismiss**, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). On Jig's staging
+words until **Dismiss**, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). Both are on the
+project's page too, beside its name, and **↻** above the projects reads every project again at once (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name). On Jig's staging
 flow a bell beside the project's name is lit while Jig's `staging-unowned` item lists the person's own commits on staging
 that the base does not have and no live task's branch holds, and dark with none (`bellOf` in `web/lib/staging.ts`);
 a press opens them on the card — subject, how long ago, short sha, Jig's newest 20 of the exact count
