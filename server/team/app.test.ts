@@ -180,6 +180,17 @@ describe('the setup', () => {
     expect(store.app()).toBeNull();
   });
 
+  it('says GitHub did not hand the App over, and keeps none, when it refuses the manifest', async () => {
+    const { browser, secrets, store, lines } = server();
+    const page = browser();
+    await page.request('/api/team/setup', { method: 'POST', json: { code: secrets.setupCode } });
+    const form = (await (await page.request('/api/team/setup/manifest', { method: 'POST', json: {} })).json()) as { action: string };
+    const done = await page.request(`/setup/done?code=never-registered&state=${new URL(form.action).searchParams.get('state')}`);
+    expect(done.headers.get('location')).toBe('/?problem=no-app');
+    expect(store.app()).toBeNull();
+    expect(lines.filter((line) => line.startsWith('Could not register the App'))).toHaveLength(1);
+  });
+
   it('stores the App, spends the code, closes the setup and makes its person the admin', async () => {
     const { setUp, store, secrets, browser } = server();
     const admin = await setUp();
@@ -226,8 +237,16 @@ describe('the setup', () => {
     await first.request(`/setup/done?code=${fake.registerManifest({})}&state=${state}`);
     expect((await first.request(`/setup/done?code=c&state=${state}`)).headers.get('location')).toBe('/?problem=app-exists');
     expect((await browser().signIn(1, 'admin')).headers.get('location')).toBe('/?problem=no-setup');
+    // A second browser with the code is on GitHub while the first becomes the admin.
+    const second = browser();
+    await second.request('/api/team/setup', { method: 'POST', json: { code: secrets.setupCode } });
+    const authorize = new URL((await second.request('/auth/sign-in?as=admin')).headers.get('location')!);
     fake.addUser({ id: 1, login: 'admin' });
     expect((await first.signIn(1, 'admin')).headers.get('location')).toBe('/');
+    const code = fake.authorize(1, authorize.searchParams.get('code_challenge')!);
+    expect((await second.request(`/auth/callback?code=${code}&state=${authorize.searchParams.get('state')}`)).headers.get('location')).toBe(
+      '/?problem=set-up',
+    );
     expect((await first.request(`/setup/done?code=c&state=${state}`)).headers.get('location')).toBe('/?problem=set-up');
     expect((await first.signIn(1, 'admin')).headers.get('location')).toBe('/?problem=set-up');
   });
@@ -383,14 +402,17 @@ describe('signing in', () => {
     };
     expect(await answered('access_denied')).toBe('/?problem=cancelled');
     expect(await answered('application_suspended')).toBe('/?problem=github');
+    // A line break in GitHub's error stays in its own line.
+    expect(await answered('x%0Aforged')).toBe('/?problem=github');
     expect(lines.filter((line) => line.startsWith('GitHub did not complete'))).toEqual([
       'GitHub did not complete a sign-in: "application_suspended" ""',
+      'GitHub did not complete a sign-in: "x\\nforged" ""',
     ]);
     // An error sent to the address without a round of this browser's is nobody's to write in the log.
     expect((await browser().request('/auth/callback?error=redirect_uri_mismatch%0Aforged')).headers.get('location')).toBe(
       '/?problem=github',
     );
-    expect(lines.filter((line) => line.startsWith('GitHub did not complete'))).toHaveLength(1);
+    expect(lines.filter((line) => line.startsWith('GitHub did not complete'))).toHaveLength(2);
   });
 
   it('refuses a link, and the API, without a session', async () => {

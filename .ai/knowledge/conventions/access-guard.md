@@ -73,8 +73,9 @@ the code opened while there is no admin. These check a credential's round, not a
 which the page says in words (`problems` in `web/team/api.ts`): the person sees why and the way on, never
 the API's JSON. Each refusal names its own condition, so its words fit: `/setup/done` once the admin is there is
 `set-up`, with the App and no admin yet `app-exists`, without this browser's setup `bad-state`; the admin's sign-in once
-there is an admin `set-up`, without the setup `no-setup`. In the guard, `refuse` sends a navigation back to the page and
-answers anything else with `jsonRefusal`.
+there is an admin `set-up` — at its start, or at GitHub's answer when another browser's admin finished first —,
+without the setup `no-setup`. In the guard, `refuse` sends a navigation back to the page and answers anything else with
+`jsonRefusal`.
 
 ## Rationale
 
