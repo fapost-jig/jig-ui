@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { RotateCw } from '@lucide/vue';
   import { computed, onUnmounted, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
@@ -11,6 +12,8 @@
     type Project,
     readAgain,
     readSettings,
+    runHousekeeping,
+    runRefresh,
     type Settings,
   } from '@/api';
   import ConnectForm from '@/components/ConnectForm.vue';
@@ -33,7 +36,6 @@
     readProgress,
     type RefreshState,
   } from '@/lib/projects';
-  import { refreshReport } from '@/lib/refresh';
   import { mergedLine } from '@/lib/pr-status';
   import { type AckState, landedLine as landedOnStaging, STAGING_DOING } from '@/lib/staging';
   import { closeRefusal, mergeRefusal, reasonsOf, stagingRefusal } from '@/lib/refusal';
@@ -224,6 +226,15 @@
     if (read) await load();
   }
 
+  /** Read again for every connected project at once, from the page's header. */
+  async function rereadAll(): Promise<void> {
+    const ids = (projects.value ?? []).map((p) => p.id);
+    for (const id of ids) reading.value.add(id);
+    const read = await Promise.all(ids.map(readAgain));
+    for (const id of ids) reading.value.delete(id);
+    if (read.some(Boolean)) await load();
+  }
+
   /** The project whose settings dialog is open, its settings (`undefined` while read), the key being written and what came of the last change. */
   const settingsFor = ref<string>();
   const settings = ref<Settings>();
@@ -365,14 +376,9 @@
   /** Housekeeping on a card: Jig tidies the project, and the card shows its report until dismissed. */
   async function housekeep(id: string): Promise<void> {
     housekept.value[id] = { state: 'running' };
-    const res = await call(() => client.api.projects[':id'].housekeeping.$post(param(id)));
-    if (!res) return void delete housekept.value[id];
-    const body = await res.json();
-    if ('report' in body) housekept.value[id] = { state: 'done', report: body.report };
-    else if ('error' in body) {
-      const reasons = reasonsOf(body.error);
-      housekept.value[id] = { state: 'refused', message: body.error.message, reasons };
-    } else delete housekept.value[id]; // the project cannot be read now: its card says why
+    const ran = await runHousekeeping(id);
+    if (ran) housekept.value[id] = ran;
+    else delete housekept.value[id];
     await load();
   }
 
@@ -390,12 +396,9 @@
   /** Refresh on a card: Jig brings the clone up to origin, and the card says what came of it until dismissed. */
   async function refreshClone(id: string): Promise<void> {
     refreshes.value[id] = { state: 'running' };
-    const res = await call(() => client.api.projects[':id'].refresh.$post(param(id)));
-    if (!res) return void delete refreshes.value[id];
-    const body = await res.json();
-    if ('refreshed' in body) refreshes.value[id] = { state: 'done', ...refreshReport(body.refreshed) };
-    else if ('error' in body) refreshes.value[id] = { state: 'refused', message: body.error.message };
-    else delete refreshes.value[id]; // the project cannot be read now: its card says why
+    const ran = await runRefresh(id);
+    if (ran) refreshes.value[id] = ran;
+    else delete refreshes.value[id];
     await load();
   }
 
@@ -488,6 +491,16 @@
     <div class="flex items-center gap-3">
       <h1 class="text-xl font-semibold">Projects</h1>
       <div class="ml-auto flex items-center gap-2">
+        <Button
+          v-if="projects?.length"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Read every project again"
+          title="Read every project again"
+          :disabled="reading.size > 0"
+          @click="rereadAll"
+          ><RotateCw :class="reading.size > 0 && 'animate-spin'"
+        /></Button>
         <Button v-if="offerLandAll" variant="outline" size="xs" @click="landAll">Check all merges</Button>
         <Button v-if="offerAll && !confirmingAll" variant="outline" size="xs" @click="confirmingAll = true">Upgrade all…</Button>
       </div>

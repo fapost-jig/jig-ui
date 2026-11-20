@@ -38,7 +38,11 @@ it, opens that spec on the Specs view as a press on Specs and its tab would, the
 a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since the Specs
 view would show another (`specOpens` in `web/lib/sift.ts`). Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
-keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
+keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`). Beside the project's name, in every
+view, **Refresh** and **Housekeeping** run the card's writes, their answer under the header until **Dismiss**
+(`web/components/ChoreReports.vue`, the card's panels), and **↻** reads the project again at any time, not only where a
+read failed; each reads what the page shows again afterwards, the knowledge too in its view. They are shown whatever
+the project's Jig and its upgrade, the server's refusal being the guard (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name).
 
 `web/views/BoardView.vue` reads the board and shows it two ways, switched by the person and
 remembered by the browser (`localStorage` `jig-ui.board-view`): Board (`BoardColumns`), the

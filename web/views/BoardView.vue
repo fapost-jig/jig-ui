@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { BookCheck, Columns3, ExternalLink, Milestone, Plus, Rows3 } from '@lucide/vue';
+  import { BookCheck, Columns3, ExternalLink, Milestone, Plus, RotateCw, Rows3 } from '@lucide/vue';
   import { computed, onUnmounted, type Ref, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
@@ -18,6 +18,8 @@
     type PrStatus,
     readAgain,
     readTask,
+    runHousekeeping,
+    runRefresh,
     type ReadyDetails,
     type Reviewers,
     type SourceDiff,
@@ -27,6 +29,7 @@
     type Written,
   } from '@/api';
   import BoardColumns from '@/components/BoardColumns.vue';
+  import ChoreReports from '@/components/ChoreReports.vue';
   import BoardFilter from '@/components/BoardFilter.vue';
   import BoardList from '@/components/BoardList.vue';
   import EpicMenu from '@/components/EpicMenu.vue';
@@ -50,6 +53,7 @@
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
   import { mergedLine } from '@/lib/pr-status';
+  import type { HousekeepingState, RefreshState } from '@/lib/projects';
   import {
     closeRefusal,
     fileItemRefusal,
@@ -122,7 +126,26 @@
     reading.value = true;
     const read = await readAgain(props.id);
     reading.value = false;
-    if (read) await Promise.all([load(), loadSpecs(), loadFinished()]);
+    if (read) await readShown();
+  }
+
+  /** What the page shows, read again after Read again, Refresh or Housekeeping: the knowledge too in its view. */
+  const readShown = () => Promise.all([load(), loadSpecs(), loadFinished(), view.value === 'knowledge' ? loadKnowledge() : undefined]);
+
+  /** Refresh and Housekeeping from the page's header, as on the project's card: under way, or what came of it until dismissed. */
+  const refresh = ref<RefreshState>();
+  const housekeeping = ref<HousekeepingState>();
+
+  async function refreshClone(): Promise<void> {
+    refresh.value = { state: 'running' };
+    refresh.value = await runRefresh(props.id);
+    await readShown();
+  }
+
+  async function housekeep(): Promise<void> {
+    housekeeping.value = { state: 'running' };
+    housekeeping.value = await runHousekeeping(props.id);
+    await readShown();
   }
 
   const specs = ref<Specs | 'not-connected'>();
@@ -773,6 +796,24 @@
         <Toggle v-if="finishedCount > 0" v-model="showFinished" variant="outline" size="sm">
           {{ finishedCount }} finished {{ finishedCount === 1 ? 'task' : 'tasks' }}
         </Toggle>
+        <template v-if="typeof board === 'object' && board.state === 'ready'">
+          <Button variant="outline" size="sm" :disabled="refresh?.state === 'running'" @click="refreshClone">{{
+            refresh?.state === 'running' ? 'Refreshing…' : 'Refresh'
+          }}</Button>
+          <Button variant="outline" size="sm" :disabled="housekeeping?.state === 'running'" @click="housekeep">{{
+            housekeeping?.state === 'running' ? 'Housekeeping…' : 'Housekeeping'
+          }}</Button>
+        </template>
+        <Button
+          v-if="typeof board === 'object'"
+          variant="ghost"
+          size="icon-sm"
+          :aria-label="`Read ${id} again`"
+          :title="`Read ${id} again`"
+          :disabled="reading"
+          @click="reread"
+          ><RotateCw :class="reading && 'animate-spin'"
+        /></Button>
         <ToggleGroup
           v-if="typeof board === 'object' && board.state === 'ready'"
           type="single"
@@ -796,6 +837,16 @@
         <NewTaskForm :busy="filingBusy" :refusal="filingRefusal?.text" :taken="filingRefusal?.code === 'already-exists'" @file="file" />
       </CollapsibleContent>
     </Collapsible>
+
+    <div v-if="refresh || housekeeping" class="flex shrink-0 flex-col gap-2 border-b px-4 py-2">
+      <ChoreReports
+        :project="id"
+        :refresh="refresh"
+        :housekeeping="housekeeping"
+        @dismiss-refresh="refresh = undefined"
+        @dismiss-housekeeping="housekeeping = undefined"
+      />
+    </div>
 
     <FinishedList
       v-if="showFinished"

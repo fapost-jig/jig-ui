@@ -202,6 +202,10 @@ fits wins:
 | Ready | its work is done (`status ready`); the card says whether a pull request is open, its CI, or merged — on Jig's staging flow, whether its fix is on staging yet, or its promotion's state ([Tasks on staging](#tasks-on-staging)) |
 | In progress | anything else that is live |
 
+Beside the project's name, in every view, **Refresh** and **Housekeeping** do what they do on the project's card
+([Bringing the clone up to origin](#bringing-the-clone-up-to-origin), [What the page shows](#what-the-page-shows)): the
+answer stays under them until you **Dismiss** it. **↻** reads the project again now.
+
 A card shows the task's id, class and goal, its priority (`P0`, the most urgent, to `P5`) when it
 has one, and what it waits for. An id that starts with a tracker's key, such as
 `SRD-2598-long-term-storage-threshold`, shows as its key, `SRD-2598`, while the card has a goal to say the rest; the
@@ -704,7 +708,8 @@ pull request merged on the forge since — a task's, a knowledge decision's — 
 0.45.0 a project's card says so: Jig's item *This checkout is behind origin* when the main branch here
 is behind origin's, and, when the clone last fetched more than a day ago, how long ago that was.
 
-**Refresh**, on that item or beside that line, runs `jig refresh` in the project. Jig fetches origin
+**Refresh**, on that item or beside that line, or beside the project's name on its board, runs `jig refresh` in the
+project. Jig fetches origin
 and brings the main branch up to it without moving your checkout: you stay on the branch you are on,
 and your files are not touched. It also closes Jig's own roadmap edits and knowledge decisions whose
 pull request merged or was closed. The card then says what came of it until you **Dismiss** it. When
@@ -728,7 +733,8 @@ comes when you press it.
 While the page is open, Jig UI watches each connected project's `.ai/` folder. When an agent or
 a person changes a task — through Jig, by editing a file, or with git (a pull, a checkout) — the
 workspace and the board show it within about two seconds, without a reload. Every minute each
-project is also read again, for a change the system did not report.
+project is also read again, for a change the system did not report. **↻** beside the project's name on its board reads
+it now, and **↻** above the projects reads every project now.
 
 A read that fails while an agent is in the middle of writing does not blank the page: the last
 good read stays until the next one. A project that keeps failing shows why, as in the table above.

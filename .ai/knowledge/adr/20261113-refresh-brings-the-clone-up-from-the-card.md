@@ -14,7 +14,7 @@ paths:
   - web/views/WorkspaceView.vue
   - web/lib/knowledge.ts
 summary: Refresh on a project's card runs jig refresh only when pressed — on Jig's base-behind-origin item and beside a fetch more than a day old —, through writing() with no revision, answering the outcome without git's messages or paths in the page's words; knowledge origin decided already is not offered
-reviewed_at: 2026-11-13
+reviewed_at: 2026-11-20
 ---
 # Refresh on a project's card brings the clone up to origin through `jig refresh`, only when pressed, and the page says the outcome in its own words
 
@@ -78,3 +78,5 @@ The maintainer asked for a button on that item, from a screenshot of it (2026-11
 - A new `base.outcome` or write `reason` from a later Jig fails the answer (`incompatible`) rather than showing a wrong
   line: the schema names Jig's words.
 - Undo: revert the merge; nothing is stored. A fast-forward is undone with `base.from`, which the answer keeps.
+- *(Amended by adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name, 2026-11-20: at the maintainer's request Refresh is also beside the project's name on its
+  page, always, still only when pressed; below Jig 0.45.0 and during an upgrade the server refuses it there.)*

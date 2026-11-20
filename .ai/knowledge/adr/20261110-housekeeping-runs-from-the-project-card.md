@@ -11,7 +11,7 @@ paths:
   - web/components/ProjectCard.vue
   - web/views/WorkspaceView.vue
 summary: Housekeeping on a project's card runs jig housekeeping at once — no dry run, no revision, through writing() — and keeps Jig's report, paths cut, on the card until Dismiss; the close still runs no sweep
-reviewed_at: 2026-11-10
+reviewed_at: 2026-11-20
 ---
 # Housekeeping runs from a project's card, at once, with no revision, and its report stays on the card
 
@@ -72,3 +72,5 @@ run the sweep".
   unasked at every agent session; the page only chooses the moment.
 - Undo: revert the merge; nothing is stored. What a run did is undone as Jig says (`.ai/runtime/trash/`,
   `jig task unarchive`).
+- *(Amended by adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name, 2026-11-20: Housekeeping is also beside the project's name on its page, shown during an
+  upgrade there, which the server refuses.)*

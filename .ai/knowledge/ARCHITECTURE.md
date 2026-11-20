@@ -75,7 +75,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `machineJig`, read from the `jig` on PATH outside any project, adr-20261118-the-header-shows-the-machines-jig) and its local adapter (`local.ts`), which holds the
   registry, runs Jig and, while someone subscribes, follows each project through a Watcher (feature-live-updates). A
   project is `ready` (task counts and attention items), `unsupported` (Jig below the minimum, not
-  read), `incompatible` (a newer Jig's shape), `unreadable` (Jig refused, or `timeout`; its code only — **Read again** reads it at once) or
+  read), `incompatible` (a newer Jig's shape), `unreadable` (Jig refused, or `timeout`; its code only — **Read again** reads it at once, as **↻** on the project's
+page and above the projects does any time) or
   `unavailable` (convention-project-source).
 - `server/watch/` — Watcher: one recursive `fs.watch` per directory, debounced into "something
   changed", knowing nothing of Jig (convention-watcher).
@@ -129,10 +130,12 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `components/ui/` — shadcn-vue's, knowing nothing of Jig; `lib/` — what a card says, the colours
   that mean something, the theme, and `lastWins` (a read that lands only if no later one started).
   `api.ts` — the typed `client` (Hono's `hc` over `AppType`), the response types derived from it,
-  `call()` with the failures every view shares, and the change stream each view re-reads on. Vite builds it into `dist/web` and the package ships it built. One TypeScript
+  `call()` with the failures every view shares, the change stream each view re-reads on, and the reads and runs more
+  than one view makes (`readTask`, `readAgain`, `runRefresh`, `runHousekeeping`), which turn an answer into the page's
+  state. Vite builds it into `dist/web` and the package ships it built. One TypeScript
   checks both sides (adr-20261017-one-typescript-for-server-and-web).
-  Directions: `views/` → `components/` → `components/ui/`; `lib/` from any of them; `api.ts` →
-  `server/http/` for types only — lint refuses a value import from `server/`.
+  Directions: `views/` → `components/` → `components/ui/`; `lib/` from any of them and from `api.ts`, which `lib/`
+  imports types from only; `api.ts` → `server/http/` for types only — lint refuses a value import from `server/`.
 - `server/team/` — the team server, `jig-ui team-server`: one Jig UI for a team, on a server of
   theirs, where people sign in with GitHub and see the repositories they may write to
   (adr-20261117-a-team-server-keeps-a-reflection-of-its-own,

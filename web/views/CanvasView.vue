@@ -8,6 +8,7 @@
   import BoardColumns from '@/components/BoardColumns.vue';
   import BoardFilter from '@/components/BoardFilter.vue';
   import BoardList from '@/components/BoardList.vue';
+  import ChoreReports from '@/components/ChoreReports.vue';
   import ColumnHeader from '@/components/ColumnHeader.vue';
   import WriteConfirm from '@/components/WriteConfirm.vue';
   import ConnectForm from '@/components/ConnectForm.vue';
@@ -571,6 +572,16 @@
       <div class="mt-2 grid w-[23rem] grid-cols-2 gap-2">
         <TaskCard v-for="task in trackerTasks" :key="task.id" project="jig-ui" :task="task" :open="false" :cards="trackerTasks" />
         <TaskCard project="jig-ui" :task="trackerTasks[0]!" :open="true" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection
+      title="ChoreReports"
+      note="Refresh and Housekeeping on a project's page and card: under way, what came of each, and why one did not run, each with Dismiss"
+    >
+      <div class="flex w-[28rem] flex-col gap-3">
+        <ChoreReports v-for="(run, i) in refreshRuns" :key="`refresh-${i}`" project="jig-ui" :refresh="run" />
+        <ChoreReports v-for="(run, i) in housekeepingRuns" :key="`housekeeping-${i}`" project="jig-ui" :housekeeping="run" />
       </div>
     </CanvasSection>
 
