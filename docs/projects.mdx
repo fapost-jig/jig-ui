@@ -208,8 +208,9 @@ has one, and what it waits for. An id that starts with a tracker's key, such as
 whole id is in its tooltip and on the card once you open it. A long id is broken at its hyphens.
 
 A task filed from a spec names it under its goal: the spec's title and the phase, *Jig UI — a local control center ·
-Phase 4*, and **epic** when the task goes into the spec's epic. Click it to open that spec on **Specs**; a spec that is
-not in this checkout is only named. It needs Jig 0.46.0.
+Phase 4*, and **epic** when the task goes into the spec's epic — for a task nobody started yet, while that epic is
+open. Click the spec's name to open it on **Specs**; a spec that is not in this checkout is only named. It needs Jig
+0.46.0.
 
 Finished tasks are not on the board. When the project has any, **N finished tasks** above the
 board shows them in a list under it, the latest first: each one's id, *closed*, *abandoned* or
@@ -252,7 +253,8 @@ project.
 - **Class** and **Priority** show only the tasks of the classes or priorities you tick; **None** is
   a task with no class, or no priority. Nothing ticked shows them all.
 - **Spec** shows only the tasks filed from the specs you tick, so one epic's tasks are seen together; **None** is a
-  task filed from no spec. It is there while a task names a spec (Jig 0.46.0).
+  task filed from no spec. It is there while a task names a spec (Jig 0.46.0), or while a link has a spec ticked
+  that no task names any more, so you can untick it.
 - **Find a task** keeps the tasks whose id or goal holds the text, in any case.
 
 While a filter is on, the bar says how many of the project's tasks are shown, and **Clear** shows

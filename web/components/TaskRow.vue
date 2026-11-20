@@ -62,8 +62,8 @@
 </script>
 
 <template>
-  <div class="border-b">
-    <div class="flex items-start pt-1.5 pr-2 hover:bg-muted/50" :class="[selected && 'bg-muted', busy && 'opacity-60']">
+  <div class="border-b hover:bg-muted/50" :class="[selected && 'bg-muted', busy && 'opacity-60']">
+    <div class="flex items-start pt-1.5 pr-2">
       <button
         type="button"
         class="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-2.5 text-left"

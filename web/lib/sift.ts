@@ -72,19 +72,24 @@ export interface SpecChoice {
 
 /**
  * The specs the board's tasks were filed from, as the filter offers them: by title, then `none` where a task is of no
- * spec. None while no task names a spec — a Jig before 0.46.0 names none.
+ * spec. None while no task names a spec — a Jig before 0.46.0 names none — but a spec the view `chosen` (an address's
+ * `?from=`) is offered whether a task names it or not, so it can be unticked.
  */
-export function specsOf(columns: Column[]): SpecChoice[] {
+export function specsOf(columns: Column[], chosen: readonly string[] = []): SpecChoice[] {
   const specs = new Map<string, string>();
   let none = false;
   for (const t of columns.flatMap((c) => c.cards)) {
     if (t.spec) specs.set(t.spec.id, t.spec.title ?? t.spec.id);
     else none = true;
   }
-  if (specs.size === 0) return [];
+  none = (none && specs.size > 0) || chosen.includes('none');
+  for (const id of chosen) if (id !== 'none' && !specs.has(id)) specs.set(id, id);
   const named = [...specs].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title));
   return none ? [...named, { id: 'none', title: 'None' }] : named;
 }
+
+/** Whether a task's spec mark opens its spec: the project's specs list it. */
+export const specOpens = (task: Task, specs: readonly string[] | undefined): boolean => !!task.spec && !!specs?.includes(task.spec.id);
 
 /** Where a label stands in its order; one the order does not know goes last. */
 const rank = (order: readonly string[], label: string): number => {
