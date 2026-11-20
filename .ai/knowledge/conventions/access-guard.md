@@ -7,7 +7,7 @@ paths:
   - "server/http/**"
   - server/team/access.ts
 summary: MAY/MUST/MUST NOT for the replaceable access guards — the local one in server/http (the token) and the team server's in server/team/access.ts (public Host and Origin, setup, sessions, the webhook's HMAC); no route decides access
-reviewed_at: 2026-11-19
+reviewed_at: 2026-11-20
 ---
 # AccessGuard — who may use the server
 
@@ -71,7 +71,10 @@ the code opened while there is no admin. These check a credential's round, not a
 `/setup/done` likewise takes GitHub's answer to the manifest only for the setup this browser opened
 (`Secrets.takeManifestState`). A refusal of a navigation — the guard's, `/setup/done`'s or `/auth/callback`'s — lands on the page with its code in `?problem=`,
 which the page says in words (`problems` in `web/team/api.ts`): the person sees why and the way on, never
-the API's JSON.
+the API's JSON. Each refusal names its own condition, so its words fit: `/setup/done` once the admin is there is
+`set-up`, with the App and no admin yet `app-exists`, without this browser's setup `bad-state`; the admin's sign-in once
+there is an admin `set-up`, without the setup `no-setup`. In the guard, `refuse` sends a navigation back to the page and
+answers anything else with `jsonRefusal`.
 
 ## Rationale
 

@@ -1,4 +1,5 @@
-import type { Attention, Project } from '../api';
+import type { Attention, HousekeepingAnswer, Project } from '../api';
+import { reasonsOf } from './refusal';
 import type { Tone } from './tones';
 
 /** A connected project whose read has not landed yet: the Projects page lists it at once. */
@@ -71,6 +72,13 @@ export type HousekeepingState =
       message: string;
       reasons: string[];
     };
+
+/** Housekeeping's answer as a card and a project's page show it: Jig's report, or why it did not run, with Jig's reasons. */
+export function housekeepingOf(answer: HousekeepingAnswer): HousekeepingState | undefined {
+  if ('report' in answer) return { state: 'done', report: answer.report };
+  if ('error' in answer) return { state: 'refused', message: answer.error.message, reasons: reasonsOf(answer.error) };
+  return undefined;
+}
 
 /** Refresh from a project's card: under way, what came of it in the page's words (`refreshReport`), or why it did not run. */
 export type RefreshState =

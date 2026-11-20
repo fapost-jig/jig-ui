@@ -1,4 +1,5 @@
-import type { Origin, Refreshed } from '../api';
+import type { Origin, Refreshed, RefreshAnswer } from '../api';
+import type { RefreshState } from './projects';
 import { ago } from './ago';
 import type { Tone } from './tones';
 
@@ -9,6 +10,13 @@ const CLOSED: Record<Refreshed['writes'][number]['reason'], string> = {
   closed: 'their pull request was closed unmerged',
   dropped: 'origin dropped their branch',
 };
+
+/** Refresh's answer as a card and a project's page show it: what it did in the page's words, or why it did not run. */
+export function refreshOf(answer: RefreshAnswer): RefreshState | undefined {
+  if ('refreshed' in answer) return { state: 'done', ...refreshReport(answer.refreshed) };
+  if ('error' in answer) return { state: 'refused', message: answer.error.message };
+  return undefined;
+}
 
 /**
  * What a refresh did, in the page's words, a line each: the fetch when it did not reach origin, the base, then Jig's own

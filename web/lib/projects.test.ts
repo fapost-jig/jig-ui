@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Attention, Project } from '../api';
-import { byName, chosen, closableTask, knowledgeWaiting, landed, matching, readOnes, readProgress, type Reading } from './projects';
+import {
+  byName,
+  chosen,
+  closableTask,
+  housekeepingOf,
+  knowledgeWaiting,
+  landed,
+  matching,
+  readOnes,
+  readProgress,
+  type Reading,
+} from './projects';
 
 const item: Attention = {
   kind: 'gate-waiting',
@@ -133,5 +144,19 @@ describe('knowledgeWaiting', () => {
         { ...sources, detail: 'some files' },
       ]),
     ).toBe(0);
+  });
+});
+
+describe('housekeepingOf', () => {
+  it("shows Jig's report, or why it did not run with Jig's reasons", () => {
+    expect(housekeepingOf({ report: ['closed a'] })).toEqual({ state: 'done', report: ['closed a'] });
+    // Jig's failure carries its reasons (server/http/app.ts), which the client's type of the answer leaves out.
+    const failed = { error: { code: 'failed', message: "Jig's housekeeping failed.", reasons: ['a lock is held'] } };
+    expect(housekeepingOf(failed)).toEqual({ state: 'refused', message: "Jig's housekeeping failed.", reasons: ['a lock is held'] });
+    expect(housekeepingOf({ error: { code: 'upgrading', message: 'An upgrade is under way.' } })).toEqual({
+      state: 'refused',
+      message: 'An upgrade is under way.',
+      reasons: [],
+    });
   });
 });

@@ -1,9 +1,8 @@
 import { hc, type InferRequestType, type InferResponseType } from 'hono/client';
 import { ref } from 'vue';
 import type { AppType } from '../server/http/app';
-import type { HousekeepingState, RefreshState } from './lib/projects';
-import { refreshReport } from './lib/refresh';
-import { reasonsOf } from './lib/refusal';
+import { housekeepingOf, type HousekeepingState, type RefreshState } from './lib/projects';
+import { refreshOf } from './lib/refresh';
 /** The server's API, typed by its own routes (`AppType`); only its type crosses into the page. */
 export const client = hc<AppType>('/');
 type Api = typeof client.api;
@@ -178,10 +177,7 @@ export async function readAgain(project: string): Promise<boolean> {
  */
 export async function runHousekeeping(project: string): Promise<HousekeepingState | undefined> {
   const res = await call(() => client.api.projects[':id'].housekeeping.$post({ param: { id: encodeURIComponent(project) } }));
-  const body = res && (await res.json());
-  if (body && 'report' in body) return { state: 'done', report: body.report };
-  if (body && 'error' in body) return { state: 'refused', message: body.error.message, reasons: reasonsOf(body.error) };
-  return undefined;
+  return res && housekeepingOf(await res.json());
 }
 
 /**
@@ -190,11 +186,12 @@ export async function runHousekeeping(project: string): Promise<HousekeepingStat
  */
 export async function runRefresh(project: string): Promise<RefreshState | undefined> {
   const res = await call(() => client.api.projects[':id'].refresh.$post({ param: { id: encodeURIComponent(project) } }));
-  const body = res && (await res.json());
-  if (body && 'refreshed' in body) return { state: 'done', ...refreshReport(body.refreshed) };
-  if (body && 'error' in body) return { state: 'refused', message: body.error.message };
-  return undefined;
+  return res && refreshOf(await res.json());
 }
+
+/** Housekeeping's and Refresh's answers, whatever their status. */
+export type HousekeepingAnswer = InferResponseType<Api['projects'][':id']['housekeeping']['$post']>;
+export type RefreshAnswer = InferResponseType<Api['projects'][':id']['refresh']['$post']>;
 
 /** A project's state as every read of it reports it, without the upgrade the workspace adds. */
 export type ProjectState<P = Project> = P extends unknown ? Omit<P, 'upgrade'> : never;

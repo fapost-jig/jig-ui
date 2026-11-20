@@ -37,7 +37,7 @@ export interface TeamAppOptions {
   secrets: Secrets;
   /**
    * Reads every installation again, soon: once the App exists, and when GitHub returns the admin from installing it.
-   * Settles when that pass is done — or, with one under way, that one.
+   * Settles when that pass is done: with one under way, the pass after it, which asks GitHub after the question.
    */
   pollSoon: () => Promise<void>;
   /** Reads one installation again now. */
@@ -209,7 +209,6 @@ function teamRoutes({
       const known = () => store.installations().some((one) => one.id === installation);
       // A pass already under way may have asked GitHub before the installation: the one after it has it.
       if (installation !== undefined && !known()) await pollSoon();
-      if (installation !== undefined && !known()) await pollSoon();
       const app = store.app();
       return c.json({
         installations: store.installations(),
@@ -278,7 +277,14 @@ function teamRoutes({
       const code = c.req.query('code');
       // GitHub sends `error` and no code when the person pressed Cancel there (`access_denied`), or could not sign in.
       const error = c.req.query('error');
-      if (!code && error) return c.redirect(`/?problem=${error === 'access_denied' ? 'cancelled' : 'github'}`, 302);
+      if (!code && error) {
+        if (error === 'access_denied') return c.redirect('/?problem=cancelled', 302);
+        // Only for a round this browser started: anyone may send this address an error to write. Quoted, so a line break
+        // in it stays in its line.
+        if (round)
+          log(`GitHub did not complete a sign-in: ${JSON.stringify(error)} ${JSON.stringify(c.req.query('error_description') ?? '')}`);
+        return c.redirect('/?problem=github', 302);
+      }
       if (!round || !code) return c.redirect('/?problem=expired', 302);
       // An account is linked to the person signed in where the link began, and to no one else.
       if (round.purpose.kind === 'link' && sessions.person(store, getCookie(c, SESSION_COOKIE), now()) !== round.purpose.personId) {

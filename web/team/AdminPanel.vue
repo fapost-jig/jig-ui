@@ -74,6 +74,7 @@
         </li>
       </ul>
       <p v-else-if="installations" class="text-[13px] text-muted-foreground">The App is not installed anywhere yet.</p>
+      <p v-else-if="!refused" role="status" class="text-[13px] text-muted-foreground">Reading the installations…</p>
       <p v-if="refused" role="alert" class="text-[13px] text-destructive">{{ refused }}</p>
       <Button v-if="installations?.install" as="a" :href="installations.install" variant="outline" size="sm" class="self-start"
         >Install the App on an account</Button

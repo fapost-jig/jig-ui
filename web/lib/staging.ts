@@ -103,3 +103,17 @@ export function reviewersLine(read: Reviewers | undefined): string | undefined {
   }
   return `Jig could not ask the forge (${'code' in read ? read.code : read.state}).`;
 }
+
+/** The line over the people to tick when nobody reviewed here lately and the forge offers everyone the repository may ask. */
+export const candidatesLine = (read: Reviewers | undefined): string | undefined =>
+  read?.state === 'ready' && read.source === 'assignable' ? 'Nobody reviewed here lately: everyone the repository may ask.' : undefined;
+
+type Candidate = Extract<Reviewers, { state: 'ready' }>['candidates'][number];
+
+/** What a candidate's row says beside them: asked already, how often they reviewed here, or nothing the forge knows. */
+export const candidateNote = (candidate: Candidate, asked: readonly string[]): string =>
+  asked.includes(candidate.login)
+    ? 'asked'
+    : candidate.reviews !== null
+      ? `${candidate.reviews} review${candidate.reviews === 1 ? '' : 's'}`
+      : '';
