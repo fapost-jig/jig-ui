@@ -6,14 +6,20 @@
   import { installationShown } from '@/lib/team';
   import { type Installations, refusal, team } from './api';
 
+  /** `installed`: the installation GitHub returned the admin from installing, which the server reads before answering. */
+  const props = defineProps<{
+    installed?: number;
+  }>();
+
   const installations = ref<Installations>();
   const refused = ref<string>();
   /** The installation being decided. */
   const deciding = ref<number>();
 
   onMounted(async () => {
-    const response = await team.admin.installations.$get().catch(() => undefined);
+    const response = await team.admin.installations.$get({ query: { installation: props.installed } }).catch(() => undefined);
     if (response?.ok) installations.value = await response.json();
+    else refused.value = response ? await refusal(response) : 'The team server did not answer.';
   });
 
   async function decide(id: number, decision: 'approved' | 'refused'): Promise<void> {
@@ -43,7 +49,7 @@
         <li
           v-for="installation in installations.installations"
           :key="installation.id"
-          class="flex flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2"
+          class="flex flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2 ring-1 ring-border"
         >
           <span class="flex-1">{{ installation.accountLogin }}</span>
           <span class="text-[13px] text-muted-foreground">{{ installationShown(installation).kind }}</span>

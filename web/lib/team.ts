@@ -4,7 +4,7 @@ import type { Installation, Project } from '../team/api';
 export interface ProjectGroup {
   id: number;
   fullName: string;
-  /** Whether the person may write to it, or it is shown, muted, only as the parent of their forks. */
+  /** Whether the person may write to it — it is in their list, as itself or as a fork's parent —, or it is shown, muted, only as the parent of their forks. */
   writable: boolean;
   forks: Project[];
 }
@@ -12,10 +12,12 @@ export interface ProjectGroup {
 /** The person's projects as the team page lists them: a fork under its parent, by name. */
 export function projectGroups(projects: Project[]): ProjectGroup[] {
   const byId = new Map<number, ProjectGroup>();
-  const group = (id: number, fullName: string) => byId.get(id) ?? byId.set(id, { id, fullName, writable: false, forks: [] }).get(id)!;
+  const listed = new Set(projects.map((project) => project.id));
+  const group = (id: number, fullName: string) =>
+    byId.get(id) ?? byId.set(id, { id, fullName, writable: listed.has(id), forks: [] }).get(id)!;
   for (const project of projects) {
     if (project.parent) group(project.parent.id, project.parent.fullName).forks.push(project);
-    else group(project.id, project.fullName).writable = true;
+    else group(project.id, project.fullName);
   }
   return [...byId.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
 }

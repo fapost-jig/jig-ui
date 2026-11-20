@@ -18,12 +18,19 @@ export async function refusal(response: Response): Promise<string> {
   return typeof message === 'string' ? message : `The team server answered ${response.status}.`;
 }
 
-/** Why a sign-in came back without a session, as `/auth/callback` names it in `?problem=`. */
+/** Why a sign-in or a step of the setup came back to the page, as the server names it in `?problem=`. */
 export const problems: Record<string, string> = {
   nothing:
     'None of your GitHub accounts may write to a repository this server takes. Ask its admin to approve the installation of your organization, or to install the App on it.',
   taken: 'That GitHub account is linked to someone else on this server already.',
   expired: 'The sign-in took too long, or its link was used already. Sign in again.',
+  cancelled: 'The sign-in was cancelled on GitHub. Sign in again when you are ready.',
   github: 'GitHub did not complete the sign-in. Try again in a minute.',
-  'no-setup': 'Only the browser that created the App signs its admin in, within ten minutes of the setup.',
+  unauthorized: 'Your session here has ended. Sign in, then link the other account.',
+  'no-setup': "The admin's sign-in takes place within ten minutes of entering the setup code. Enter the code again.",
+  'not-set-up': 'Nobody signs in until the server is set up.',
+  'set-up': 'This server is set up already.',
+  'bad-state':
+    "That answer from GitHub does not belong to this browser's setup, or came after its ten minutes. Enter the setup code again.",
+  'no-app': 'GitHub did not hand over the App. Start the setup again.',
 };

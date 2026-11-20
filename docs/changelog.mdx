@@ -51,7 +51,10 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
   `jig-ui team-server`. It creates its own public GitHub App asking for nothing but Metadata (read),
   takes installations only once its admin approves them, signs people in with GitHub — several
   accounts per person — and lists the projects each may write to; their tasks arrive in a later
-  release. ([Team server](/team-server))
+  release. A sign-in cancelled on GitHub, or a sign-in or setup step the server refuses, comes back
+  to the page with the reason in words; an installation shows on the admin's page as soon as GitHub
+  sends them back from installing the App; the docs ask for a rate limit on `/auth/sign-in` at the
+  proxy. ([Team server](/team-server))
 - A task's details on Jig 0.45.0's staging flow tell its pull request into staging apart from its
   promotion, as its card does: the link is the one into staging, the state and CI the promotion's.
   ([Task details](/projects#task-details))

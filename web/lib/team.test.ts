@@ -20,6 +20,17 @@ describe('projectGroups', () => {
       ['team/notes', false, ['me/notes']],
     ]);
   });
+
+  it('keeps a fork that has forks of its own writable: a fork of a fork', () => {
+    const groups = projectGroups([
+      project(2, 'me/board', { id: 3, fullName: 'team/board' }),
+      project(1, 'you/board', { id: 2, fullName: 'me/board' }),
+    ]);
+    expect(groups.map(({ fullName, writable, forks }) => [fullName, writable, forks.map((fork) => fork.fullName)])).toEqual([
+      ['me/board', true, ['you/board']],
+      ['team/board', false, ['me/board']],
+    ]);
+  });
 });
 
 describe('installationShown', () => {

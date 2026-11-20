@@ -37,7 +37,7 @@ function server() {
     store,
     github,
     secrets,
-    pollSoon: () => void pollAll(deps),
+    pollSoon: () => pollAll(deps),
     pollInstallation: (id) => pollInstallation(deps, id),
     webRoot: join(dir, 'no-page'),
     now,
@@ -70,7 +70,8 @@ function server() {
       /** Follows GitHub's consent as `user`: the redirect to GitHub carries the challenge; GitHub sends a code back. */
       async signIn(user: number, as?: 'admin' | 'link'): Promise<Response> {
         const start = await this.request(`/auth/sign-in${as ? `?as=${as}` : ''}`);
-        if (start.status !== 302) return start;
+        // A sign-in the guard refused goes back to the page, not to GitHub.
+        if (start.status !== 302 || start.headers.get('location')!.startsWith('/')) return start;
         const authorize = new URL(start.headers.get('location')!);
         const code = fake.authorize(user, authorize.searchParams.get('code_challenge')!);
         return this.request(`/auth/callback?code=${code}&state=${authorize.searchParams.get('state')}`);
@@ -126,7 +127,7 @@ describe('the team server’s guard', () => {
     expect(await (await page.request('/api/team/state')).json()).toEqual({ setUp: false, hasApp: false, signedIn: false });
     expect((await page.request('/api/team/me')).status).toBe(404);
     expect((await page.request('/api/team/projects')).status).toBe(404);
-    expect((await page.request('/auth/sign-in')).status).toBe(404);
+    expect((await page.request('/auth/sign-in')).headers.get('location')).toBe('/?problem=not-set-up');
   });
 });
 
@@ -175,7 +176,7 @@ describe('the setup', () => {
     await page.request('/api/team/setup', { method: 'POST', json: { code: secrets.setupCode } });
     await page.request('/api/team/setup/manifest', { method: 'POST', json: {} });
     const done = await page.request(`/setup/done?code=${fake.registerManifest({})}&state=forged`);
-    expect(done.status).toBe(403);
+    expect(done.headers.get('location')).toBe('/?problem=bad-state');
     expect(store.app()).toBeNull();
   });
 
@@ -199,7 +200,7 @@ describe('the setup', () => {
     expect(store.app()).not.toBeNull();
     const again = browser();
     expect(await (await again.request('/api/team/state')).json()).toEqual({ setUp: false, hasApp: true, signedIn: false });
-    expect((await again.signIn(1, 'admin')).status).toBe(403);
+    expect((await again.signIn(1, 'admin')).headers.get('location')).toBe('/?problem=no-setup');
     expect((await again.request('/api/team/setup', { method: 'POST', json: { code: secrets.setupCode } })).status).toBe(200);
     expect((await again.request('/api/team/setup/manifest', { method: 'POST', json: {} })).status).toBe(404);
     expect((await again.signIn(1, 'admin')).headers.get('location')).toBe('/');
@@ -211,7 +212,7 @@ describe('the setup', () => {
     const { setUp, browser, fake } = server();
     await setUp();
     fake.addUser({ id: 2, login: 'other' });
-    expect((await browser().signIn(2, 'admin')).status).toBe(403);
+    expect((await browser().signIn(2, 'admin')).headers.get('location')).toBe('/?problem=no-setup');
   });
 });
 
@@ -247,6 +248,16 @@ describe('the allow-list', () => {
     expect(store.repositories(1).map((repository) => repository.fullName)).toEqual(['team/board', 'team/secret']);
   });
 
+  it('reads the installations again when GitHub returns the admin from installing the App', async () => {
+    const { setUp, fake } = server();
+    const admin = await setUp();
+    fake.state.installations.push({ id: 3, account: { id: 300, login: 'late', type: 'User' }, repositories: [] });
+    const listed = async (query = '') =>
+      ((await (await admin.request(`/api/team/admin/installations${query}`)).json()) as { installations: { id: number }[] }).installations;
+    expect(await listed()).toEqual([]);
+    expect(await listed('?installation=3')).toMatchObject([{ id: 3, state: 'pending' }]);
+  });
+
   it('refuses the admin’s routes to anyone else', async () => {
     const { setUp, teamInstalled, fake, browser } = server();
     await teamInstalled(await setUp());
@@ -267,7 +278,6 @@ describe('signing in', () => {
     expect((await page.signIn(500)).headers.get('location')).toBe('/');
     expect(await (await page.request('/api/team/projects')).json()).toEqual({
       projects: [{ id: 10, fullName: 'team/board', parent: null }],
-      install: 'https://github.test/apps/jig-ui-test/installations/new',
     });
   });
 
@@ -346,10 +356,22 @@ describe('signing in', () => {
     expect(store.personOf(600)).toBeNull();
   });
 
+  it('says a sign-in cancelled on GitHub so, and one GitHub could not complete', async () => {
+    const { setUp, browser } = server();
+    await setUp();
+    const page = browser();
+    const answered = async (error: string) => {
+      const state = new URL((await page.request('/auth/sign-in')).headers.get('location')!).searchParams.get('state');
+      return (await page.request(`/auth/callback?error=${error}&state=${state}`)).headers.get('location');
+    };
+    expect(await answered('access_denied')).toBe('/?problem=cancelled');
+    expect(await answered('application_suspended')).toBe('/?problem=github');
+  });
+
   it('refuses a link, and the API, without a session', async () => {
     const { setUp, browser } = server();
     await setUp();
-    expect((await browser().request('/auth/sign-in?as=link')).status).toBe(401);
+    expect((await browser().request('/auth/sign-in?as=link')).headers.get('location')).toBe('/?problem=unauthorized');
     expect((await browser().request('/api/team/projects')).status).toBe(401);
   });
 
@@ -436,6 +458,14 @@ describe('webhooks', () => {
     fake.state.installations[0]!.repositories.push({ id: 12, full_name: 'team/new', writers: [500] });
     await send('installation_repositories', { action: 'added', installation: { id: 1 } });
     expect((await projects()).map((project) => project.fullName)).toEqual(['team/board', 'team/new']);
+  });
+
+  it('logs a read a webhook started that failed', async () => {
+    const { setUp, teamInstalled, fake, app, lines } = server();
+    await teamInstalled(await setUp());
+    fake.state.installations.length = 0;
+    expect((await sender(app)('installation_repositories', { action: 'added', installation: { id: 1 } })).status).toBe(204);
+    expect(lines).toContainEqual(expect.stringMatching(/^Could not read installation 1: /));
   });
 
   it('hides an uninstalled installation’s projects at once, and ends the sessions of a person who revoked the App', async () => {

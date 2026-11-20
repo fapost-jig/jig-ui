@@ -35,8 +35,11 @@ export interface TeamAppOptions {
   store: TeamStore;
   github: GitHub;
   secrets: Secrets;
-  /** Reads every installation again, soon; called once the App exists and when the admin approves one. */
-  pollSoon: () => void;
+  /**
+   * Reads every installation again, soon: once the App exists, and when GitHub returns the admin from installing it.
+   * Settles when that pass is done — or, with one under way, that one.
+   */
+  pollSoon: () => Promise<void>;
   /** Reads one installation again now. */
   pollInstallation: (id: number) => Promise<void>;
   webRoot?: string;
@@ -91,6 +94,11 @@ const manifestBody = validator('json', (body: unknown) => {
     .safeParse(body);
   return { organization: parsed.success ? (parsed.data.organization ?? null) : undefined };
 });
+// GitHub returns the admin from installing the App to the page with its `installation_id`, which the page hands on.
+const installedQuery = validator('query', (query: Record<string, string | string[]>) => {
+  const id = Number(query.installation);
+  return { installation: Number.isSafeInteger(id) && id > 0 ? id : undefined };
+});
 const decisionBody = validator('json', (body: unknown) => {
   const parsed = z.object({ decision: z.enum(['approved', 'refused']) }).safeParse(body);
   return { decision: parsed.success ? parsed.data.decision : undefined };
@@ -114,6 +122,8 @@ function teamRoutes({
 }: TeamAppOptions) {
   const base = config.publicUrl.origin;
   const callback = `${base}/auth/callback`;
+  const readInstallation = (id: number): Promise<void> =>
+    pollInstallation(id).catch((error: unknown) => log(`Could not read installation ${id}: ${String(error)}`));
 
   /** The approved installations a person reaches and the repositories there they may push to, noted as writers. */
   async function reachOf(token: string, githubId: number): Promise<number> {
@@ -192,15 +202,14 @@ function teamRoutes({
       });
     })
 
-    .get('/api/team/projects', (c) => {
-      const app = store.app();
-      return c.json({
-        projects: store.projects(c.get('personId')),
-        install: app ? `${config.github.web}/apps/${app.slug}/installations/new` : null,
-      });
-    })
+    .get('/api/team/projects', (c) => c.json({ projects: store.projects(c.get('personId')) }))
 
-    .get('/api/team/admin/installations', (c) => {
+    .get('/api/team/admin/installations', installedQuery, async (c) => {
+      const { installation } = c.req.valid('query');
+      const known = () => store.installations().some((one) => one.id === installation);
+      // A pass already under way may have asked GitHub before the installation: the one after it has it.
+      if (installation !== undefined && !known()) await pollSoon();
+      if (installation !== undefined && !known()) await pollSoon();
       const app = store.app();
       return c.json({
         installations: store.installations(),
@@ -214,9 +223,7 @@ function teamRoutes({
       if (decision === undefined || !Number.isSafeInteger(id))
         return refuse(c, 400, 'usage', 'Decide approved or refused for an installation id.');
       if (!store.decideInstallation(id, decision, now())) return refuse(c, 404, 'not-found', 'No such installation.');
-      if (decision === 'approved') {
-        await pollInstallation(id).catch((error: unknown) => log(`Could not read installation ${id}: ${String(error)}`));
-      }
+      if (decision === 'approved') await readInstallation(id);
       return c.json({ installations: store.installations() });
     })
 
@@ -230,16 +237,16 @@ function teamRoutes({
       const setup = getCookie(c, SETUP_COOKIE);
       const code = c.req.query('code');
       if (!code || !secrets.takeManifestState(setup, c.req.query('state') ?? '')) {
-        return refuse(c, 403, 'bad-state', 'This answer from GitHub does not belong to the setup in this browser.');
+        return c.redirect('/?problem=bad-state', 302);
       }
       try {
         store.saveApp(await github.convertManifest(code), now());
       } catch (error) {
         log(`Could not register the App: ${error instanceof GitHubError ? error.message : String(error)}`);
-        return refuse(c, 502, 'github', 'GitHub did not hand over the App. Start the setup again.');
+        return c.redirect('/?problem=no-app', 302);
       }
       log('The GitHub App is registered; its admin signs in next.');
-      pollSoon();
+      void pollSoon();
       return c.redirect('/auth/sign-in?as=admin', 302);
     })
 
@@ -269,6 +276,9 @@ function teamRoutes({
       const round = secrets.takeRound(c.req.query('state') ?? '', getCookie(c, ROUND_COOKIE));
       clearRound(c);
       const code = c.req.query('code');
+      // GitHub sends `error` and no code when the person pressed Cancel there (`access_denied`), or could not sign in.
+      const error = c.req.query('error');
+      if (!code && error) return c.redirect(`/?problem=${error === 'access_denied' ? 'cancelled' : 'github'}`, 302);
       if (!round || !code) return c.redirect('/?problem=expired', 302);
       // An account is linked to the person signed in where the link began, and to no one else.
       if (round.purpose.kind === 'link' && sessions.person(store, getCookie(c, SESSION_COOKIE), now()) !== round.purpose.personId) {
@@ -324,11 +334,11 @@ function teamRoutes({
         }
         if (action === 'deleted') store.removeInstallation(installation.id);
         if (action === 'suspend') store.clearRepositories(installation.id);
-        if (action === 'unsuspend') await pollInstallation(installation.id).catch(() => undefined);
+        if (action === 'unsuspend') await readInstallation(installation.id);
       }
       if (event === 'installation_repositories' && installation) {
         if (removed) store.removeRepositories(removed.map((repository) => repository.id));
-        if (action === 'added') await pollInstallation(installation.id).catch(() => undefined);
+        if (action === 'added') await readInstallation(installation.id);
       }
       if (event === 'github_app_authorization' && action === 'revoked' && sender) store.endSessionsOf(sender.id);
       return c.body(null, 204);

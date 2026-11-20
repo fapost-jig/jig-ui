@@ -10,7 +10,8 @@ const THIRTY_DAYS = 30 * 24 * 60 * 60_000;
 const random = (bytes: number): string => randomBytes(bytes).toString('base64url');
 const hash = (value: string): string => createHash('sha256').update(value).digest('hex');
 
-function same(given: string, expected: string): boolean {
+/** Whether a secret given matches the one expected, in constant time. */
+export function same(given: string, expected: string): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
