@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Attention, Project } from '../api';
-import { bellOf, countOf, landedLine, listed, named, promotedLine, requestedLine, reviewersLine } from './staging';
+import {
+  bellOf,
+  candidateNote,
+  candidatesLine,
+  countOf,
+  landedLine,
+  listed,
+  named,
+  promotedLine,
+  requestedLine,
+  reviewersLine,
+} from './staging';
 
 const item = (kind: string, more: Partial<Attention> = {}): Attention => ({
   kind,
@@ -118,5 +129,23 @@ describe('what a staging write came to', () => {
       reviewersLine({ state: 'refused', code: 'forge-unavailable', reasons: ['the forge could not be asked: gh is not signed in'] }),
     ).toBe('The forge could not be asked: gh is not signed in');
     expect(reviewersLine({ id: 'shop', state: 'unreadable', code: 'timeout' })).toBe('Jig could not ask the forge (timeout).');
+  });
+});
+
+describe('the people a review request offers', () => {
+  it('says over them that everyone the repository may ask is offered when nobody reviewed here lately, and nothing else', () => {
+    const alice = { login: 'alice', name: null, reviews: null };
+    expect(candidatesLine({ state: 'ready', source: 'assignable', candidates: [alice] })).toBe(
+      'Nobody reviewed here lately: everyone the repository may ask.',
+    );
+    expect(candidatesLine({ state: 'ready', source: 'history', candidates: [alice] })).toBeUndefined();
+    expect(candidatesLine(undefined)).toBeUndefined();
+  });
+
+  it('says beside each whether they are asked already, or how often they reviewed here', () => {
+    expect(candidateNote({ login: 'alice', name: null, reviews: 3 }, ['alice'])).toBe('asked');
+    expect(candidateNote({ login: 'bob', name: null, reviews: 1 }, ['alice'])).toBe('1 review');
+    expect(candidateNote({ login: 'bob', name: null, reviews: 2 }, [])).toBe('2 reviews');
+    expect(candidateNote({ login: 'bob', name: null, reviews: null }, [])).toBe('');
   });
 });

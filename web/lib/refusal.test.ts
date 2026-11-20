@@ -3,6 +3,7 @@ import {
   closeRefusal,
   fileItemRefusal,
   mergeRefusal,
+  mergeShowsStatus,
   reasonsOf,
   refusal,
   roadmapRefusal,
@@ -185,5 +186,23 @@ describe('mergeRefusal', () => {
       'Jig refused merging a: task merge-pr: land it: jig task land a --by human',
     );
     expect(mergeRefusal('forge-refused', [], 'a')).toBe('Jig refused merging a (forge-refused).');
+  });
+});
+
+describe('mergeShowsStatus', () => {
+  it('offers Status… beside a merge refused while the pull request is open, and none where its status says nothing more', () => {
+    for (const code of ['ci-red', 'ci-pending', 'not-approved', 'conflict', 'draft', 'merge-failed'])
+      expect(mergeShowsStatus(code)).toBe(true);
+    for (const code of [
+      'pull-request-closed',
+      'no-pull-request',
+      'wrong-flow',
+      'forge-unavailable',
+      'not-found',
+      'timeout',
+      'incompatible',
+    ]) {
+      expect(mergeShowsStatus(code)).toBe(false);
+    }
   });
 });

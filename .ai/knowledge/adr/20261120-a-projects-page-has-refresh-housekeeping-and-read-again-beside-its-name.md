@@ -10,6 +10,7 @@ paths:
   - web/components/ChoreReports.vue
   - web/api.ts
 summary: Refresh, Housekeeping and Read again sit beside a project's name on its page in every view, guarded by the server's refusals rather than hidden; the workspace's ↻ reads every project again
+reviewed_at: 2026-11-20
 ---
 # A project's page has Refresh, Housekeeping and Read again beside its name, and the workspace reads every project again
 
@@ -59,3 +60,5 @@ This amends the two ADRs above for the project's page; the card is unchanged.
 - `web/api.ts` now imports from `web/lib/` (the state types, `refreshReport`, `reasonsOf`); `lib/` imports only types
   from `api.ts`, so no module cycle runs.
 - Undo: revert the merge; nothing is stored.
+- *(Amended by task findings-sweep, 2026-11-20: what `api.ts` imports from `lib/` is now the state types,
+  `housekeepingOf` and `refreshOf`, pure functions with tests that turn the answer into the page's state.)*

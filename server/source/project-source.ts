@@ -462,6 +462,14 @@ export type ProjectPrStatus =
  * The project's settings and the person's own in this clone, every key Jig reads, with the revision they were read at; or
  * why they cannot be read — a project whose Jig is older than 0.40.0 is `unsupported`, with 0.40.0 as its minimum.
  */
+export type ProjectSettings =
+  | {
+      state: 'ready';
+      keys: Setting[];
+      revision: number;
+    }
+  | Exclude<ProjectView, { state: 'ready' }>;
+
 /**
  * Whom the forge offers to review a pull request into the staging branch, read when a person is about to choose; or why
  * Jig could not ask it (`forge-unavailable`, with Jig's reasons); or why the project cannot be read.
@@ -474,14 +482,6 @@ export type ProjectReviewers =
       state: 'refused';
       code: string;
       reasons: string[];
-    }
-  | Exclude<ProjectView, { state: 'ready' }>;
-
-export type ProjectSettings =
-  | {
-      state: 'ready';
-      keys: Setting[];
-      revision: number;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 

@@ -140,6 +140,28 @@ describe('poller', () => {
     expect(fake.state.requests.filter((request) => request === 'GET /api/app/installations').length).toBeLessThanOrEqual(3);
   });
 
+  it('settles a pass asked during one under way once the pass after it, which sees what came meanwhile, ran', async () => {
+    const { fake, deps, store } = setUp();
+    let listings = 0;
+    // An installation GitHub has only after the pass under way asked it.
+    const github = {
+      ...deps.github,
+      appInstallations: async (jwt: string) => {
+        const listed = await deps.github.appInstallations(jwt);
+        if (++listings === 1)
+          fake.state.installations.push({ id: 2, account: { id: 200, login: 'later', type: 'Organization' }, repositories: [] });
+        return listed;
+      },
+    };
+    const polling = poller({ ...deps, github }, 60_000);
+    void polling.soon();
+    await polling.soon();
+    expect(store.installations().map((installation) => installation.id)).toContain(2);
+    await polling.soon();
+    polling.stop();
+    expect(listings).toBe(3);
+  });
+
   it('logs a failure without a token, and goes on', async () => {
     const { deps, lines } = setUp();
     const broken = { ...deps, github: { ...deps.github, appInstallations: () => Promise.reject(new Error('boom')) } };

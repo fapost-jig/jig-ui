@@ -58,6 +58,7 @@
     closeRefusal,
     fileItemRefusal,
     mergeRefusal,
+    mergeShowsStatus,
     reasonsOf,
     refusal,
     roadmapRefusal,
@@ -374,17 +375,6 @@
     }
   }
 
-  /** Refusals where the pull request's status says nothing more: it is gone, the forge cannot be asked, or the merge was never Jig's to make. */
-  const NO_STATUS = new Set([
-    'pull-request-closed',
-    'no-pull-request',
-    'wrong-flow',
-    'forge-unavailable',
-    'not-found',
-    'timeout',
-    'incompatible',
-  ]);
-
   /**
    * Merges a task's pull request into its base, once asked on its card: the notice says whether the task closed with it.
    * Where Jig refused and the pull request is still open, the notice offers where it stands.
@@ -396,7 +386,7 @@
       (revision) => client.api.projects[':id'].tasks.merge.$post({ param, json: { task, revision } }),
       (code, reasons) => ({
         text: mergeRefusal(code, reasons, task),
-        ...(NO_STATUS.has(code) ? {} : { action: { label: 'Status…', run: () => void openStatus(task) } }),
+        ...(mergeShowsStatus(code) ? { action: { label: 'Status…', run: () => void openStatus(task) } } : {}),
       }),
     );
 
@@ -409,19 +399,27 @@
     read?: PrStatus;
   }>();
 
-  let statusReads = 0;
+  // The open card's, landing only while it is still open: closed, or opened again, meanwhile, and that one's read lands.
+  const readStatus = lastWins(
+    async () => {
+      const task = prStatus.value?.task;
+      if (task === undefined) return undefined;
+      const res = await call(() =>
+        client.api.projects[':id'].tasks[':task']['pr-status'].$get({ param: { ...param, task: encodeURIComponent(task) } }),
+      );
+
+      const read: PrStatus = res?.status === 200 ? (await res.json()).prStatus : { id: props.id, state: 'unreadable', code: 'failed' };
+      return { task, read };
+    },
+    (answer) => {
+      if (prStatus.value?.task === answer.task) prStatus.value = answer;
+    },
+  );
 
   /** Opens where a card's pull request stands and asks the forge, through Jig: only now, never on a timer. */
-  async function openStatus(task: string): Promise<void> {
-    const read = ++statusReads;
+  function openStatus(task: string): Promise<unknown> {
     prStatus.value = { task };
-    const res = await call(() =>
-      client.api.projects[':id'].tasks[':task']['pr-status'].$get({ param: { ...param, task: encodeURIComponent(task) } }),
-    );
-
-    const answer: PrStatus = res?.status === 200 ? (await res.json()).prStatus : { id: props.id, state: 'unreadable', code: 'failed' };
-    // Closed, or opened again, meanwhile: that one's read lands instead.
-    if (read === statusReads && prStatus.value?.task === task) prStatus.value = { task, read: answer };
+    return readStatus();
   }
 
   /** The card whose review request is open, one at a time, and whom the forge offers once read. */
@@ -430,16 +428,26 @@
     reviewers?: Reviewers;
   }>();
 
-  let reviewReads = 0;
+  // The open card's, landing only while it is still open: closed, or opened again, meanwhile, and that one's read lands.
+  const readReviewers = lastWins(
+    async () => {
+      const task = reviewing.value?.task;
+      if (task === undefined) return undefined;
+      const res = await call(() => client.api.projects[':id'].reviewers.$get({ param }));
+      const reviewers: Reviewers =
+        res?.status === 200 ? (await res.json()).reviewers : { id: props.id, state: 'unreadable', code: 'failed' };
+
+      return { task, reviewers };
+    },
+    (answer) => {
+      if (reviewing.value?.task === answer.task) reviewing.value = answer;
+    },
+  );
 
   /** Opens a card's review request and asks the forge, through Jig, whom to offer: only now, never on a timer. */
-  async function openReview(task: string): Promise<void> {
-    const read = ++reviewReads;
+  function openReview(task: string): Promise<unknown> {
     reviewing.value = { task };
-    const res = await call(() => client.api.projects[':id'].reviewers.$get({ param }));
-    const reviewers: Reviewers = res?.status === 200 ? (await res.json()).reviewers : { id: props.id, state: 'unreadable', code: 'failed' };
-    // Closed, or opened again, meanwhile: that one's read lands instead.
-    if (read === reviewReads && reviewing.value?.task === task) reviewing.value = { task, reviewers };
+    return readReviewers();
   }
 
   async function askReview(task: string, logins: string[]): Promise<void> {

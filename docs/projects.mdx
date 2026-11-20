@@ -204,7 +204,8 @@ fits wins:
 
 Beside the project's name, in every view, **Refresh** and **Housekeeping** do what they do on the project's card
 ([Bringing the clone up to origin](#bringing-the-clone-up-to-origin), [What the page shows](#what-the-page-shows)): the
-answer stays under them until you **Dismiss** it. **↻** reads the project again now.
+answer stays under them until you **Dismiss** it; Refresh needs Jig 0.45.0 or later in the project, and with an older Jig
+it says so there. **↻** reads the project again now.
 
 A card shows the task's id, class and goal, its priority (`P0`, the most urgent, to `P5`) when it
 has one, and what it waits for. An id that starts with a tracker's key, such as
@@ -345,7 +346,8 @@ line says to resolve the conflicts in the checkout first. A pause Jig UI asked f
 Resuming from the board needs Jig 0.35.0 or later in the project. With an older Jig the card says
 how to resume it — run `jig task resume <id>` in the project — and **Resume** is off.
 
-A drop on any other column does nothing.
+Any other drop does nothing: a card goes onto Paused, onto the column a resume would put it in, or, a Review card Jig
+offers to land, onto On staging ([Tasks on staging](#tasks-on-staging)).
 
 ## Closing a task
 

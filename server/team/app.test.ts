@@ -212,7 +212,24 @@ describe('the setup', () => {
     const { setUp, browser, fake } = server();
     await setUp();
     fake.addUser({ id: 2, login: 'other' });
-    expect((await browser().signIn(2, 'admin')).headers.get('location')).toBe('/?problem=no-setup');
+    expect((await browser().signIn(2, 'admin')).headers.get('location')).toBe('/?problem=set-up');
+  });
+
+  it('sends a step of the setup taken out of turn back to the page with its own reason', async () => {
+    const { browser, secrets, fake } = server();
+    // No setup in this browser: GitHub's answer came after the setup's ten minutes, or to another browser.
+    expect((await browser().request('/setup/done?code=c&state=s')).headers.get('location')).toBe('/?problem=bad-state');
+    const first = browser();
+    await first.request('/api/team/setup', { method: 'POST', json: { code: secrets.setupCode } });
+    const form = (await (await first.request('/api/team/setup/manifest', { method: 'POST', json: {} })).json()) as { action: string };
+    const state = new URL(form.action).searchParams.get('state');
+    await first.request(`/setup/done?code=${fake.registerManifest({})}&state=${state}`);
+    expect((await first.request(`/setup/done?code=c&state=${state}`)).headers.get('location')).toBe('/?problem=app-exists');
+    expect((await browser().signIn(1, 'admin')).headers.get('location')).toBe('/?problem=no-setup');
+    fake.addUser({ id: 1, login: 'admin' });
+    expect((await first.signIn(1, 'admin')).headers.get('location')).toBe('/');
+    expect((await first.request(`/setup/done?code=c&state=${state}`)).headers.get('location')).toBe('/?problem=set-up');
+    expect((await first.signIn(1, 'admin')).headers.get('location')).toBe('/?problem=set-up');
   });
 });
 
@@ -356,8 +373,8 @@ describe('signing in', () => {
     expect(store.personOf(600)).toBeNull();
   });
 
-  it('says a sign-in cancelled on GitHub so, and one GitHub could not complete', async () => {
-    const { setUp, browser } = server();
+  it('says a sign-in cancelled on GitHub so, and one GitHub could not complete, which it logs', async () => {
+    const { setUp, browser, lines } = server();
     await setUp();
     const page = browser();
     const answered = async (error: string) => {
@@ -366,6 +383,14 @@ describe('signing in', () => {
     };
     expect(await answered('access_denied')).toBe('/?problem=cancelled');
     expect(await answered('application_suspended')).toBe('/?problem=github');
+    expect(lines.filter((line) => line.startsWith('GitHub did not complete'))).toEqual([
+      'GitHub did not complete a sign-in: "application_suspended" ""',
+    ]);
+    // An error sent to the address without a round of this browser's is nobody's to write in the log.
+    expect((await browser().request('/auth/callback?error=redirect_uri_mismatch%0Aforged')).headers.get('location')).toBe(
+      '/?problem=github',
+    );
+    expect(lines.filter((line) => line.startsWith('GitHub did not complete'))).toHaveLength(1);
   });
 
   it('refuses a link, and the API, without a session', async () => {

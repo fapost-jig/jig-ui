@@ -24,12 +24,14 @@ export const problems: Record<string, string> = {
     'None of your GitHub accounts may write to a repository this server takes. Ask its admin to approve the installation of your organization, or to install the App on it.',
   taken: 'That GitHub account is linked to someone else on this server already.',
   expired: 'The sign-in took too long, or its link was used already. Sign in again.',
-  cancelled: 'The sign-in was cancelled on GitHub. Sign in again when you are ready.',
+  cancelled:
+    'The sign-in was cancelled on GitHub. Sign in again when you are ready — or, setting the server up, enter the setup code again.',
   github: 'GitHub did not complete the sign-in. Try again in a minute.',
   unauthorized: 'Your session here has ended. Sign in, then link the other account.',
   'no-setup': "The admin's sign-in takes place within ten minutes of entering the setup code. Enter the code again.",
   'not-set-up': 'Nobody signs in until the server is set up.',
   'set-up': 'This server is set up already.',
+  'app-exists': "The server's App exists already. Enter the setup code, then sign in as the admin.",
   'bad-state':
     "That answer from GitHub does not belong to this browser's setup, or came after its ten minutes. Enter the setup code again.",
   'no-app': 'GitHub did not hand over the App. Start the setup again.',

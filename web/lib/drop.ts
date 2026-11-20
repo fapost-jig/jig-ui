@@ -25,11 +25,12 @@ export function useDrop(
     /** May go onto On staging: a Review card Jig offers to land. */
     lands: boolean;
   }>();
-  /** Where the card would land: a gap in its own list, or another list as a whole (`index` -1, no place). */
+  /** Where the card would land: a gap in its own list, or another list as a whole (`index` -1, no place) and its write. */
   const gap = ref<{
     list: string;
     index: number;
     place?: Place;
+    step?: 'pause' | 'resume' | 'land';
   }>();
 
   function start(event: DragEvent, list: string, task: Task): void {
@@ -52,8 +53,9 @@ export function useDrop(
     const d = dragged.value;
     if (!d) return;
     if (d.list !== list) {
-      if (!(list === 'paused' ? d.toPaused : list === d.resumesTo || (list === 'on-staging' && d.lands))) return;
-      gap.value = { list, index: -1 };
+      const step = list === 'paused' ? d.toPaused && 'pause' : list === d.resumesTo ? 'resume' : list === 'on-staging' && d.lands && 'land';
+      if (!step) return;
+      gap.value = { list, index: -1, step };
       event.preventDefault(); // allows the drop here
       return;
     }
@@ -77,9 +79,7 @@ export function useDrop(
     end();
     if (!d || g?.list !== list) return;
     if (g.place) onMove(d.task, g.place);
-    else if (list === 'paused') onPause(d.task);
-    else if (list === d.resumesTo) onResume(d.task);
-    else onLand(d.task);
+    else if (g.step) ({ pause: onPause, resume: onResume, land: onLand })[g.step](d.task);
   }
 
   function end(): void {

@@ -3,7 +3,7 @@
   import type { Reviewers } from '@/api';
   import { Button } from '@/components/ui/button';
   import { Checkbox } from '@/components/ui/checkbox';
-  import { reviewersLine } from '@/lib/staging';
+  import { candidateNote, candidatesLine, reviewersLine } from '@/lib/staging';
   import { toneRule } from '@/lib/tones';
 
   /**
@@ -36,9 +36,7 @@
   <section :aria-label="`Request review of ${task}`" :class="toneRule.attention" class="flex flex-col gap-2 text-[13px]">
     <p v-if="line" :role="reviewers ? undefined : 'status'">{{ line }}</p>
     <template v-else>
-      <p v-if="reviewers?.state === 'ready' && reviewers.source === 'assignable'" class="text-muted-foreground">
-        Nobody reviewed here lately: everyone the repository may ask.
-      </p>
+      <p v-if="candidatesLine(reviewers)" class="text-muted-foreground">{{ candidatesLine(reviewers) }}</p>
       <ul class="flex flex-col gap-1.5 text-foreground">
         <li v-for="c in candidates" :key="c.login" class="flex items-center gap-2">
           <Checkbox
@@ -50,9 +48,7 @@
           <label :for="`review-${task}-${c.login}`" class="flex min-w-0 flex-1 items-baseline gap-2">
             <span class="font-mono text-xs">{{ c.login }}</span>
             <span v-if="c.name" class="truncate text-muted-foreground">{{ c.name }}</span>
-            <span class="ml-auto shrink-0 text-xs text-muted-foreground">
-              {{ asked.includes(c.login) ? 'asked' : c.reviews !== null ? `${c.reviews} review${c.reviews === 1 ? '' : 's'}` : '' }}
-            </span>
+            <span class="ml-auto shrink-0 text-xs text-muted-foreground">{{ candidateNote(c, asked) }}</span>
           </label>
         </li>
       </ul>

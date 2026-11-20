@@ -74,7 +74,10 @@ export async function pollAll(deps: PollDeps): Promise<void> {
   }
 }
 
-/** Polls every five minutes, one pass at a time; `soon` asks for a pass now, run after the one under way. */
+/**
+ * Polls every five minutes, one pass at a time; `soon` asks for a pass now and settles once it ran. Asked during a pass,
+ * which may have asked GitHub before what changed, it is the one after it: one for everyone who asked meanwhile.
+ */
 export function poller(
   deps: PollDeps,
   every = POLL_EVERY,
@@ -83,23 +86,20 @@ export function poller(
   stop: () => void;
 } {
   let running: Promise<void> | null = null;
-  let again = false;
-  const pass = (): Promise<void> => {
-    if (running) {
-      again = true;
-      return running;
-    }
-    running = pollAll(deps)
+  let next: Promise<void> | null = null;
+  const run = (): Promise<void> =>
+    (running = pollAll(deps)
       .catch((error: unknown) => deps.log(`Could not read the App's installations: ${why(error)}`))
       .finally(() => {
         running = null;
-        if (again) {
-          again = false;
-          void pass();
-        }
-      });
-    return running;
-  };
+      }));
+  const pass = (): Promise<void> =>
+    running === null
+      ? run()
+      : (next ??= running.then(() => {
+          next = null;
+          return run();
+        }));
   const timer = setInterval(() => void pass(), every);
   timer.unref();
   return { soon: pass, stop: () => clearInterval(timer) };

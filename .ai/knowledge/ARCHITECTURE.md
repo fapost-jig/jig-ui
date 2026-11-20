@@ -131,8 +131,8 @@ page and above the projects does any time) or
   that mean something, the theme, and `lastWins` (a read that lands only if no later one started).
   `api.ts` — the typed `client` (Hono's `hc` over `AppType`), the response types derived from it,
   `call()` with the failures every view shares, the change stream each view re-reads on, and the reads and runs more
-  than one view makes (`readTask`, `readAgain`, `runRefresh`, `runHousekeeping`), which turn an answer into the page's
-  state. Vite builds it into `dist/web` and the package ships it built. One TypeScript
+  than one view makes (`readTask`, `readAgain`, `runRefresh`, `runHousekeeping`), the last two handing the answer to
+  `refreshOf` and `housekeepingOf` in `lib/`, which turn it into the page's state. Vite builds it into `dist/web` and the package ships it built. One TypeScript
   checks both sides (adr-20261017-one-typescript-for-server-and-web).
   Directions: `views/` → `components/` → `components/ui/`; `lib/` from any of them and from `api.ts`, which `lib/`
   imports types from only; `api.ts` → `server/http/` for types only — lint refuses a value import from `server/`.

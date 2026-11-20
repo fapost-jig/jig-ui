@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Refreshed } from '../api';
-import { refreshReport, staleFetch } from './refresh';
+import { refreshOf, refreshReport, staleFetch } from './refresh';
 
 const refreshed = (base: Partial<Refreshed['base']> = {}, more: Partial<Refreshed> = {}): Refreshed => ({
   fetch: 'done',
@@ -89,5 +89,15 @@ describe('staleFetch', () => {
     expect(staleFetch({ fetchedAt: '2026-11-10T12:00:00Z', behind: 0 }, now)).toBe(
       'Last fetched from origin 3 days ago: what landed there since is not shown here.',
     );
+  });
+});
+
+describe('refreshOf', () => {
+  it("shows what a refresh did in the page's words, or why it did not run", () => {
+    expect(refreshOf({ refreshed: refreshed() })).toEqual({ state: 'done', tone: 'quiet', lines: ['main is up to date with origin.'] });
+    expect(refreshOf({ error: { code: 'unsupported', message: 'Refresh needs Jig 0.45.0 or later.' } })).toEqual({
+      state: 'refused',
+      message: 'Refresh needs Jig 0.45.0 or later.',
+    });
   });
 });

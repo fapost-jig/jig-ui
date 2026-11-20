@@ -119,6 +119,20 @@ export function stagingRefusal(code: string, reasons: string[], doing: string, t
  * or to fix, a conflict or a draft that is the agent's, a ship that merges it itself — and Jig's own words for whom the
  * review waits for and where only Jig knows why. Status… beside it says the rest.
  */
+/** Refusals of a merge where the pull request's status says nothing more: it is gone, the forge cannot be asked, or the merge was never Jig's to make. */
+const NO_STATUS = new Set([
+  'pull-request-closed',
+  'no-pull-request',
+  'wrong-flow',
+  'forge-unavailable',
+  'not-found',
+  'timeout',
+  'incompatible',
+]);
+
+/** Whether Status… goes beside a merge Jig refused: where the pull request is still open and its status says why. */
+export const mergeShowsStatus = (code: string): boolean => !NO_STATUS.has(code);
+
 export function mergeRefusal(code: string, reasons: string[], task: string): string {
   if (code === 'ci-red') return `A check of ${task}'s pull request failed: nothing was merged.`;
   if (code === 'ci-pending') return `${task}'s checks are still running: try again once they pass.`;
