@@ -540,6 +540,31 @@ describe('localSource', () => {
     await source.disconnect('epics');
   });
 
+  it("marks a task nobody started as going into its spec's epic only while that epic is open", async () => {
+    const row = (id: string, state: string) => ({
+      id,
+      title: null,
+      missing_files: [],
+      release: null,
+      epic: { branch: `epic/${id}`, state, checked_out: false, missing: false, ref: null },
+      progress: null,
+      phases: [],
+    });
+    const filed = (id: string, spec: string) =>
+      task(id, 'active', false, { branch: null, spec: { id: spec, title: null, phase: 1, epic: `epic/${spec}` } });
+    const dir = project('into-epics', '0.46.0', {
+      specs: { specs: [row('booking', 'open'), row('landed', 'finished')] },
+      tasks: { tasks: [filed('next', 'booking'), filed('late', 'landed')], hidden: 0, housekeeping: null },
+    });
+    await source.connect(dir);
+    const read = await source.tasks('into-epics');
+    expect(read?.state === 'ready' && read.tasks.map((t) => [t.id, t.spec?.epic])).toEqual([
+      ['next', true],
+      ['late', false],
+    ]);
+    await source.disconnect('into-epics');
+  });
+
   it("carries the spec list's revision when it is older than the board's reads", async () => {
     const specs = JSON.stringify({ schema: 1, revision: 3, generated_at: 'x', data: { specs: [] } });
     const dir = project('older-specs', '0.31.0', { specs });

@@ -15,7 +15,7 @@ paths:
   - web/lib/sift.ts
   - web/components/SpecMark.vue
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
-reviewed_at: 2026-11-19
+reviewed_at: 2026-11-20
 ---
 # Board
 
@@ -32,9 +32,11 @@ task whose id starts with a tracker's key by that key alone (`SRD-2598`, `cardKe
 saying the rest, so a long id is not squeezed beside the badges in a narrow column; any other id is broken at its
 hyphens. A task filed from a spec names it under its card or row, from Jig 0.46.0's `spec` on `jig task list`
 (`web/components/SpecMark.vue`): the spec's title, else its id, the phase, and *epic* when the task goes into the spec's
-epic. A press opens that spec on the Specs view as a press on Specs and its tab would, the sort and filters kept in
-the address; a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since
-the Specs view would show another. Finished
+epic — for a task nobody started, only while `jig spec list` says that epic is open, since Jig names a finished one too
+and cuts nothing from it (`readProject` in `server/source/local.ts`). A press on its text, not the space beside
+it, opens that spec on the Specs view as a press on Specs and its tab would, the sort and filters kept in the address;
+a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since the Specs
+view would show another (`specOpens` in `web/lib/sift.ts`). Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
 keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`).
 
@@ -139,7 +141,8 @@ done, or moving.
   the decisions in `web/lib/sift.ts`): sort by the queue's order (the default), priority or class,
   ties in the queue's order; show only chosen classes or priorities, or the tasks whose id or goal
   holds a text, and, while a task names one, only the specs chosen (`specsOf`: by title, then None for a task of
-  none) — one epic's tasks at a glance. It is a view: nothing is written to Jig or stored; it lives in the board's address
+  none; a spec the address chose is offered though no task names it, so a `?from=` link is never a filter with no
+  control) — one epic's tasks at a glance. It is a view: nothing is written to Jig or stored; it lives in the board's address
   (`#/projects/<id>?sort=priority&class=T1,T2&priority=P0,none&from=jig-ui,none&q=…`), so a reload or a link keeps
   it. Sorted other than by the queue, a card offers no move within its column — no drop, and no
   To top, Up, Down or To bottom in its menu — since its place there is not the queue's; a drop on

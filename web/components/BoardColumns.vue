@@ -2,6 +2,7 @@
   import type { Column, Place, PrStatus, ReadyDetails, Reviewers } from '@/api';
   import type { StagingStep } from '@/lib/staging';
   import { useDrop } from '@/lib/drop';
+  import { specOpens } from '@/lib/sift';
   import { columnAccent } from '@/lib/tones';
   import ColumnHeader from './ColumnHeader.vue';
   import GroupPanel from './GroupPanel.vue';
@@ -100,7 +101,7 @@
             :filtered="filtered"
             :busy="pending === task.id"
             :changed="changed?.includes(task.id)"
-            :spec-opens="!!task.spec && !!specs?.includes(task.spec.id)"
+            :spec-opens="specOpens(task, specs)"
             :reviewing="reviewing?.task === task.id ? reviewing : undefined"
             :pr-status="prStatus?.task === task.id ? prStatus : undefined"
             @toggle="$emit('toggle', task.id)"

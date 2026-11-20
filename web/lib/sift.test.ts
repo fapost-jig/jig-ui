@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Column, Task } from '../api';
-import { filtered, fromQuery, reorders, sift, type Sift, specsOf, toQuery } from './sift';
+import { filtered, fromQuery, reorders, sift, type Sift, specOpens, specsOf, toQuery } from './sift';
 
 const task = (id: string, more: Partial<Task> = {}): Task => ({
   id,
@@ -155,5 +155,25 @@ describe('specsOf', () => {
   it('offers nothing while no task names a spec', () => {
     expect(specsOf(backlog(task('a'), task('b')))).toEqual([]);
     expect(specsOf(backlog(task('a', { spec: of('jig-ui', 'Jig UI') })))).toEqual([{ id: 'jig-ui', title: 'Jig UI' }]);
+  });
+
+  it('offers a spec the address chose that no task names, so it can be unticked', () => {
+    expect(specsOf(backlog(task('a'), task('b')), ['jig-ui'])).toEqual([{ id: 'jig-ui', title: 'jig-ui' }]);
+    expect(specsOf(backlog(task('a'), task('b')), ['none'])).toEqual([{ id: 'none', title: 'None' }]);
+    expect(specsOf(backlog(task('a', { spec: of('jig-ui', 'Jig UI') })), ['gone'])).toEqual([
+      { id: 'gone', title: 'gone' },
+      { id: 'jig-ui', title: 'Jig UI' },
+    ]);
+  });
+});
+
+describe('specOpens', () => {
+  const of = (id: string) => ({ id, title: null, phase: null, epic: false });
+
+  it("opens a task's spec only where the project's specs list it", () => {
+    expect(specOpens(task('a', { spec: of('jig-ui') }), ['jig-ui'])).toBe(true);
+    expect(specOpens(task('a', { spec: of('away') }), ['jig-ui'])).toBe(false);
+    expect(specOpens(task('a', { spec: of('jig-ui') }), undefined)).toBe(false);
+    expect(specOpens(task('a'), ['jig-ui'])).toBe(false);
   });
 });

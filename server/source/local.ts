@@ -321,10 +321,14 @@ async function readProject(project: Project): Promise<Read> {
   });
   if (!('list' in read)) return { view: read, tasks: read, details: [], specs: read, revision: null };
   const { status, list, queue, specs, stagingFlow, agentGit, jigVersion } = read;
-  // Jig's own list holds the live ones; `finished` counts the closed and abandoned ones it left out, read on demand.
-  const live = list.tasks.filter((t): t is Live => t.status === 'active' || t.status === 'ready');
-  const queued = new Map(queue.items.map((q) => [q.id, q]));
   const open = new Set(specs.specs.filter((s) => s.epic?.state === 'open').map((s) => s.id));
+  // Jig's own list holds the live ones; `finished` counts the closed and abandoned ones it left out, read on demand. A
+  // task nobody started goes into its spec's epic only while the epic is open: Jig names a finished one too, and cuts
+  // nothing from it.
+  const live = list.tasks
+    .filter((t): t is Live => t.status === 'active' || t.status === 'ready')
+    .map((t) => (t.spec?.epic && t.branch === null && !open.has(t.spec.id) ? { ...t, spec: { ...t.spec, epic: false } } : t));
+  const queued = new Map(queue.items.map((q) => [q.id, q]));
   const shownQueue = {
     tasks: queue.items.filter((q) => live.some((t) => t.id === q.id)),
     epics: queue.epics.filter((e) => open.has(e.id)),

@@ -811,7 +811,7 @@
       v-model="sifting"
       :shown="shownCount"
       :total="cards.length"
-      :specs="specsOf(board.columns)"
+      :specs="specsOf(board.columns, sifting.specs)"
       class="shrink-0"
     />
 

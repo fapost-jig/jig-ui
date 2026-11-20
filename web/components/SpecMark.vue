@@ -21,7 +21,7 @@
   <component
     :is="openable ? 'button' : 'span'"
     :type="openable ? 'button' : undefined"
-    class="flex min-w-0 items-center gap-1 text-left text-[13px] text-muted-foreground"
+    class="flex w-fit max-w-full min-w-0 items-center gap-1 text-left text-[13px] text-muted-foreground"
     :class="openable && 'underline-offset-2 hover:text-foreground hover:underline'"
     :title="openable ? `Open the spec ${spec.id}` : spec.id"
     @click="openable && $emit('open', spec.id)"
