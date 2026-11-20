@@ -986,6 +986,7 @@ describe('localSource, writing the queue', () => {
     ['a count that moved', 3, shown],
     ['a commit shown that left while another arrived', 2, [shown[0]!, 'c0ffee0000000000000000000000000000000000']],
     ['a list shown shorter than the one there', 2, [shown[0]!]],
+    ['a commit shown twice in place of one never shown', 2, [shown[0]!, shown[0]!]],
   ])('refuses the mark for %s, Jig not asked to mark anything', async (_, expect_, shas) => {
     const name = `ack-stale-${expect_}-${shas.length}-${shas.at(-1)!.slice(0, 4)}`;
     const dir = project(name, '0.46.0', { tasks, status: staged });
