@@ -53,7 +53,7 @@
   import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
   import { mergedLine } from '@/lib/pr-status';
-  import type { HousekeepingState, RefreshState } from '@/lib/projects';
+  import { knowledgeWaiting, type HousekeepingState, type RefreshState } from '@/lib/projects';
   import {
     closeRefusal,
     fileItemRefusal,
@@ -130,7 +130,8 @@
   }
 
   /** What the page shows, read again after Read again, Refresh or Housekeeping: the knowledge too in its view. */
-  const readShown = () => Promise.all([load(), loadSpecs(), loadFinished(), view.value === 'knowledge' ? loadKnowledge() : undefined]);
+  const readShown = () =>
+    Promise.all([load(), loadSpecs(), loadWaiting(), loadFinished(), view.value === 'knowledge' ? loadKnowledge() : undefined]);
 
   /** Refresh and Housekeeping from the page's header, as on the project's card: under way, or what came of it until dismissed. */
   const refresh = ref<RefreshState>();
@@ -156,6 +157,29 @@
     },
     (read) => (specs.value = read),
   );
+
+  /**
+   * The counts beside the views: the live tasks, the specs, and the knowledge waiting for the person as the project's own
+   * read says it, without reading the knowledge (feature-knowledge: two Jig runs, only while its view shows).
+   */
+  const waiting = ref<number | null>();
+  const loadWaiting = lastWins(
+    async () => {
+      const res = await call(() => client.api.projects[':id'].$get({ param }));
+      const project = res?.status === 200 ? (await res.json()).project : undefined;
+      return res && (project?.state === 'ready' ? knowledgeWaiting(project.attention) : null);
+    },
+    (read) => (waiting.value = read),
+  );
+
+  const counts = computed(() => ({
+    tasks:
+      typeof board.value === 'object' && board.value.state === 'ready'
+        ? board.value.columns.reduce((n, c) => n + c.cards.length, 0)
+        : undefined,
+    specs: typeof specs.value === 'object' && specs.value.state === 'ready' ? specs.value.specs.length : undefined,
+    knowledge: waiting.value || undefined,
+  }));
 
   const route = useRoute();
   const router = useRouter();
@@ -781,6 +805,7 @@
       if (project !== undefined && project !== props.id) return;
       void load();
       void loadSpecs();
+      void loadWaiting();
       void loadFinished();
       void readSelected();
       if (view.value === 'knowledge') void loadKnowledge();
@@ -824,10 +849,26 @@
           :model-value="view"
           @update:model-value="show"
         >
-          <ToggleGroupItem value="board"><Columns3 />Board</ToggleGroupItem>
-          <ToggleGroupItem value="list"><Rows3 />List</ToggleGroupItem>
-          <ToggleGroupItem value="specs"><Milestone />Specs</ToggleGroupItem>
-          <ToggleGroupItem value="knowledge"><BookCheck />Knowledge</ToggleGroupItem>
+          <ToggleGroupItem value="board"
+            ><Columns3 />Board<span v-if="counts.tasks !== undefined" class="text-muted-foreground tabular-nums">{{
+              counts.tasks
+            }}</span></ToggleGroupItem
+          >
+          <ToggleGroupItem value="list"
+            ><Rows3 />List<span v-if="counts.tasks !== undefined" class="text-muted-foreground tabular-nums">{{
+              counts.tasks
+            }}</span></ToggleGroupItem
+          >
+          <ToggleGroupItem value="specs"
+            ><Milestone />Specs<span v-if="counts.specs !== undefined" class="text-muted-foreground tabular-nums">{{
+              counts.specs
+            }}</span></ToggleGroupItem
+          >
+          <ToggleGroupItem value="knowledge" :aria-label="counts.knowledge ? `Knowledge, ${counts.knowledge} waiting for you` : undefined"
+            ><BookCheck />Knowledge<span v-if="counts.knowledge" :class="toneText.attention" class="tabular-nums">{{
+              counts.knowledge
+            }}</span></ToggleGroupItem
+          >
         </ToggleGroup>
         <CollapsibleTrigger v-if="typeof board === 'object' && board.state === 'ready'" as-child>
           <Button variant="outline" size="sm"><Plus />New task</Button>

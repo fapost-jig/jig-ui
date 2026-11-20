@@ -50,6 +50,15 @@ export function closableTask(project: Project, item: Attention): string | undefi
     : undefined;
 }
 
+/**
+ * How many knowledge documents and changed linked files wait for the person's decision, as the project's own items say:
+ * Jig gives the numbers only in their detail (`4 document(s) proposed`, `2 file(s)`). 0 with neither item.
+ */
+export const knowledgeWaiting = (attention: readonly Attention[]): number =>
+  attention
+    .filter((a) => a.kind === 'knowledge-proposed' || a.kind === 'sources-changed')
+    .reduce((n, a) => n + (Number.parseInt(a.detail ?? '', 10) || 0), 0);
+
 /** Housekeeping run from a project's card: under way, Jig's report once it ran, or why it did not, with Jig's reasons. */
 export type HousekeepingState =
   | { state: 'running' }

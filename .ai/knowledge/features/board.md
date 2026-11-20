@@ -45,7 +45,11 @@ read failed; each reads what the page shows again afterwards, the knowledge too 
 the project's Jig and its upgrade, the server's refusal being the guard (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name).
 
 `web/views/BoardView.vue` reads the board and shows it two ways, switched by the person and
-remembered by the browser (`localStorage` `jig-ui.board-view`): Board (`BoardColumns`), the
+remembered by the browser (`localStorage` `jig-ui.board-view`), each view's choice with a quiet count: the live tasks
+beside Board and List, the specs beside Specs, and beside Knowledge only above zero, in the attention colour, what Jig's
+`knowledge-proposed` and `sources-changed` items count in their detail (`knowledgeWaiting` in `web/lib/projects.ts`),
+from the project's held read, `GET /api/projects/:id` — never the knowledge itself, which is read only while its view
+shows (feature-knowledge): Board (`BoardColumns`), the
 columns side by side, where a click expands a card into its details; List (`BoardList`), the
 columns as folding groups of rows under a strip counting every column, a zero included, a selected
 row's details in a pane on the right. A row (`TaskRow`) is the task's whole id, wrapped and never cut,
