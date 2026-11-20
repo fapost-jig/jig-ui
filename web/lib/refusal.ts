@@ -113,3 +113,23 @@ export function stagingRefusal(code: string, reasons: string[], doing: string, t
   if (code === 'incompatible') return 'Jig answered in a way Jig UI does not read, and may have done it: look at the board again.';
   return writeRefusal(code, reasons, doing, task);
 }
+
+/**
+ * The line for a merge Jig refused, nothing merged: Jig UI's words where the person has a next step — a check to wait for
+ * or to fix, a conflict or a draft that is the agent's, a ship that merges it itself — and Jig's own words for whom the
+ * review waits for and where only Jig knows why. Status… beside it says the rest.
+ */
+export function mergeRefusal(code: string, reasons: string[], task: string): string {
+  if (code === 'ci-red') return `A check of ${task}'s pull request failed: nothing was merged.`;
+  if (code === 'ci-pending') return `${task}'s checks are still running: try again once they pass.`;
+  if (code === 'ci-none') return `No check has run on ${task}'s pull request: nothing was merged.`;
+  if (code === 'not-approved') {
+    return reasons.length > 0 ? `Jig did not merge ${task}: ${reasons.join(' ')}` : `${task}'s pull request is not approved yet.`;
+  }
+  if (code === 'conflict') return `${task}'s pull request conflicts with its base: ask your agent to merge the base in.`;
+  if (code === 'draft') return `${task}'s pull request is a draft: mark it ready for review first.`;
+  if (code === 'ship-running') return `The agent's ship of ${task} waits for CI and merges it itself.`;
+  if (code === 'notes-stale') return `${task}'s release notes no longer reach the base: ask your agent to bring them up to date.`;
+  if (code === 'pull-request-closed') return `${task}'s pull request was closed without a merge.`;
+  return stagingRefusal(code, reasons, 'merging', task);
+}

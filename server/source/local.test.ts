@@ -119,6 +119,8 @@ function project(
     refresh?: unknown;
     /** What `pr reviewers --json` prints: an envelope's `data`, or a refusal's code. */
     reviewers?: unknown;
+    /** What `task pr-status <id> --json` prints: an envelope's `data`, or a refusal's code. */
+    prStatus?: unknown;
     /** What `housekeeping` prints on stdout and stderr, and its exit code. */
     housekeeping?: {
       out?: string;
@@ -176,6 +178,7 @@ function project(
   writeFileSync(join(dir, 'land.json'), typeof answers.land === 'string' ? answers.land : envelope(answers.land ?? {}));
   writeFileSync(join(dir, 'refresh.json'), answer(answers.refresh ?? {}));
   writeFileSync(join(dir, 'reviewers.json'), answer(answers.reviewers ?? { source: 'assignable', candidates: [] }));
+  writeFileSync(join(dir, 'prstatus.json'), answer(answers.prStatus ?? 'no-pull-request'));
   const self = answers.selfUpdate ?? {};
   writeFileSync(join(dir, 'self.out'), self.out ?? 'self-update: already current');
   writeFileSync(join(dir, 'self.err'), self.err ?? '');
@@ -196,7 +199,7 @@ case "$*" in
   "task list --status abandoned --json") while [ -f hold-finished ]; do sleep 0.05; done; cat abandoned.json; if grep -q '"error"' abandoned.json; then exit 1; fi ;;
   "spec list --json") cat specs.json ;;
   "queue list --json") cat queue.json ;;
-  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*|"task gate "*|"task abandon "*|"task archive "*|"task unarchive "*|"spec drop "*|"queue depend "*|"queue undepend "*|"task land "*|"task promote "*|"task request-review "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
+  "queue move "*|"queue set "*|"queue request "*|"queue cancel "*|"task new "*|"task resume "*|"task pause "*|"task set "*" --json"|"config set "*|"config unset "*|"task gate "*|"task abandon "*|"task archive "*|"task unarchive "*|"spec drop "*|"queue depend "*|"queue undepend "*|"task land "*|"task promote "*|"task request-review "*|"task merge-pr "*) while [ -f hold ]; do sleep 0.05; done; cat write.json; if grep -q '"error"' write.json; then exit 1; fi ;;
   "spec item "*) while [ -f hold ]; do sleep 0.05; done; cat item.json; if grep -q '"error"' item.json; then exit 1; fi ;;
   "task artifacts "*) while [ -f hold-artifacts ]; do sleep 0.05; done; cat artifacts.json; if grep -q '"error"' artifacts.json; then exit 1; fi ;;
   "config keys --json") cat settings.json ;;
@@ -209,6 +212,7 @@ case "$*" in
   "task set "*) cat set.err >&2; exit ${answers.set?.code ?? 0} ;;
   "refresh --json") cat refresh.json; if grep -q '"error"' refresh.json; then exit 1; fi ;;
   "pr reviewers --json") cat reviewers.json; if grep -q '"error"' reviewers.json; then exit 1; fi ;;
+  "task pr-status "*) cat prstatus.json; if grep -q '"error"' prstatus.json; then exit 1; fi ;;
   housekeeping) cat housekeeping.out; cat housekeeping.err >&2; exit ${answers.housekeeping?.code ?? 0} ;;
   "upgrade --dry-run --json") cat plan.json ;;
   "self-update") while [ -f hold-self ]; do sleep 0.05; done; cat self.out; echo; cat self.err >&2; if [ -f status-after.json ] && [ ${self.code ?? 0} -eq 0 ]; then cp status-after.json status.json; fi; exit ${self.code ?? 0} ;;
@@ -378,6 +382,8 @@ describe('localSource', () => {
         origin: null,
         stagingFlow: false,
         closable: [],
+        shipping: [],
+        agentGit: null,
         revision: 7,
         upgrade: null,
       },
@@ -607,6 +613,8 @@ describe('localSource', () => {
           landable: false,
           reviewRequestable: false,
           promotable: false,
+          mergeable: false,
+          statusable: false,
           staging: null,
           parked: null,
           stagingFlow: false,
@@ -3301,6 +3309,147 @@ describe("localSource, a person's writes on a task", () => {
       'queue depend task:plain --on epic:shop --reason Needs the cart --revision 7 --json',
       'queue undepend task:gated --on task:plain --revision 7 --json',
     ]);
+  });
+});
+
+describe('localSource, a person merging from the card', () => {
+  const source = localSource(join(root, 'merge-writes-config'));
+  const offered = (task: string, ...ids: string[]) => ids.map((id) => ({ id, command: `jig ${id} ${task}`, offered: true, reason: null }));
+  const pr = { url: 'https://github.com/o/r/pull/12', state: 'open', ci: 'green', fetched_at: '2026-11-19T16:00:00Z' };
+  const rows = [
+    task('ship-it', 'ready', false, { knowledge_consolidated: true, pull_request: pr, actions: offered('ship-it', 'merge', 'pr-status') }),
+    task('red', 'ready', false, { pull_request: { ...pr, ci: 'red' }, actions: offered('red', 'pr-status') }),
+    task('shipping', 'ready', false, {
+      pull_request: pr,
+      shipping: { since: '2026-11-19T16:00:00Z' },
+      actions: offered('shipping', 'pr-status'),
+    }),
+    // Jig lists the row on a task with no pull request, not offered: a task's details keep only what it offers.
+    task('no-pr', 'ready', false, {
+      actions: [{ id: 'pr-status', command: 'jig task pr-status no-pr', offered: false, reason: 'no pull request' }],
+    }),
+  ];
+  const item = (id: string, actions: unknown[]) => ({
+    kind: 'pull-request-waiting',
+    subject: { type: 'task', id },
+    tasks: [id],
+    title: 'A pull request is waiting for review',
+    detail: null,
+    todo: `Merge it: jig task merge-pr ${id} --by human`,
+    url: pr.url,
+    pull_request: { branch: `task/${id}`, base: 'main', ...pr, mergeable: 'mergeable', review: null },
+    actions,
+  });
+  const answers = (more: Record<string, unknown> = {}) => ({
+    tasks: { tasks: rows, hidden: 0, housekeeping: null },
+    status: { attention: [item('ship-it', offered('ship-it', 'merge', 'pr-status'))], housekeeping: null },
+    settings: {
+      keys: [
+        {
+          key: 'agent.git',
+          value: 'pr',
+          set: true,
+          source: 'local',
+          scope: 'project',
+          kind: 'enum',
+          allowed: null,
+          default: 'none',
+          description: 'x',
+          secret: false,
+        },
+      ],
+    },
+    ...more,
+  });
+  const writes = (dir: string) => calls(dir).filter((c) => /^task (merge-pr|pr-status) /.test(c));
+
+  it('offers Merge where Jig offers it, Status where it cannot merge, and no close beside a merge', async () => {
+    const dir = project('merge-offers', '0.46.0', answers());
+    await source.connect(dir);
+    const shown = await source.tasks('merge-offers');
+    const flags = shown?.state === 'ready' ? shown.tasks.map((t) => [t.id, t.mergeable, t.statusable, t.closable]) : [];
+    expect(flags).toEqual([
+      ['ship-it', true, false, false],
+      ['red', false, true, false],
+      ['shipping', false, true, false],
+      ['no-pr', false, false, false],
+    ]);
+    const old = project('merge-offers-old', '0.45.0', answers());
+    await source.connect(old);
+    const before = await source.tasks('merge-offers-old');
+    expect(before?.state === 'ready' && before.tasks.some((t) => t.mergeable || t.statusable)).toBe(false);
+  });
+
+  it("says on the project which tasks the agent's ship merges itself, and the person's agent.git while an item needs it", async () => {
+    const dir = project('merge-project', '0.46.0', answers());
+    await source.connect(dir);
+    expect(await source.project('merge-project')).toMatchObject({ state: 'ready', shipping: ['shipping'], agentGit: 'pr' });
+    expect(calls(dir)).toContain('config keys --json');
+    // No item about a task's pull request: nothing to word, and no settings read.
+    const quiet = project('merge-project-quiet', '0.46.0', answers({ status: { attention: [], housekeeping: null } }));
+    await source.connect(quiet);
+    expect(await source.project('merge-project-quiet')).toMatchObject({ state: 'ready', agentGit: null });
+    expect(calls(quiet)).not.toContain('config keys --json');
+  });
+
+  it('merges against the revision of the read, answering what Jig did', async () => {
+    const dir = project(
+      'merge-write',
+      '0.46.0',
+      answers({
+        write: {
+          task: {},
+          merge: { pull_request: pr.url, outcome: 'merged', closed: false, close_blocked: 'knowledge-not-recorded' },
+        },
+      }),
+    );
+    await source.connect(dir);
+    expect(await source.merge('merge-write', 'ship-it', 7)).toEqual({
+      state: 'written',
+      merged: { pullRequest: pr.url, outcome: 'merged', closed: false, closeBlocked: 'knowledge-not-recorded' },
+    });
+    expect(writes(dir)).toEqual(['task merge-pr ship-it --by human --revision 7 --json']);
+  });
+
+  it('refuses a merge Jig does not offer on the card, without running Jig, and carries its refusal', async () => {
+    const dir = project('merge-unoffered', '0.46.0', answers({ write: 'ci-pending' }));
+    await source.connect(dir);
+    expect(await source.merge('merge-unoffered', 'red', 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.merge('merge-unoffered', '--admin', 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(writes(dir)).toEqual([]);
+    expect(await source.merge('merge-unoffered', 'ship-it', 7)).toEqual({ state: 'refused', code: 'ci-pending', reasons: ['refused'] });
+  });
+
+  it('reads where a pull request stands only for a task Jig offers it on, and carries why the forge was not asked', async () => {
+    const status = {
+      task_id: 'red',
+      pull_request: { url: pr.url, state: 'open', draft: false, base: 'main', head: 'abc', mergeable: 'clean' },
+      checks: { state: 'red', list: [] },
+      review: { state: 'none', waiting_for: [] },
+      protection: { merge_state: null, required_approvals: null, required_checks: null },
+      blockers: ['ci-red'],
+    };
+    const dir = project('merge-status', '0.46.0', answers({ prStatus: status }));
+    await source.connect(dir);
+    expect(await source.prStatus('merge-status', 'red')).toMatchObject({ state: 'ready', checks: { state: 'red' }, blockers: ['ci-red'] });
+    expect(await source.prStatus('merge-status', 'nobody')).toEqual({ state: 'refused', code: 'not-found', reasons: [] });
+    expect(await source.prStatus('merge-status', 'no-pr')).toEqual({ state: 'refused', code: 'not-found', reasons: [] });
+    expect(writes(dir)).toEqual(['task pr-status red --json']);
+    const unasked = project('merge-status-forge', '0.46.0', answers({ prStatus: 'forge-unavailable' }));
+    await source.connect(unasked);
+    expect(await source.prStatus('merge-status-forge', 'red')).toEqual({
+      state: 'refused',
+      code: 'forge-unavailable',
+      reasons: ['refused'],
+    });
+    const old = project('merge-status-old', '0.45.0', answers());
+    await source.connect(old);
+    expect(await source.prStatus('merge-status-old', 'red')).toEqual({
+      id: 'merge-status-old',
+      state: 'unsupported',
+      jigVersion: '0.45.0',
+      minimum: '0.46.0',
+    });
   });
 });
 

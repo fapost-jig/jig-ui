@@ -21,6 +21,7 @@ import {
   KNOWLEDGE_TEXT_JIG_VERSION,
   LAND_JIG_VERSION,
   landTask,
+  mergePr,
   landUpgrade,
   jigVersion,
   MIN_JIG_VERSION,
@@ -34,6 +35,7 @@ import {
   readKnowledge,
   readKnowledgeText,
   readQueue,
+  readPrStatus,
   readReviewers,
   readSettings,
   readSourceDiff,
@@ -167,6 +169,8 @@ const gone = (t: Finished, writes: boolean): FinishedTask => ({
   pullRequest: t.pullRequest && { url: t.pullRequest.url, state: t.pullRequest.state },
 });
 
+const offers = (t: Live, action: string): boolean => t.actions.some((a) => a.id === action && a.offered);
+
 /**
  * Ready and closable as done: Jig offers `close`, or the only thing between them is its forge cache — the knowledge
  * decision is recorded and the pull request is not known to be closed unmerged. The cache is written only by
@@ -181,14 +185,14 @@ function closable(t: Live): boolean {
   if (t.status !== 'ready') return false;
   if (t.stagingFlow) return t.knowledgeConsolidated && t.parked === null && t.housekeepingFlags.includes('needs-consolidation');
   if (t.actions.some((a) => a.id === 'close' && a.offered)) return true;
+  // Jig offers to merge its open pull request, which closes the task too: no second way beside it.
+  if (offers(t, 'merge')) return false;
   return t.knowledgeConsolidated && t.pullRequest !== null && t.pullRequest.state !== 'closed';
 }
 
-const offers = (t: Live, action: string): boolean => t.actions.some((a) => a.id === action && a.offered);
-
 /**
  * What the project's Jig takes, for the writes a card offers: `task resume --revision`, `task pause --revision`, and a
- * person's landing, promotion and review request (`WRITES_JIG_VERSION`).
+ * person's landing, promotion, review request and merge (`WRITES_JIG_VERSION`).
  */
 interface Takes {
   resume: boolean;
@@ -214,6 +218,9 @@ const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
   // Jig offers it on every open pull request; on the board only a Review card's, the one into staging, asks.
   reviewRequestable: takes.writes && t.parked?.reason === 'review' && offers(t, 'request-review'),
   promotable: takes.writes && offers(t, 'promote'),
+  mergeable: takes.writes && offers(t, 'merge'),
+  // The forge is asked only when pressed; on the card only while the task can be neither merged nor landed from there.
+  statusable: takes.writes && offers(t, 'pr-status') && !offers(t, 'merge') && !offers(t, 'land'),
   staging: t.staging,
   parked: t.parked,
   stagingFlow: t.stagingFlow,
@@ -308,10 +315,12 @@ async function readProject(project: Project): Promise<Read> {
     const [status, list, queue, specs] = await Promise.all([readStatus(root), readTasks(root), readQueue(root), readSpecs(root)]);
     // Every task Jig lists on the staging flow says so; a project with none listed tells it only in its settings.
     const stagingFlow = list.tasks.length > 0 ? list.tasks.some((t) => t.stagingFlow) : await settingsSayStaging(root, jigVersion);
-    return { status, list, queue, specs, stagingFlow, jigVersion };
+    // Who merges a task's pull request depends on the person's `agent.git`: read only for an item about one to word.
+    const agentGit = !stagingFlow && status.attention.some((a) => a.taskPullRequest !== undefined) ? await agentGitOf(root) : null;
+    return { status, list, queue, specs, stagingFlow, agentGit, jigVersion };
   });
   if (!('list' in read)) return { view: read, tasks: read, details: [], specs: read, revision: null };
-  const { status, list, queue, specs, stagingFlow, jigVersion } = read;
+  const { status, list, queue, specs, stagingFlow, agentGit, jigVersion } = read;
   // Jig's own list holds the live ones; `finished` counts the closed and abandoned ones it left out, read on demand.
   const live = list.tasks.filter((t): t is Live => t.status === 'active' || t.status === 'ready');
   const queued = new Map(queue.items.map((q) => [q.id, q]));
@@ -338,6 +347,8 @@ async function readProject(project: Project): Promise<Read> {
       origin: status.origin,
       stagingFlow,
       closable: live.filter(closable).map((t) => t.id),
+      shipping: live.filter((t) => t.shipping !== null).map((t) => t.id),
+      agentGit,
       revision,
     },
     tasks: {
@@ -372,6 +383,15 @@ async function settingsSayStaging(root: string, jigVersion: string): Promise<boo
     throw error;
   });
   return settings?.keys.some((k) => k.key === 'git.flow' && k.value === 'staging') ?? false;
+}
+
+/** The person's `agent.git` in the clone, as `config keys` answers it; `null` when Jig refuses to say. */
+async function agentGitOf(root: string): Promise<string | null> {
+  const settings = await readSettings(root).catch((error: unknown) => {
+    if (error instanceof JigRefusal) return null;
+    throw error;
+  });
+  return settings?.keys.find((k) => k.key === 'agent.git')?.value ?? null;
 }
 
 /** The specs as the page shows them (`ProjectSpecs`): the queued epics by position, then the other open epics, then the rest. */
@@ -924,6 +944,8 @@ export function localSource(
     minimum: string,
     read: (root: string, jigVersion: string) => Promise<T>,
     taskId?: string,
+    /** The action Jig must offer on that task in the last read, for a read the action is. */
+    action?: string,
   ): Promise<
     | {
         state: 'ready';
@@ -940,7 +962,10 @@ export function localSource(
     const { jigVersion } = view;
     if (!supports(jigVersion, minimum)) return { id, state: 'unsupported', jigVersion, minimum };
     // Only a live task's id reaches Jig, never one the address made up (`--help`).
-    if (taskId !== undefined && !details.some((t) => t.id === taskId)) return { state: 'ready', read: null, jigVersion };
+    const live = details.find((t) => t.id === taskId);
+    if (taskId !== undefined && (!live || (action !== undefined && !live.actions.some((a) => a.id === action)))) {
+      return { state: 'ready', read: null, jigVersion };
+    }
     const entry = entryOf(project);
     // Jig replaces its own scripts while it upgrades (adr-20261027-upgrading-a-project-runs-in-the-background).
     if (entry.upgrade?.state === 'running') return { id, state: 'unreadable', code: 'upgrading' };
@@ -1152,6 +1177,35 @@ export function localSource(
       }
       const entry = entries.get(id);
       if (entry) entry.reviewers = new Set(read.candidates.map((c) => c.login));
+      return { state: 'ready', ...read };
+    },
+    merge(id, taskId, revision) {
+      return writing(
+        id,
+        [taskId],
+        async (root) => ({ state: 'written', merged: await mergePr(root, taskId, revision) }),
+        [],
+        (t) => t.mergeable,
+      );
+    },
+    async prStatus(id, taskId) {
+      const answer = await onDemand(
+        id,
+        WRITES_JIG_VERSION,
+        (root) =>
+          readPrStatus(root, taskId).catch((error: unknown) => {
+            // The forge not asked, or no pull request to ask about, is the panel's to say with Jig's why.
+            if (error instanceof JigRefusal && (error.code === 'forge-unavailable' || error.code === 'no-pull-request')) return error;
+            throw error;
+          }),
+        taskId,
+        'pr-status',
+      );
+      if (answer?.state !== 'ready') return answer;
+      const read = answer.read;
+      if (read === null || read instanceof JigRefusal) {
+        return { state: 'refused', code: read?.code ?? 'not-found', reasons: read?.reasons ?? [] };
+      }
       return { state: 'ready', ...read };
     },
     depend(id, taskId, on, reason, revision) {

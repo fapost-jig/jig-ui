@@ -22,7 +22,7 @@ paths:
   - web/components/StagingWork.vue
   - web/lib/staging.ts
 summary: "The workspace page: a list of the connected projects with search and the chosen one's card — Jig's attention items, the mark and count of projects whose Jig is older than the machine's, their upgrade from the card — and Find projects, which lists the Jig projects in a folder not connected yet"
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-19
 ---
 # Workspace — every connected project on one page
 
@@ -133,7 +133,14 @@ version in the header and one count are quicker to scan than an item inside each
   (adr-20261022-writes-carry-the-revision-of-their-read). Rejected: reading the board at the press for a
   revision — a revision of a read the person never saw; a link to the board — the drawing asked for a button.
   A refusal stays on the card until Dismiss, as Housekeeping's does. The item on a task's own page has no
-  button yet.
+  button.
+- From Jig 0.46.0 the items about a task's pull request (`pull-request-waiting`, `pull-request-was-open`) say it in
+  words from the forge cache — CI, whether it merges, the review, as of when — and, off the staging flow, who merges
+  it: the agent while its ship waits for CI (`shipping`), nobody at `agent.git: merge` without one, else the person
+  (`whoMerges` in `web/lib/pr-status.ts`). On the card they carry **Merge…**, **Land on staging** and **Status…** from
+  the item's `offers`, the board's writes with the card's revision; a landing refused `not-approved` points to the
+  Board, where **Land without review** is. The task's own page shows the words without the buttons
+  (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 - The agent's road is a copied request (*Upgrade Jig in <project>*), never an agent started:
   Jig UI runs no agents (adr-20261014-jig-ui-is-an-optional-layer-over-jig). It matters when the
   release asks for steps by hand, which the `jig-upgrade` skill does.

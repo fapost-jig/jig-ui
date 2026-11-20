@@ -6,6 +6,7 @@
     ArrowUpToLine,
     Ellipsis,
     GitMerge,
+    ListChecks,
     Pause,
     Play,
     Rocket,
@@ -31,7 +32,8 @@
   /**
    * What a drag does, in one press: a task's place in Jig's queue within its column, its priority, a pause asked of it, a
    * resume, and taking a task parked at the staging branch back for a fix (Jig's resume too). First, where Jig offers
-   * them on the staging flow, the person's own steps: landing on staging, asking for reviews, preparing for prod.
+   * them, the person's own steps on its pull request: merging it, or on the staging flow landing on staging, asking for
+   * reviews, preparing for prod; where none of them is offered, where its pull request stands.
    */
   const props = defineProps<{
     task: Task;
@@ -51,6 +53,8 @@
     land: [];
     review: [];
     promote: [];
+    merge: [];
+    status: [];
   }>();
 
   const cards = computed(() => props.cards ?? []);
@@ -74,10 +78,12 @@
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" class="w-44">
-      <template v-if="task.landable || task.reviewRequestable || task.promotable">
+      <template v-if="task.mergeable || task.landable || task.reviewRequestable || task.promotable || task.statusable">
+        <DropdownMenuItem v-if="task.mergeable" @select="emit('merge')"><GitMerge />Merge…</DropdownMenuItem>
         <DropdownMenuItem v-if="task.landable" @select="emit('land')"><GitMerge />Land on staging</DropdownMenuItem>
         <DropdownMenuItem v-if="task.reviewRequestable" @select="emit('review')"><UserPlus />Request review…</DropdownMenuItem>
         <DropdownMenuItem v-if="task.promotable" @select="emit('promote')"><Rocket />Prepare for prod…</DropdownMenuItem>
+        <DropdownMenuItem v-if="task.statusable" @select="emit('status')"><ListChecks />Status…</DropdownMenuItem>
         <DropdownMenuSeparator />
       </template>
       <template v-if="props.cards">

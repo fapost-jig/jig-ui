@@ -20,6 +20,7 @@ import {
   jigVersion,
   landTask,
   landUpgrade,
+  mergePr,
   planUpgrade,
   MIN_JIG_VERSION,
   moveInQueue,
@@ -31,6 +32,7 @@ import {
   readKnowledge,
   readKnowledgeText,
   readMachineJig,
+  readPrStatus,
   readQueue,
   readReviewers,
   readSettings,
@@ -372,6 +374,7 @@ describe('readTasks', () => {
       parked: null,
       promotion: null,
       spec: null,
+      shipping: null,
     });
     expect(read.tasks[0]?.actions.map((a) => a.id)).toEqual([
       'start',
@@ -2139,6 +2142,152 @@ describe('a person on the staging flow', () => {
     const dir = answering(`case-${cases++}`, changed(json, change));
     const run = json === 'task-land.json' ? landTask(dir, 'a', false, 1) : promoteTask(dir, 'a', 1);
     await expect(run).rejects.toBeInstanceOf(JigShapeError);
+  });
+});
+
+// task-merge-pr.json and task-pr-status.json are written from Jig 0.46.0's contract (schemas/json.md); the refusals and
+// status-pull-requests.json are what Jig 0.46.0 printed in a scratch repository on the staging flow with a local origin.
+describe('a person merging from the card', () => {
+  it('merges a pull request as the person, against the revision it was read at, and reads the close', async () => {
+    const dir = logging(`case-${cases++}`, 'task-merge-pr.json');
+    await expect(mergePr(dir, 'ship-it', 7)).resolves.toEqual({
+      pullRequest: 'https://github.com/o/r/pull/12',
+      outcome: 'merged',
+      closed: true,
+      closeBlocked: null,
+    });
+    expect(args(dir)).toEqual(['task', 'merge-pr', 'ship-it', '--by', 'human', '--revision', '7', '--json']);
+    const blocked = changed('task-merge-pr.json', (d) => {
+      d.merge.outcome = 'already-merged';
+      d.merge.closed = false;
+      d.merge.close_blocked = 'knowledge-not-recorded';
+    });
+    await expect(mergePr(answering(`case-${cases++}`, blocked), 'ship-it', 7)).resolves.toMatchObject({
+      outcome: 'already-merged',
+      closed: false,
+      closeBlocked: 'knowledge-not-recorded',
+    });
+  });
+
+  it('carries a merge Jig refused, with its line', async () => {
+    await expect(mergePr(answering(`case-${cases++}`, 'task-merge-pr-wrong-flow.json', 1), 'promo', 7)).rejects.toMatchObject({
+      code: 'wrong-flow',
+      reasons: ['the pull request of promo goes into staging, which is landed, not merged; land it: jig task land promo --by human'],
+    });
+    await expect(mergePr(answering(`case-${cases++}`, 'task-merge-pr-forge-unavailable.json', 1), 'rev-ok', 7)).rejects.toEqual(
+      refusal('forge-unavailable'),
+    );
+    const stale = changed('task-merge-pr-wrong-flow.json', () => {});
+    const notes = stale.replace('"wrong-flow"', '"notes-stale"');
+    await expect(mergePr(answering(`case-${cases++}`, notes, 1), 'promo', 7)).rejects.toEqual(refusal('notes-stale'));
+  });
+
+  it('reads where a pull request stands on the forge: each check, the review, the rules and what holds it back', async () => {
+    const dir = logging(`case-${cases++}`, 'task-pr-status.json');
+    const status = await readPrStatus(dir, 'ship-it');
+    expect(args(dir)).toEqual(['task', 'pr-status', 'ship-it', '--json']);
+    expect(status).toEqual({
+      pullRequest: { url: 'https://github.com/o/r/pull/12', state: 'open', draft: false, base: 'main', mergeable: 'clean' },
+      checks: {
+        state: 'red',
+        list: [
+          {
+            name: 'test (ubuntu)',
+            state: 'fail',
+            url: 'https://github.com/o/r/actions/runs/1/job/2',
+            startedAt: '2026-11-19T16:40:00Z',
+            completedAt: '2026-11-19T16:47:00Z',
+            durationS: 420,
+          },
+          {
+            name: 'test (macos)',
+            state: 'pending',
+            url: 'https://github.com/o/r/actions/runs/1/job/3',
+            startedAt: '2026-11-19T16:40:00Z',
+            completedAt: null,
+            durationS: 1200,
+          },
+          { name: 'lint', state: 'pass', url: null, startedAt: null, completedAt: null, durationS: null },
+        ],
+      },
+      review: { state: 'waiting', waitingFor: ['alice'] },
+      protection: { mergeState: 'blocked', requiredApprovals: 1, requiredChecks: ['test (ubuntu)', 'test (macos)'] },
+      blockers: ['ci-red', 'not-approved'],
+    });
+  });
+
+  it("carries a status Jig could not read, with Jig's why", async () => {
+    await expect(readPrStatus(answering(`case-${cases++}`, 'task-pr-status-no-pull-request.json', 1), 'promo')).rejects.toMatchObject({
+      code: 'no-pull-request',
+      reasons: ['promo has no pull request; run jig task ship promo first'],
+    });
+    await expect(readPrStatus(answering(`case-${cases++}`, 'task-pr-status-forge-unavailable.json', 1), 'rev-ok')).rejects.toEqual(
+      refusal('forge-unavailable'),
+    );
+  });
+
+  it.each([
+    ['task-merge-pr.json', (d: Record<string, any>) => (d.merge.outcome = 'queued')],
+    ['task-pr-status.json', (d: Record<string, any>) => (d.checks.list[0].state = 'skipping')],
+  ])('reads an answer of a later Jig in %s as one it does not read', async (json, change) => {
+    const dir = answering(`case-${cases++}`, changed(json, change));
+    await expect(json === 'task-merge-pr.json' ? mergePr(dir, 'a', 1) : readPrStatus(dir, 'a')).rejects.toBeInstanceOf(JigShapeError);
+  });
+
+  it("reads a task's pull request items as the forge cache had them, with the ids Jig offers and never their commands", async () => {
+    const read = await readStatus(answering('status-pull-requests', 'status-pull-requests.json'));
+    const items = read.attention.filter((a) => a.kind === 'pull-request-waiting');
+    expect(items.map((a) => [a.subject.id, a.taskPullRequest, a.offers])).toEqual([
+      [
+        'rev-changes',
+        {
+          state: 'open',
+          url: 'https://github.com/acme/stg/pull/3',
+          ci: 'red',
+          mergeable: 'mergeable',
+          review: { state: 'changes', waitingFor: [] },
+          fetchedAt: '2026-11-17T12:00:00Z',
+        },
+        ['resume', 'pr-status'],
+      ],
+      [
+        'rev-ok',
+        {
+          state: 'open',
+          url: 'https://github.com/acme/stg/pull/2',
+          ci: 'green',
+          mergeable: 'mergeable',
+          review: { state: 'approved', waitingFor: [] },
+          fetchedAt: '2026-11-17T12:00:00Z',
+        },
+        ['land', 'pr-status'],
+      ],
+      // Shipped after the last housekeeping run: the cache has no entry for it yet.
+      ['rev-unknown', null, ['pr-status']],
+      [
+        'rev-wait',
+        {
+          state: 'open',
+          url: 'https://github.com/acme/stg/pull/1',
+          ci: 'green',
+          mergeable: 'mergeable',
+          review: { state: 'waiting', waitingFor: ['alice', 'bob'] },
+          fetchedAt: '2026-11-17T12:00:00Z',
+        },
+        ['pr-status'],
+      ],
+    ]);
+    // A withheld action's reason may name a path; neither it nor a command reaches past the client.
+    expect(JSON.stringify(read.attention)).not.toMatch(/knowledge_consolidated true|jig task land rev-ok --by human"/);
+    expect(items.every((a) => !('pullRequest' in a))).toBe(true);
+  });
+
+  it("reads a task's shipping, while its ship waits for CI and merges it itself", async () => {
+    const shipping = changed('task-list-staging-review.json', (d) => (d.tasks[0].shipping = { since: '2026-11-19T16:00:00Z' }));
+    const { tasks } = await readTasks(answering(`case-${cases++}`, shipping));
+    expect(tasks.map((t) => t.shipping)).toEqual([{ since: '2026-11-19T16:00:00Z' }, ...tasks.slice(1).map(() => null)]);
+    const old = changed('task-list.json', () => {});
+    expect((await readTasks(answering(`case-${cases++}`, old))).tasks.every((t) => t.shipping === null)).toBe(true);
   });
 });
 

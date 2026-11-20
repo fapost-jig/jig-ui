@@ -8,6 +8,14 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- With Jig 0.46.0 in the project, a card's ⋯ menu has **Merge…** where Jig offers to merge its pull request: after
+  asking, it merges it into its base as you (`jig task merge-pr --by human`), and Jig closes the task with it once its
+  knowledge decision is recorded; such a card has no ✕. Where it cannot be merged or landed, **Status…** asks the forge
+  where the pull request stands (`jig task pr-status`, only when you press): each check and how long it ran, a link to
+  the one that failed, the review, the base branch's rules, and what holds the merge back. On a project's card the
+  items about a pull request say it in words — CI, conflicts, the review, how long ago — and who merges it, with
+  **Merge…**, **Land on staging** and **Status…** where Jig offers them.
+  ([Merging a task's pull request](/projects#merging-a-tasks-pull-request))
 - On Jig's staging flow, a drag of a card from **Review** onto **On staging** lands it, the same as **Land on staging**
   in its ⋯ menu: while the review is not approved Jig lands nothing, the card stays in Review, and the line above the
   board says whom it waits for. ([Land, ask for a review, prepare for prod](/projects#land-ask-for-a-review-prepare-for-prod))

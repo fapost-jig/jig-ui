@@ -343,6 +343,14 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         return c.json({ reviewers: read }, 200);
       })
 
+      // Where a task's pull request stands on the forge now: Jig asks the forge, so only on a press, and only for a task
+      // Jig offered it on in the last read.
+      .get('/api/projects/:id/tasks/:task/pr-status', async (c) => {
+        const read = await source.prStatus(c.req.param('id'), c.req.param('task'));
+        if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
+        return c.json({ prStatus: read }, 200);
+      })
+
       .get('/api/projects/:id/settings', async (c) => {
         const read = await source.settings(c.req.param('id'));
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
@@ -619,6 +627,16 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         if (task === undefined || revision === undefined) return refuse(c, 422, 'usage', 'Give a task and the revision it was read at.');
         const w = await source.promote(c.req.param('id'), task, revision);
         if (w?.state === 'written' && w.promoted) return c.json({ promoted: w.promoted }, 200);
+        return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
+      })
+
+      // A person's merge of a task's pull request into its base, as Jig's `merge` offers it; Jig closes the task with it
+      // once its knowledge decision is recorded. Answered with what Jig did once the project was read again.
+      .post('/api/projects/:id/tasks/merge', validator('json', taskAt), async (c) => {
+        const { task, revision } = c.req.valid('json');
+        if (task === undefined || revision === undefined) return refuse(c, 422, 'usage', 'Give a task and the revision it was read at.');
+        const w = await source.merge(c.req.param('id'), task, revision);
+        if (w?.state === 'written' && w.merged) return c.json({ merged: w.merged }, 200);
         return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
       })
 

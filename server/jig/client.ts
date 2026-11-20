@@ -363,6 +363,8 @@ const CODES = new Set([
   'shallow-clone',
   'reviewer-unknown',
   'git-level',
+  // A person's merge of a task's pull request into its base (Jig 0.46.0).
+  'notes-stale',
   'failed',
 ]);
 
@@ -448,6 +450,26 @@ const text = z.string();
 const maybe = z.string().nullable();
 const count = z.int().nonnegative();
 
+/** What a person may do next with a task, as Jig decides it from the task's state. */
+const TaskAction = z.object({
+  id: text,
+  /** The Jig command that takes it; a word in `<…>` is a value the person supplies. */
+  command: text,
+  offered: z.boolean(),
+  /** Jig's refusal, word for word, when not offered; it may name a path. */
+  reason: maybe,
+});
+export type TaskAction = z.output<typeof TaskAction>;
+
+/** A pull request's review as the forge cache last heard it (Jig 0.46.0): who it still waits for, by login. */
+const Review = z
+  .object({ state: z.enum(['approved', 'changes', 'waiting', 'none']), waiting_for: z.array(text) })
+  .transform(({ state, waiting_for }) => ({ state, waitingFor: waiting_for }));
+
+const UPGRADE_PULL_REQUEST = ['upgrade-pull-request-waiting', 'upgrade-pull-request-merged'];
+/** The items about a task's own pull request; `was-open` is the last housekeeping run's word, and may have merged since. */
+const TASK_PULL_REQUEST = ['pull-request-waiting', 'pull-request-was-open'];
+
 /** Something that needs the person, as `jig status --json` reports it; a kind this Jig UI does not know is shown by its texts. */
 const Attention = z
   .object({
@@ -464,8 +486,23 @@ const Attention = z
       .object({ from: text.optional(), to: maybe })
       .nullish()
       .transform((v) => v ?? null),
-    // Only on the `upgrade-pull-request-*` kinds: the upgrade's branch, the base it goes into, `open` or `merged`.
-    pull_request: z.object({ branch: text, base: text, state: text, fetched_at: maybe }).nullish(),
+    // On the `upgrade-pull-request-*` kinds: the upgrade's branch, the base it goes into, `open` or `merged`. On a task's
+    // `pull-request-waiting` and `pull-request-was-open` (Jig 0.46.0) its pull request as the forge cache had it too, with
+    // its address, CI, mergeability and review, each `null` where the cache does not say.
+    pull_request: z
+      .object({
+        branch: text,
+        base: text,
+        state: text,
+        fetched_at: maybe,
+        url: maybe.optional(),
+        ci: maybe.optional(),
+        mergeable: maybe.optional(),
+        review: Review.nullable().optional(),
+      })
+      .nullish(),
+    // On a task's two pull request kinds (Jig 0.46.0): the task's rows of Jig's actions; a reason may name a path.
+    actions: z.array(TaskAction).optional(),
     // On `staging-unowned` from Jig 0.46.0: how many of the reader's own commits it is about, and the newest 20 of them.
     // Jig 0.45.0 gives the count alone, of everyone's commits; `staging-unpromoted` a `staging` of another shape. Jig UI
     // reads neither.
@@ -477,14 +514,32 @@ const Attention = z
       .nullish(),
   })
   .refine((a) => a.kind !== 'upgrade-available' || (typeof a.versions?.from === 'string' && typeof a.versions.to === 'string'))
-  .refine((a) => !['upgrade-pull-request-waiting', 'upgrade-pull-request-merged'].includes(a.kind) || a.pull_request != null)
+  .refine((a) => !UPGRADE_PULL_REQUEST.includes(a.kind) || a.pull_request != null)
   .refine((a) => a.kind !== 'staging-unowned' || a.staging == null || a.staging.commits !== undefined)
-  .transform(({ versions, pull_request, staging, ...item }) => ({
+  .transform(({ versions, pull_request, staging, actions, ...item }) => ({
     ...item,
     versions: item.kind === 'upgrade-available' && versions ? { from: versions.from as string, to: versions.to as string } : null,
     // The upgrade's pull request, as the forge cache of the last `jig housekeeping` had it; only on its two kinds.
-    ...(pull_request
+    ...(pull_request && UPGRADE_PULL_REQUEST.includes(item.kind)
       ? { pullRequest: { branch: pull_request.branch, base: pull_request.base, state: pull_request.state, to: versions?.to ?? null } }
+      : {}),
+    // From Jig 0.46.0, which gives the item its actions: a task's pull request as the cache had it, and the ids of the
+    // actions Jig offers on it — never their commands or reasons; `null` while the cache has no entry for it (shipped
+    // after the last housekeeping run). An older Jig's item is its texts alone.
+    ...(TASK_PULL_REQUEST.includes(item.kind) && actions
+      ? {
+          taskPullRequest: pull_request
+            ? {
+                state: pull_request.state,
+                url: pull_request.url ?? null,
+                ci: pull_request.ci ?? null,
+                mergeable: pull_request.mergeable ?? null,
+                review: pull_request.review ?? null,
+                fetchedAt: pull_request.fetched_at,
+              }
+            : null,
+          offers: actions.filter((a) => a.offered && ACTIONS.has(a.id)).map((a) => a.id),
+        }
       : {}),
     // The person's own work on staging, never the command that marks it as known: Jig UI puts that together itself.
     ...(item.kind === 'staging-unowned' && staging?.commits !== undefined && staging.list
@@ -557,23 +612,9 @@ const ACTIONS = new Set([
   'land',
   'promote',
   'request-review',
+  'merge',
+  'pr-status',
 ]);
-
-/** What a person may do next with a task, as Jig decides it from the task's state. */
-const TaskAction = z.object({
-  id: text,
-  /** The Jig command that takes it; a word in `<…>` is a value the person supplies. */
-  command: text,
-  offered: z.boolean(),
-  /** Jig's refusal, word for word, when not offered; it may name a path. */
-  reason: maybe,
-});
-export type TaskAction = z.output<typeof TaskAction>;
-
-/** A pull request's review as the forge cache last heard it (Jig 0.46.0): who it still waits for, by login. */
-const Review = z
-  .object({ state: z.enum(['approved', 'changes', 'waiting', 'none']), waiting_for: z.array(text) })
-  .transform(({ state, waiting_for }) => ({ state, waitingFor: waiting_for }));
 
 /** A task as `jig task list --all --json` reports it, as far as Jig UI reads it; the statuses are Jig's (schemas/state.md). */
 const TaskRow = z
@@ -624,6 +665,8 @@ const TaskRow = z
       .optional(),
     /** From Jig 0.46.0: the spec the task was filed from, by its `Spec:` line; `epic` the branch its roadmap declares. */
     spec: z.object({ id: text, title: maybe, phase: z.number().int().nullable(), epic: maybe }).nullable().optional(),
+    /** From Jig 0.46.0: a `jig task ship` of the task waits for CI and merges its pull request itself, since when. */
+    shipping: z.object({ since: text }).nullable().optional(),
   })
   .transform(({ autopilot: run, pull_request: pr, ...t }) => {
     // Jig 0.45.0 has no `promotion`: the state and CI of a task on the staging side were the promotion's, the url the
@@ -669,6 +712,7 @@ const TaskRow = z
           ? { url: null, state: pr.state, ci: pr.ci, fetchedAt: pr.fetched_at }
           : null
         : (t.promotion ?? null),
+      shipping: t.shipping ?? null,
       // Whether the task goes into the spec's epic, never the epic's branch: a task nobody started is cut from it, a
       // started one goes where its base is.
       spec: t.spec
@@ -1279,8 +1323,98 @@ export async function requestReview(
   return parsed(ReviewRequested, (await readJson(root, args, platform, STAGING_WRITE_TIMEOUT_MS)).data).review_request.requested;
 }
 
-/** Reading the reviewers asks the forge for the last merged pull requests and their reviews. */
-const REVIEWERS_TIMEOUT_MS = 60_000;
+/** What a person's merge of the task's pull request did (`jig task merge-pr --by human --json`, Jig 0.46.0). */
+const Merged = z
+  .object({
+    merge: z.object({
+      pull_request: text,
+      outcome: z.enum(['merged', 'already-merged']),
+      closed: z.boolean(),
+      close_blocked: z.enum(['knowledge-not-recorded', 'not-in-base']).nullable(),
+    }),
+  })
+  .transform(({ merge }) => ({
+    pullRequest: merge.pull_request,
+    outcome: merge.outcome,
+    closed: merge.closed,
+    closeBlocked: merge.close_blocked,
+  }));
+export type Merged = z.output<typeof Merged>;
+
+/**
+ * Merges the task's pull request into its own base on the forge as the person's decision (`jig task merge-pr <id> --by
+ * human`, Jig 0.46.0) and closes the task in the same write once its knowledge decision is recorded: the git level is not
+ * read, CI and the review are looked at once, never waited for. Refused as `ci-red`, `ci-pending`, `ci-none`,
+ * `not-approved` with Jig's words on whom it waits for, `conflict`, `draft`, `mergeable-unknown`, `notes-stale`,
+ * `ship-running`, `wrong-flow` (a pull request into staging, which is landed) and the rest — all but `forge-refused` and
+ * `stale-revision` before anything is sent —, Jig's line as `reasons`.
+ */
+export async function mergePr(root: string, task: string, revision: number, platform: NodeJS.Platform = process.platform): Promise<Merged> {
+  const args = ['task', 'merge-pr', task, '--by', 'human', '--revision', String(revision)];
+  return parsed(Merged, (await readJson(root, args, platform, STAGING_WRITE_TIMEOUT_MS)).data);
+}
+
+/** Reading the reviewers or a pull request's status asks the forge. */
+const FORGE_READ_TIMEOUT_MS = 60_000;
+
+/** Where a task's pull request stands on the forge now (`jig task pr-status <id> --json`, Jig 0.46.0). */
+const PrStatus = z
+  .object({
+    pull_request: z.object({
+      url: text,
+      state: z.enum(['open', 'merged', 'closed']),
+      draft: z.boolean(),
+      base: text,
+      mergeable: z.enum(['clean', 'conflict', 'unknown']),
+    }),
+    checks: z.object({
+      state: z.enum(['red', 'pending', 'green', 'none']),
+      list: z.array(
+        z.object({
+          name: text,
+          state: z.enum(['pass', 'fail', 'pending', 'skipped', 'cancel']),
+          url: maybe,
+          started_at: maybe,
+          completed_at: maybe,
+          duration_s: count.nullable(),
+        }),
+      ),
+    }),
+    review: z.object({ state: z.enum(['approved', 'changes', 'waiting', 'none', 'unknown']), waiting_for: z.array(text) }),
+    protection: z.object({ merge_state: maybe, required_approvals: count.nullable(), required_checks: z.array(text).nullable() }),
+    blockers: z.array(text),
+  })
+  .transform(({ pull_request: pr, checks, review, protection, blockers }) => ({
+    pullRequest: { url: pr.url, state: pr.state, draft: pr.draft, base: pr.base, mergeable: pr.mergeable },
+    checks: {
+      state: checks.state,
+      list: checks.list.map((c) => ({
+        name: c.name,
+        state: c.state,
+        url: c.url,
+        startedAt: c.started_at,
+        completedAt: c.completed_at,
+        durationS: c.duration_s,
+      })),
+    },
+    review: { state: review.state, waitingFor: review.waiting_for },
+    protection: {
+      mergeState: protection.merge_state,
+      requiredApprovals: protection.required_approvals,
+      requiredChecks: protection.required_checks,
+    },
+    blockers,
+  }));
+export type PrStatus = z.output<typeof PrStatus>;
+
+/**
+ * Where the task's pull request stands on the forge now — each check, the review, the base branch's rules and what holds
+ * the merge back — for the person about to decide: the read asks the forge, so it is made when a person presses, never
+ * on a timer, and writes nothing. Refused as `no-pull-request` and `forge-unavailable`, Jig's line as `reasons`.
+ */
+export async function readPrStatus(root: string, task: string, platform: NodeJS.Platform = process.platform): Promise<PrStatus> {
+  return parsed(PrStatus, (await readJson(root, ['task', 'pr-status', task], platform, FORGE_READ_TIMEOUT_MS)).data);
+}
 
 /** Whom the forge offers to review a pull request into the staging branch (`jig pr reviewers --json`, Jig 0.46.0). */
 const Reviewers = z
@@ -1298,7 +1432,7 @@ export type Reviewers = z.output<typeof Reviewers>;
  * `reasons`.
  */
 export async function readReviewers(root: string, platform: NodeJS.Platform = process.platform): Promise<Reviewers> {
-  return parsed(Reviewers, (await readJson(root, ['pr', 'reviewers'], platform, REVIEWERS_TIMEOUT_MS)).data);
+  return parsed(Reviewers, (await readJson(root, ['pr', 'reviewers'], platform, FORGE_READ_TIMEOUT_MS)).data);
 }
 
 /**

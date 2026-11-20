@@ -231,6 +231,8 @@ describe('/api/projects and /api/workspace', () => {
     origin: null,
     stagingFlow: false,
     closable: [],
+    shipping: [],
+    agentGit: null,
     revision: 1,
   };
 
@@ -844,6 +846,44 @@ describe('/api/projects/:id/queue', () => {
     expect((await post(fake, '/api/projects/x/tasks/promote', { task: 'a', revision: 2 })).status).toBe(409);
     expect((await post(fake, '/api/projects/x/tasks/land', { task: 'a', revision: 3 }, {})).status).toBe(401);
     expect((await fake.request('/api/projects/x/reviewers', { headers: { host: HOST } })).status).toBe(401);
+  });
+
+  it('merges and reads where a pull request stands through the port, answering what Jig did', async () => {
+    const asked: unknown[][] = [];
+    const merged = { pullRequest: 'https://github.com/o/r/pull/12', outcome: 'merged' as const, closed: true, closeBlocked: null };
+    let outcome: Written | undefined;
+    const status = {
+      state: 'refused' as const,
+      code: 'forge-unavailable',
+      reasons: ['the forge cannot be asked: no forge configured'],
+    };
+    const source: ProjectSource = {
+      ...localSource(join(webRoot, 'fake-config')),
+      merge: (...args) => (asked.push(['merge', ...args]), Promise.resolve(outcome ?? { state: 'written', merged })),
+      prStatus: (...args) => (asked.push(['status', ...args]), Promise.resolve(status)),
+    };
+    const fake = createApp({ port: PORT, token: TOKEN, source, webRoot });
+    expect(await (await post(fake, '/api/projects/x/tasks/merge', { task: 'a', revision: 3 })).json()).toEqual({ merged });
+    const read = await fake.request('/api/projects/x/tasks/a/pr-status', { headers: { host: HOST, cookie: COOKIE } });
+    expect(await read.json()).toEqual({ prStatus: status });
+    expect(asked).toEqual([
+      ['merge', 'x', 'a', 3],
+      ['status', 'x', 'a'],
+    ]);
+    for (const body of [{ task: 'a' }, { revision: 3 }]) {
+      const res = await post(fake, '/api/projects/x/tasks/merge', body);
+      expect([res.status, ((await res.json()) as { error?: { code: string } }).error?.code]).toEqual([422, 'usage']);
+    }
+    outcome = { state: 'refused', code: 'ci-red', reasons: ['not merged: a check failed'] };
+    const refused = await post(fake, '/api/projects/x/tasks/merge', { task: 'a', revision: 3 });
+    expect([refused.status, await refused.json()]).toEqual([
+      422,
+      { error: { code: 'ci-red', message: 'Jig refused the change.', reasons: ['not merged: a check failed'] } },
+    ]);
+    outcome = { state: 'refused', code: 'stale-revision' };
+    expect((await post(fake, '/api/projects/x/tasks/merge', { task: 'a', revision: 2 })).status).toBe(409);
+    expect((await post(fake, '/api/projects/x/tasks/merge', { task: 'a', revision: 3 }, {})).status).toBe(401);
+    expect((await fake.request('/api/projects/x/tasks/a/pr-status', { headers: { host: HOST } })).status).toBe(401);
   });
 
   it("runs a person's write on a task through the port, an abandon's reason required, and answers Jig's note", async () => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ChevronDown, ChevronRight } from '@lucide/vue';
   import { computed, ref } from 'vue';
-  import type { Column, Place, ReadyDetails, Reviewers } from '@/api';
+  import type { Column, Place, PrStatus, ReadyDetails, Reviewers } from '@/api';
   import type { StagingStep } from '@/lib/staging';
   import { Badge } from '@/components/ui/badge';
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -35,6 +35,11 @@
     reviewing?: {
       task: string;
       reviewers?: Reviewers;
+    };
+    /** The task whose pull request's status is open, and the forge's answer once read. */
+    prStatus?: {
+      task: string;
+      read?: PrStatus;
     };
   }>();
 
@@ -140,6 +145,7 @@
                   :changed="changed?.includes(task.id)"
                   :spec-opens="!!task.spec && !!specs?.includes(task.spec.id)"
                   :reviewing="reviewing?.task === task.id ? reviewing : undefined"
+                  :pr-status="prStatus?.task === task.id ? prStatus : undefined"
                   @select="$emit('select', task.id)"
                   @move="(place) => $emit('move', task.id, place)"
                   @prioritise="(p) => $emit('prioritise', task.id, p)"

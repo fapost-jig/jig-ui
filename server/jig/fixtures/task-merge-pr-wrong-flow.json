@@ -1,0 +1,1 @@
+{"schema":1,"revision":1794936909,"generated_at":"2026-11-19T16:52:09Z","error":{"code":"wrong-flow","message":"task merge-pr: the pull request of promo goes into staging, which is landed, not merged; land it: jig task land promo --by human"}}

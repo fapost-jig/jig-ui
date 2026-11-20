@@ -98,6 +98,13 @@ done, or moving.
   Unlike the other refusals, a refused close is said in Jig's own words — its `jig: error:` lines with
   the paths cut out (`closeRefusal` in `web/lib/refusal.ts`) — because the reason (pull request not
   merged, knowledge decision not recorded) is what the person needs, and only Jig knows it.
+- Off the staging flow, from Jig 0.46.0, **Merge…** is first in the menu of a card whose pull request Jig offers to
+  merge (`mergeable`), and such a card has no ✕: after a question (`WriteConfirm`) it runs `jig task merge-pr <id> --by
+  human`, which closes the task once its knowledge decision is recorded; the line above the board says whether it
+  closed, and a refusal says why, with **Status…** beside it where the forge can say more. A card that can be neither
+  merged nor landed has **Status…** (`statusable`): a panel on the card that asks `jig task pr-status` only then — each
+  check and how long it ran, the review, the base branch's rules, what holds the merge back
+  (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 - On Jig's staging flow (0.45.0) a task's pull request goes into a staging branch and the task waits
   there, parked, while it is tested (adr-20261113-a-task-parked-at-staging-is-not-done). A task parked for
   its review is in Review and says the review's state — whom it waits for, changes requested, approved and

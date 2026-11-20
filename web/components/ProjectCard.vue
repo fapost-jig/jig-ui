@@ -1,10 +1,11 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
   import { Bell, BellDot, Ellipsis, ExternalLink, Settings, Unplug } from '@lucide/vue';
-  import { link, type Project } from '@/api';
+  import { link, type PrStatus, type Project } from '@/api';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+  import { whoMerges } from '@/lib/pr-status';
   import { type ClosingState, closableTask, type HousekeepingState, type RefreshState } from '@/lib/projects';
   import { staleFetch } from '@/lib/refresh';
   import { type AckState, bellOf, listed } from '@/lib/staging';
@@ -27,8 +28,13 @@
     reading?: boolean;
     /** Housekeeping from the card: under way, or what came of it until dismissed. */
     housekeeping?: HousekeepingState;
-    /** A task closed from one of the card's items: under way, or what Jig refused until dismissed. */
+    /** A task closed, merged or landed from one of the card's items: under way, or what came of it until dismissed. */
     closing?: ClosingState;
+    /** The task whose pull request's status is open under its item, and the forge's answer once read. */
+    prStatus?: {
+      task: string;
+      read?: PrStatus;
+    };
     /** Refresh from the card: under way, or what came of it until dismissed. */
     refresh?: RefreshState;
     /** Mark as known on the bell's list: under way, or what Jig refused until dismissed. */
@@ -36,8 +42,15 @@
   }>();
 
   const board = computed(() => `/projects/${encodeURIComponent(props.project.id)}`);
-  /** The task whose close question is open: held by its id, so a list that shifts under it never moves it to another. */
+  /** The item whose question is open: held by its kind and task, so a list that shifts under it never moves it to another. */
   const asking = ref<string>();
+  const keyOf = (item: {
+    kind: string;
+    subject: {
+      id: string | null;
+    };
+  }) => `${item.kind}:${item.subject.id ?? ''}`;
+
   const mark = computed(() => upgradeMark(props.project));
   /** The clone last fetched more than a day ago; its Refresh is beside it unless Jig's behind-origin item has one. */
   const stale = computed(() => (props.project.state === 'ready' ? staleFetch(props.project.origin) : undefined));
@@ -80,7 +93,13 @@
     dismissRefresh: [];
     /** Close task on a merged task's item, confirmed: the view closes it as done. */
     closeTask: [task: string];
+    /** Merge on a pull request's item, confirmed, and Land on staging: the view writes it as the person. */
+    mergeTask: [task: string];
+    landTask: [task: string];
     dismissClose: [];
+    /** Status… on a pull request's item, and its Close: the view asks the forge where it stands, or closes that. */
+    openStatus: [task: string];
+    closeStatus: [];
     /** Mark as known on the bell's list: the view asks Jig to mark the person's commits on staging it lists. */
     ackStaging: [expect: number, shas: string[]];
     dismissAck: [];
@@ -179,18 +198,34 @@
             :item="item"
             :project="project.id"
             :closes="closableTask(project, item)"
-            :closing="closing?.state === 'running' && closing.task === item.subject.id"
-            :asking="asking !== undefined && asking === item.subject.id"
+            :writes="project.upgrade?.state !== 'running'"
+            :who="whoMerges(project, item)"
+            :writing="closing?.state === 'running' && closing.task === item.subject.id ? closing.write : undefined"
+            :pr-status="prStatus && prStatus.task === item.subject.id && item.taskPullRequest !== undefined ? prStatus : undefined"
+            :asking="asking === keyOf(item)"
             :refreshable="project.upgrade?.state !== 'running'"
             :refreshing="refresh?.state === 'running'"
-            @update:asking="(open) => (asking = open ? (item.subject.id ?? undefined) : undefined)"
+            @update:asking="(open) => (asking = open ? keyOf(item) : undefined)"
             @close="(task) => $emit('closeTask', task)"
+            @merge="(task) => $emit('mergeTask', task)"
+            @land="(task) => $emit('landTask', task)"
+            @status="(task) => $emit('openStatus', task)"
+            @unstatus="$emit('closeStatus')"
             @refresh="$emit('refresh')"
           />
         </li>
       </ul>
-      <div v-if="closing?.state === 'refused'" :class="toneRule.bad" class="flex flex-col gap-1 text-[13px]">
-        <p>{{ closing.message }}</p>
+      <div
+        v-if="closing && closing.state !== 'running'"
+        :class="closing.state === 'done' ? toneRule.good : toneRule.bad"
+        class="flex flex-col gap-1 text-[13px]"
+      >
+        <p>
+          {{ closing.message }}
+          <RouterLink v-if="closing.state === 'refused' && closing.board" :to="board" class="underline underline-offset-2">
+            Land it from the Board
+          </RouterLink>
+        </p>
         <Button variant="ghost" size="xs" class="self-start" @click="$emit('dismissClose')">Dismiss</Button>
       </div>
       <p v-if="project.housekeepingStale" class="text-[13px] text-muted-foreground">

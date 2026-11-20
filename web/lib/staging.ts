@@ -41,14 +41,18 @@ export function countOf(staging: OwnStaging): string {
 }
 
 /**
- * A step a card's menu takes on the staging flow, up to the view: land it, prepare it for prod (once asked on the card),
- * open the review request — the view reads whom the forge offers —, close it, or ask the logins ticked.
+ * A step a card's menu takes on its pull request, up to the view: land it on staging, prepare it for prod or merge it
+ * (each once asked on the card), open the review request — the view reads whom the forge offers —, close it, or ask the
+ * logins ticked; open where the pull request stands — the view asks the forge —, or close that.
  */
 export type StagingStep =
   | 'land'
   | 'promote'
+  | 'merge'
   | 'review'
   | 'unreview'
+  | 'status'
+  | 'unstatus'
   | {
       ask: string[];
     };

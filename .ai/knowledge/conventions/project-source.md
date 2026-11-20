@@ -79,7 +79,11 @@ steps on the staging flow `landOnStaging(id, taskId, withoutReview, revision)` �
 `promote(id, taskId, revision)` and `requestReview(id, taskId, logins, revision)`, each only for a task its last read
 shows `landable`, `promotable` or `reviewRequestable`, any other `not-found` without Jig, and the logins only among
 those the last `reviewers(id)` named, a forge read on demand whose logins the adapter keeps in memory
-(adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), and the
+(adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), a person's merge `merge(id, taskId,
+revision)`, only for a task its last read shows `mergeable`, and the forge's word on a task's pull request
+`prStatus(id, taskId)`, read on demand only for a live task whose last read offered `pr-status` — a card shows it as
+`statusable` where it can be neither merged nor landed, and is not `closable` where Jig offers `merge` —, its
+`forge-unavailable` and `no-pull-request` answered as refusals (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), and the
 knowledge waiting for a decision — `knowledge(id)`, with a revision of its own and whether the project's Jig
 reads a document's text, drops a link and decides several documents in one write (`canRead`, `canDrop`,
 `canDecideMany`), a linked file's diff `knowledgeDiff(id, doc)`
@@ -114,7 +118,9 @@ read again (adr-20261022-writes-carry-the-revision-of-their-read). A write whose
 the page says to update Jig UI. A board's `revision` is the
 lowest of its reads' revisions (status, task list, queue); a ready project as the workspace shows it carries the
 same `revision` and the ids of the tasks its board would offer to close (`closable`), for a close from its card
-(task `close-from-attention`). `fileTask` is the exception: its id is
+(task `close-from-attention`), and the ids of the tasks whose ship waits for CI to merge them (`shipping`) and, off the
+staging flow while an item is about a task's pull request, the person's `agent.git` (`agentGit`, else `null`), for the
+item's "who merges" (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card). `fileTask` is the exception: its id is
 new, so it names no live task and carries no revision; `http/` checks the id and the goal against
 Jig's grammar before the port sees them (adr-20261022-filing-a-task-carries-no-revision). `housekeeping` is the other:
 it names no task and acts on the clone as it is, under Jig's own lock

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import type { Column, Place, ReadyDetails, Reviewers } from '@/api';
+  import type { Column, Place, PrStatus, ReadyDetails, Reviewers } from '@/api';
   import type { StagingStep } from '@/lib/staging';
   import { useDrop } from '@/lib/drop';
   import { columnAccent } from '@/lib/tones';
@@ -28,6 +28,11 @@
     reviewing?: {
       task: string;
       reviewers?: Reviewers;
+    };
+    /** The task whose pull request's status is open, and the forge's answer once read. */
+    prStatus?: {
+      task: string;
+      read?: PrStatus;
     };
   }>();
 
@@ -97,6 +102,7 @@
             :changed="changed?.includes(task.id)"
             :spec-opens="!!task.spec && !!specs?.includes(task.spec.id)"
             :reviewing="reviewing?.task === task.id ? reviewing : undefined"
+            :pr-status="prStatus?.task === task.id ? prStatus : undefined"
             @toggle="$emit('toggle', task.id)"
             @move="(place) => $emit('move', task.id, place)"
             @prioritise="(p) => $emit('prioritise', task.id, p)"
