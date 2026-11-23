@@ -600,8 +600,13 @@ jig_source_release() {
 # status.showUntrackedFiles=no in someone's git config, plain --porcelain
 # hides untracked files and a dirty checkout would read as clean. Shared with
 # self-update, which refuses a checkout with changes for the same reason.
+# Jig only asks someone's framework checkout about its changes and must not
+# take that checkout's index lock: git status otherwise refreshes the index and
+# holds .git/index.lock, colliding with the person's own git or with a parallel
+# copy of the tree. The env var rather than --no-optional-locks because an
+# older git ignores the variable but would reject the flag.
 jig_source_changes() {
-  git -C "$1" status --porcelain --untracked-files=all 2>/dev/null
+  GIT_OPTIONAL_LOCKS=0 git -C "$1" status --porcelain --untracked-files=all 2>/dev/null
 }
 
 # jig_source_clean <dir> — true when checkout <dir> has no tracked, staged or
@@ -1966,7 +1971,7 @@ _jig_bcs_judge() {
   if [ "$depth" -gt 0 ] && [ -n "$_JIG_BCS_TIPS" ]; then
     cut=$(printf '%s\n' "$line" | _JIG_BCS_V="$_JIG_BCS_TIPS" awk '
       BEGIN { n = split(ENVIRON["_JIG_BCS_V"], a, "\n"); for (i = 1; i <= n; i++) { split(a[i], f, " "); if (f[1] != "") t[f[1]] = f[2] } }
-      NF && ($1 in t) { r = t[$1]; sub(/^refs\/remotes\/origin\//, "", r); print $1 "\t" r; exit }')
+      NF && !done && ($1 in t) { r = t[$1]; sub(/^refs\/remotes\/origin\//, "", r); print $1 "\t" r; done = 1 }')
     if [ -n "$cut" ]; then
       printf '%s\t-\tcut from %s\n' "${cut%%$'\t'*}" "${cut#*$'\t'}"
       return 0
@@ -2023,7 +2028,7 @@ EOF
     # Judged at the commit that was merged.
     sub=$(_jig_bcs_judge "$p" "$base" "$stage" $((depth + 1)))
     [ -n "$sub" ] || return 1
-    why=$(printf '%s\n' "$sub" | awk -F '\t' 'NF { print $3; exit }')
+    why=$(printf '%s\n' "$sub" | awk -F '\t' '!d && NF { print $3; d = 1 }')
     case "$why" in
       "cut from "*) printf '%s, which itself is %s\n' "$dep" "$why" ;;
       *", which itself is nested too deep to judge") printf '%s, which itself is nested too deep to judge\n' "$dep" ;;
@@ -2272,14 +2277,74 @@ jig_fresh_base_ref() {
   fi
 }
 
-# jig_git_batch_ssh — the value for GIT_SSH_COMMAND that adds `-o
-# BatchMode=yes` on top of whatever SSH command the environment already
-# names (plain `ssh` when nothing does), so an `ssh://` or `git@` remote
-# fails a password/passphrase prompt instead of waiting for it. Paired with
-# `GIT_TERMINAL_PROMPT=0`, which does the same for git's own credential
-# helper (HTTPS remotes): together they cover every interactive-credential
-# path git has, on every network call that must never sit waiting for input
-# nobody will type (this task).
+# _jig_ssh_first_word <command> — the first word of an SSH command line as git
+# reads it: leading blanks skipped, then quotes grouping (not kept), a backslash
+# outside single quotes escaping the next character, a blank outside quotes
+# ending the word.
+_jig_ssh_first_word() {
+  local s="$1" i=0 n c q="" w=""
+  n=${#s}
+  while [ "$i" -lt "$n" ]; do
+    c=${s:i:1}
+    case "$c" in ' ' | $'\t' | $'\n') i=$((i + 1)) ;; *) break ;; esac
+  done
+  while [ "$i" -lt "$n" ]; do
+    c=${s:i:1}
+    i=$((i + 1))
+    if [ -n "$q" ]; then
+      if [ "$c" = "$q" ]; then
+        q=""
+      elif [ "$c" = "\\" ] && [ "$q" = '"' ] && [ "$i" -lt "$n" ]; then
+        w="$w${s:i:1}"
+        i=$((i + 1))
+      else
+        w="$w$c"
+      fi
+      continue
+    fi
+    case "$c" in
+      ' ' | $'\t' | $'\n') break ;;
+      "'" | '"') q=$c ;;
+      \\)
+        if [ "$i" -lt "$n" ]; then
+          w="$w${s:i:1}"
+          i=$((i + 1))
+        fi
+        ;;
+      *) w="$w$c" ;;
+    esac
+  done
+  printf '%s' "$w"
+}
+
+# jig_git_batch_ssh <repo> — the value for GIT_SSH_COMMAND that adds `-o
+# BatchMode=yes` on top of the SSH command git itself would run for <repo>, so
+# an `ssh://` or `git@` remote fails a password/passphrase prompt instead of
+# waiting for it. Paired with `GIT_TERMINAL_PROMPT=0`, which does the same for
+# git's own credential helper (HTTPS remotes): together they cover every
+# interactive-credential path git has, on every network call that must never
+# sit waiting for input nobody will type (this task).
+#
+# The base command is chosen in git's own order (connect.c), because
+# GIT_SSH_COMMAND set by a caller beats `core.sshCommand` and GIT_SSH: the first
+# that is non-empty wins — $GIT_SSH_COMMAND as is; `core.sshCommand` of <repo>;
+# $GIT_SSH, single-quoted for sh (git runs GIT_SSH without a shell but
+# GIT_SSH_COMMAND with one); plain `ssh`. <repo> is required: a clone that
+# picks its key through `core.sshCommand` must keep it under Jig, and a
+# worktree reads its clone's config, so the repository the call runs against
+# decides, not this tree.
+#
+# `-o BatchMode=yes` is OpenSSH's. The variant — $GIT_SSH_VARIANT, else
+# `ssh.variant` of <repo>, matched case-sensitively as git does, else guessed
+# from the program's name, case-insensitively (plink[.exe],
+# tortoiseplink[.exe]; for GIT_SSH the name of its path before quoting) — says
+# which no-prompt option the program takes: plink and putty get `-batch`
+# (unless the command already carries it), tortoiseplink none, since git adds
+# `-batch` for it itself, and simple none, as it takes no options at all;
+# ssh, auto and anything unrecognised get `-o BatchMode=yes`. The first word of
+# a command is read as git splits it (split_cmdline): quotes group and are not
+# part of the word, a backslash outside single quotes takes the next character
+# literally, a blank outside quotes ends it.
 #
 # Not a timeout. Neither this nor GIT_TERMINAL_PROMPT=0 bounds a call that
 # hangs for a different reason — a stalled TCP connection, a slow forge.
@@ -2288,7 +2353,56 @@ jig_fresh_base_ref() {
 # none is added here; a caller that must not wait past a budget runs the
 # call through jig_net below.
 jig_git_batch_ssh() {
-  printf '%s -o BatchMode=yes\n' "${GIT_SSH_COMMAND:-ssh}"
+  local repo="${1:-}" base="" variant="" prog="" gitssh
+  if [ -z "$repo" ]; then
+    # `GIT_SSH_COMMAND="$(jig_git_batch_ssh)" git ...` carries on after the
+    # error with an empty command, i.e. plain ssh that may ask: `false`
+    # refuses every connection, so such a call fails instead of waiting.
+    printf 'false\n'
+    jig_die "jig_git_batch_ssh: the repository argument is required"
+  fi
+  if [ -n "${GIT_SSH_COMMAND:-}" ]; then
+    base=$GIT_SSH_COMMAND
+  else
+    base=$(git -C "$repo" config --get core.sshCommand 2>/dev/null || true)
+  fi
+  if [ -z "$base" ]; then
+    if [ -n "${GIT_SSH:-}" ]; then
+      _jig_replace_all_v gitssh "$GIT_SSH" "'" "'\\''"
+      base="'$gitssh'"
+      prog=$GIT_SSH
+    else
+      base=ssh
+    fi
+  fi
+  variant=${GIT_SSH_VARIANT:-}
+  if [ -z "$variant" ]; then
+    variant=$(git -C "$repo" config --get ssh.variant 2>/dev/null || true)
+  fi
+  if [ -z "$variant" ] || [ "$variant" = auto ]; then
+    # GIT_SSH's path was kept above; a command's program is its first word.
+    if [ -z "$prog" ]; then
+      prog=$(_jig_ssh_first_word "$base")
+    fi
+    prog=${prog##*/}
+    prog=${prog##*\\}
+    prog=$(printf '%s' "$prog" | tr '[:upper:]' '[:lower:]')
+    case "$prog" in
+      plink | plink.exe) variant=plink ;;
+      tortoiseplink | tortoiseplink.exe) variant=tortoiseplink ;;
+      *) variant=ssh ;;
+    esac
+  fi
+  case "$variant" in
+    plink | putty)
+      case " $base " in
+        *" -batch "*) printf '%s\n' "$base" ;;
+        *) printf '%s -batch\n' "$base" ;;
+      esac
+      ;;
+    tortoiseplink | simple) printf '%s\n' "$base" ;;
+    *) printf '%s -o BatchMode=yes\n' "$base" ;;
+  esac
 }
 
 # _JIG_NET_DEADLINE — the epoch second after which no call through jig_net may
@@ -2402,7 +2516,7 @@ jig_ls_remote_tags() {
   max_ticks=$((seconds * 5))
   out=$(mktemp "${TMPDIR:-/tmp}/jig-lsremote.XXXXXX") || return 1
   jig_cleanup_add "$out"
-  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="$(jig_git_batch_ssh)" \
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="$(jig_git_batch_ssh "$root")" \
     git -C "$root" ls-remote --tags origin >"$out" 2>/dev/null &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
@@ -3155,14 +3269,14 @@ Nothing was pushed; the commit is on this machine, and running this again goes o
 jig_git_origin() {
   _jig_git_cred "$(_jig_git_origin_url "$1")"
   if [ -n "${_JIG_GH_IN_NET:-}" ]; then
-    GIT_SSH_COMMAND=$(jig_git_batch_ssh)
+    GIT_SSH_COMMAND=$(jig_git_batch_ssh "$JIG_PROJECT")
     GIT_TERMINAL_PROMPT=0
     export GIT_SSH_COMMAND GIT_TERMINAL_PROMPT
     # Not into git's hooks: a jig they run is not under this jig_net.
     unset _JIG_GH_IN_NET
     exec git ${_JIG_GIT_CRED[@]+"${_JIG_GIT_CRED[@]}"} -C "$JIG_PROJECT" "$@"
   fi
-  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="$(jig_git_batch_ssh)" \
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="$(jig_git_batch_ssh "$JIG_PROJECT")" \
     git ${_JIG_GIT_CRED[@]+"${_JIG_GIT_CRED[@]}"} -C "$JIG_PROJECT" "$@"
 }
 
@@ -4641,6 +4755,110 @@ jig_ship_leave() {
   jig_branch_leave "$who" "$b" "$sha"
 }
 
+# --- moving the base branch (jig refresh, jig upgrade) ------------------------
+#
+# One function, so that `jig refresh` and a `jig upgrade` that merged its own pull
+# request never disagree on how the base moves. Results in JIG_BASE_FF_OUTCOME
+# (fast-forwarded, up-to-date, missing, diverged, blocked-by-changes,
+# checked-out-elsewhere), JIG_BASE_FF_FROM, JIG_BASE_FF_TO, JIG_BASE_FF_MSG and
+# JIG_BASE_FF_WHERE; called in the caller's shell, never in `$()`.
+# shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+JIG_BASE_FF_OUTCOME=""
+# shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+JIG_BASE_FF_FROM=""
+# shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+JIG_BASE_FF_TO=""
+# shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+JIG_BASE_FF_MSG=""
+# shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+JIG_BASE_FF_WHERE=""
+
+# jig_branch_worktree <branch> — the worktree <branch> is checked out in, or nothing.
+# A list git could not give is answered `?`: the base may be checked out, and stays.
+jig_branch_worktree() {
+  local list
+  list=$(git -C "$JIG_PROJECT" worktree list --porcelain 2>/dev/null) || { printf '?\n'; return 0; }
+  printf '%s\n' "$list" | awk -v want="branch refs/heads/$1" '
+    /^worktree / { wt = substr($0, 10) }
+    !d && $0 == want { print wt; d = 1 }'
+}
+
+# jig_base_fast_forward <base> — fast-forward the base to origin's, the only move it ever makes:
+# `merge --ff-only` where it is checked out here (git itself refuses to touch changes a
+# fast-forward would overwrite), `git branch -f` where it is checked out nowhere — git
+# refuses that for a branch any worktree has checked out, or is rebasing or bisecting;
+# elsewhere, ahead, diverged or missing, nothing moves.
+jig_base_fast_forward() {
+  local base="$1" local_sha origin_sha here out
+  JIG_BASE_FF_OUTCOME=""
+  JIG_BASE_FF_MSG=""
+  JIG_BASE_FF_WHERE=""
+  origin_sha=$(git -C "$JIG_PROJECT" rev-parse --verify --quiet "refs/remotes/origin/$base^{commit}" 2>/dev/null) || origin_sha=""
+  local_sha=$(git -C "$JIG_PROJECT" rev-parse --verify --quiet "refs/heads/$base^{commit}" 2>/dev/null) || local_sha=""
+  # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+  JIG_BASE_FF_FROM=$local_sha
+  JIG_BASE_FF_TO=$local_sha
+  if [ -z "$origin_sha" ] || [ -z "$local_sha" ]; then
+    JIG_BASE_FF_OUTCOME=missing
+    if [ -z "$origin_sha" ]; then
+      JIG_BASE_FF_MSG="origin/$base is not known here"
+    else
+      JIG_BASE_FF_MSG="there is no branch $base here"
+    fi
+    return 0
+  fi
+  if [ "$local_sha" = "$origin_sha" ]; then
+    JIG_BASE_FF_OUTCOME=up-to-date
+    return 0
+  fi
+  if ! git -C "$JIG_PROJECT" merge-base --is-ancestor "$local_sha" "$origin_sha" 2>/dev/null; then
+    JIG_BASE_FF_OUTCOME=diverged
+    JIG_BASE_FF_MSG="$base here has commits origin/$base does not have, so it cannot be fast-forwarded"
+    return 0
+  fi
+  here=$(git -C "$JIG_PROJECT" symbolic-ref --quiet HEAD 2>/dev/null) || here=""
+  if [ "$here" = "refs/heads/$base" ]; then
+    # merge.autoStash off: refresh never stashes (a person's config may say otherwise).
+    if out=$(git -C "$JIG_PROJECT" -c merge.autoStash=false merge --ff-only -q "$origin_sha" 2>&1); then
+      JIG_BASE_FF_OUTCOME=fast-forwarded
+      # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+      JIG_BASE_FF_TO=$origin_sha
+    else
+      JIG_BASE_FF_OUTCOME=blocked-by-changes
+      JIG_BASE_FF_MSG=$(printf '%s\n' "$out" | sed '/^[[:space:]]*$/d')
+      [ -n "$JIG_BASE_FF_MSG" ] || JIG_BASE_FF_MSG="git refused to fast-forward $base over the changes in this checkout"
+    fi
+    return 0
+  fi
+  JIG_BASE_FF_WHERE=$(jig_branch_worktree "$base")
+  if [ "$JIG_BASE_FF_WHERE" = "?" ]; then
+    JIG_BASE_FF_WHERE=""
+    # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+    JIG_BASE_FF_OUTCOME=checked-out-elsewhere
+    JIG_BASE_FF_MSG="git could not list this clone's worktrees, so $base may be checked out in one; nothing was changed"
+    return 0
+  fi
+  if [ -n "$JIG_BASE_FF_WHERE" ]; then
+    # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+    JIG_BASE_FF_OUTCOME=checked-out-elsewhere
+    JIG_BASE_FF_MSG="$base is checked out in $JIG_BASE_FF_WHERE; it moves there, with \`jig refresh\` run in it"
+    return 0
+  fi
+  if [ "$(git -C "$JIG_PROJECT" rev-parse --verify --quiet "refs/heads/$base^{commit}" 2>/dev/null)" != "$local_sha" ]; then
+    JIG_BASE_FF_OUTCOME=diverged
+    JIG_BASE_FF_MSG="$base moved while it was being fast-forwarded; nothing was changed"
+  elif out=$(git -C "$JIG_PROJECT" branch -f "$base" "$origin_sha" 2>&1); then
+    JIG_BASE_FF_OUTCOME=fast-forwarded
+    # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+    JIG_BASE_FF_TO=$origin_sha
+  else
+    # shellcheck disable=SC2034 # read by refresh.sh and upgrade.sh
+    JIG_BASE_FF_OUTCOME=checked-out-elsewhere
+    JIG_BASE_FF_MSG=$(printf '%s\n' "$out" | sed '/^[[:space:]]*$/d')
+    [ -n "$JIG_BASE_FF_MSG" ] || JIG_BASE_FF_MSG="git refused to move $base"
+  fi
+}
+
 # --- specification links ------------------------------------------------------
 
 # jig_spec_link <task.md> — the spec id a task links to, or nothing.
@@ -4848,11 +5066,19 @@ jig_spec_title_v() {
   local __jst_line
   printf -v "$1" '%s' ""
   [ -r "$2" ] && [ -f "$2" ] || return 0
+  # A glob, not a regex: under a UTF-8 locale `=~` matches nothing on a line
+  # holding a byte that is not UTF-8, while bash's glob falls back to bytes.
   while IFS= read -r __jst_line || [ -n "$__jst_line" ]; do
-    if [[ $__jst_line =~ ^#[[:space:]]+(.*)$ ]]; then
-      printf -v "$1" '%s' "${BASH_REMATCH[1]}"
-      return 0
-    fi
+    case $__jst_line in
+      '#'[[:space:]]*)
+        __jst_line=${__jst_line#?}
+        while case $__jst_line in [[:space:]]*) true ;; *) false ;; esac; do
+          __jst_line=${__jst_line#?}
+        done
+        printf -v "$1" '%s' "$__jst_line"
+        return 0
+        ;;
+    esac
   done < "$2"
 }
 
@@ -6700,3 +6926,87 @@ jig_verify_busy_holder() {
   printf '%s %s\n' "$age" "$checkout"
 }
 
+
+# --- upgrade branches (shared by upgrade, status and housekeeping) -----------
+
+# jig_upgrade_version_at <ref> — the Jig version the manifest records at <ref>;
+# nothing when <ref> or its manifest does not exist.
+jig_upgrade_version_at() {
+  jig_git_show_path "$1" "$JIG_AI_DIR/manifest" 2>/dev/null \
+    | sed -n 's/^jig\.version:[[:space:]]*//p' | head -n 1 || true
+}
+
+# jig_upgrade_branch_version <branch> — the version `jig/upgrade-<to>[-<n>]` is
+# named for; nothing when the name holds no release version.
+jig_upgrade_branch_version() {
+  local v="${1#jig/upgrade-}"
+  if jig_release_version "v$v" >/dev/null 2>&1; then
+    printf '%s\n' "$v"
+    return 0
+  fi
+  jig_release_version "v${v%-*}" 2>/dev/null || true
+}
+
+# jig_upgrade_manifest_paths_at <ref> — the paths the manifest at <ref> records.
+jig_upgrade_manifest_paths_at() {
+  jig_git_show_path "$1" "$JIG_AI_DIR/manifest" 2>/dev/null \
+    | awk '{ sub(/\r$/, "") } body { if ($0 != "") { sub(/^[^ ]* /, ""); print } next } $0 == "---" { body = 1 }' || true
+}
+
+# The first commit jig_upgrade_commits_are_jigs found that is not Jig's; empty
+# when it passed, or when the branch had no commit over the base. Set in the
+# caller's shell, so call that function outside `$(...)`.
+JIG_UPGRADE_NOT_JIGS=""
+
+# jig_upgrade_commits_are_jigs <base-ref> <branch-ref> <label> — the branch has at least one
+# commit over the base, and every one is a commit `jig upgrade` wrote: a single parent,
+# the subject `Upgrade Jig <from> -> <label>`, and every path it touches one the manifest
+# records (before or after), the manifest itself, or AGENTS.md. A person's commit that
+# merely borrows the subject, or carries a file of their own, is not. On failure
+# JIG_UPGRADE_NOT_JIGS names the first commit that is not Jig's.
+# shellcheck disable=SC2034 # JIG_UPGRADE_NOT_JIGS is read by housekeeping.sh
+jig_upgrade_commits_are_jigs() {
+  local sha any=0 allowed subject parents stray ok=1
+  JIG_UPGRADE_NOT_JIGS=""
+  allowed=$(mktemp "${TMPDIR:-/tmp}/jig-upgrade-allowed.XXXXXX")
+  jig_cleanup_add "$allowed"
+  { jig_upgrade_manifest_paths_at "$1"; jig_upgrade_manifest_paths_at "$2"
+    printf '%s\n' "$JIG_AI_DIR/manifest" AGENTS.md; } > "$allowed"
+  while IFS= read -r sha; do
+    [ -n "$sha" ] || continue
+    any=1
+    subject=$(git -C "$JIG_PROJECT" log -1 --format=%s "$sha")
+    case "$subject" in
+      "Upgrade Jig "*" -> $3") ;;
+      *) ok=0; JIG_UPGRADE_NOT_JIGS=$sha; break ;;
+    esac
+    parents=$(git -C "$JIG_PROJECT" rev-list --parents -1 "$sha" | wc -w | tr -d ' ')
+    if [ "$parents" != 2 ]; then ok=0; JIG_UPGRADE_NOT_JIGS=$sha; break; fi
+    stray=$(git -C "$JIG_PROJECT" -c core.quotepath=off diff-tree --no-commit-id --name-only -r "$sha^" "$sha" \
+      | grep -Fxv -f "$allowed" || true)
+    if [ -n "$stray" ]; then ok=0; JIG_UPGRADE_NOT_JIGS=$sha; break; fi
+  done <<EOF2
+$(git -C "$JIG_PROJECT" rev-list "$1..$2" 2>/dev/null)
+EOF2
+  [ "$any" = 1 ] && [ "$ok" = 1 ]
+}
+
+# jig_upgrade_superseded <branch> <ref> <base-ref> — exit 0, printing the Jig
+# version the base carries, when upgrade branch <branch> (its tip <ref>) is
+# overtaken: the name holds the release <v>, the manifest at <ref> records the
+# same release, and the manifest at <base-ref> records a strictly newer one.
+# Exit 1, printing nothing, otherwise. Whether the branch holds only Jig's
+# commits is jig_upgrade_commits_are_jigs' question
+# (adr-20261117-a-superseded-upgrade-branch-leaves-without-landing).
+jig_upgrade_superseded() {
+  local v at have
+  v=$(jig_upgrade_branch_version "$1")
+  [ -n "$v" ] || return 1
+  at=$(jig_upgrade_version_at "$2")
+  [ -n "$at" ] || return 1
+  [ "$(jig_version_core "$at")" = "$v" ] || return 1
+  have=$(jig_upgrade_version_at "$3")
+  [ -n "$have" ] || return 1
+  jig_version_newer "$(jig_version_core "$have")" "$v" || return 1
+  printf '%s\n' "$have"
+}
