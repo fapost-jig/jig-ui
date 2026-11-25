@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ChevronRight, ExternalLink, Plus } from '@lucide/vue';
   import { computed, ref } from 'vue';
-  import { type ItemPlace, link, type Spec, type SpecItem } from '@/api';
+  import { type ItemPlace, link, type Spec, type SpecDocument, type SpecItem } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -10,16 +10,22 @@
   import {
     agentRequests,
     complete,
+    documentButtons,
+    documentNote,
     itemStanding,
     LANES,
     laneOf,
     openingPhase,
+    SPEC_DOCUMENTS,
     shownRoadmap,
+    summaryOf,
     waitingItems,
     waitingState,
+    type SpecDocumentRead,
   } from '@/lib/specs';
   import { laneAccent, toneText } from '@/lib/tones';
   import CopyCommand from './CopyCommand.vue';
+  import DocumentDialog from './DocumentDialog.vue';
   import GroupPanel from './GroupPanel.vue';
   import ProgressBar from './ProgressBar.vue';
   import SpecItemCard from './SpecItemCard.vue';
@@ -46,12 +52,21 @@
     editable?: boolean;
     /** A change of the view is on its way to Jig: every edit waits. */
     disabled?: boolean;
+    /** Its documents are read from here: the project's Jig reads a spec (`jig spec read`). */
+    canRead?: boolean;
+    /** The document open in a dialog, being read or as read. */
+    document?: {
+      kind: SpecDocument;
+      read: SpecDocumentRead;
+    };
   }>();
 
   const emit = defineEmits<{
     add: [phase: number, text: string];
     move: [item: string, place: ItemPlace];
     file: [item: SpecItem];
+    open: [kind: SpecDocument];
+    close: [];
   }>();
 
   /** The roadmap as the next edit finds it, and the items the edits waiting on the spec's branch changed. */
@@ -60,6 +75,12 @@
   const numbered = computed(() => roadmap.value.phases.flatMap((p) => (p.phase === null ? [] : [p.phase])));
   const finished = computed(() => complete(props.spec));
   const requests = computed(() => agentRequests(props.spec, props.project));
+  const summary = computed(() => summaryOf(props.spec));
+
+  /** The buttons of its documents. */
+  const buttons = computed(() => documentButtons(props.spec));
+  /** The name of the open document, from its button. */
+  const documentName = computed(() => SPEC_DOCUMENTS.find((d) => d.kind === props.document?.kind)?.label ?? '');
 
   /** The phase shown, by its place in the roadmap: the first with work left when the board opens. */
   const at = ref(openingPhase(roadmap.value.phases));
@@ -112,6 +133,29 @@
           <slot name="menu" />
         </span>
       </p>
+      <p v-if="summary" class="max-w-[62ch] leading-relaxed text-muted-foreground">{{ summary }}</p>
+      <div v-if="canRead" class="flex flex-wrap gap-2" role="group" aria-label="Documents">
+        <Button
+          v-for="d in buttons"
+          :key="d.kind"
+          variant="outline"
+          size="sm"
+          :disabled="d.blocked !== null"
+          :title="d.blocked ?? undefined"
+          @click="emit('open', d.kind)"
+          >{{ d.label }}<span v-if="d.blocked" class="font-normal text-muted-foreground"> — {{ d.blocked }}</span></Button
+        >
+      </div>
+      <DocumentDialog
+        v-if="canRead && document"
+        :id="spec.id"
+        :open="true"
+        :title="documentName"
+        :read="document.read"
+        :note="documentNote(spec, document.kind)"
+        @update:open="emit('close')"
+        @read-again="emit('open', document.kind)"
+      />
       <p v-if="finished" class="text-[13px]" :class="toneText.good">The roadmap is complete.</p>
       <p v-if="busy" class="text-[13px] text-muted-foreground" role="status">sending to Jig…</p>
       <p v-if="spec.waiting" class="text-[13px]" :class="toneText.attention">

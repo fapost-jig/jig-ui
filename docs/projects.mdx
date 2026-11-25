@@ -497,6 +497,14 @@ title, how many roadmap items are done out of all of them, and its fog. An epic 
 roadmap was read from the remote branch as it was at the last fetch, or the branch is nowhere;
 the version level its release raises is shown when the roadmap records one.
 
+With Jig 0.48.0 or later in the project, the spec's short description — the `Summary:` line of its
+`spec.md` — stands under its title, and **Spec** and **Roadmap** open the document as it is written, in a
+dialog: one at a time, and closing it goes back to the board. A document is shown as a task's
+documents are, as Markdown, and scrolls inside the dialog when it is long. Where Jig dropped bytes that are not UTF-8 the page says so; where Jig no longer
+has the document it says that; where Jig could not read it, **Read again** tries once more. Jig UI reads
+them through `jig spec read` and never opens the spec's files itself. A spec without a `Summary:` line shows
+no description, and an older Jig gives neither the description nor the buttons.
+
 Its phases stand in a row of steps, each with how many of its items are done, or ✓ once all of
 them are; items before the first phase heading have a step of their own. The page opens on the
 first phase with an item not done, and a click on a step shows another. The chosen phase's items

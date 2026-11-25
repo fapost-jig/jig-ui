@@ -42,6 +42,8 @@ export const KNOWLEDGE_JIG_VERSION = '0.40.0';
  * on it would be judged on what the read shows.
  */
 export const KNOWLEDGE_TEXT_JIG_VERSION = '0.41.0';
+/** The first Jig that gives a spec's short description (`summary` of `jig spec list`) and reads its documents (`jig spec read`). */
+export const SPEC_TEXT_JIG_VERSION = '0.48.0';
 
 /** The first Jig that decides several knowledge documents, of any kinds, in one write: `jig knowledge decide`. */
 export const DECIDE_JIG_VERSION = '0.44.0';
@@ -805,6 +807,8 @@ const SpecRow = z
   .object({
     id: text,
     title: maybe,
+    /** Jig 0.48.0: the spec's `Summary:` line, `null` without one and from an older Jig. */
+    summary: maybe.nullish().transform((summary) => summary ?? null),
     /** The spec's own files that are not there: `spec.md`, `roadmap.md`. */
     missing_files: z.array(text),
     /** The version level the epic's release raises, as the roadmap records it. */
@@ -832,6 +836,7 @@ const SpecRow = z
   .transform(({ missing_files, epic, ...s }) => ({
     id: s.id,
     title: s.title,
+    summary: s.summary,
     missingFiles: missing_files,
     release: s.release,
     // `fetched`: the roadmap was read from the remote branch as of the last fetch; `missing`: the branch is nowhere.
@@ -1612,6 +1617,27 @@ export async function readKnowledgeText(
 ): Promise<z.output<typeof KnowledgeText>> {
   const { data } = await readJson(root, ['knowledge', 'read', id], platform);
   return parsed(KnowledgeText, data);
+}
+
+/** The documents of a spec Jig reads. */
+export const SPEC_DOCUMENTS = ['spec', 'roadmap'] as const;
+export type SpecDocument = (typeof SPEC_DOCUMENTS)[number];
+
+const SpecText = z.object({ kind: z.enum(SPEC_DOCUMENTS), bytes: count.nullable(), content: z.string(), lossy: z.boolean() });
+
+/**
+ * One of a spec's documents as it is written (`jig spec read <id> spec|roadmap --json`, Jig 0.48.0); `lossy` where bytes
+ * that are not UTF-8 were dropped. The `path` and `ref` Jig also prints are left out: the page shows words, not places.
+ * Refused as `not-found` for a spec Jig does not know or a document it does not have.
+ */
+export async function readSpecText(
+  root: string,
+  spec: string,
+  kind: SpecDocument,
+  platform: NodeJS.Platform = process.platform,
+): Promise<z.output<typeof SpecText>> {
+  const { data } = await readJson(root, ['spec', 'read', spec, kind], platform);
+  return parsed(SpecText, data);
 }
 
 /** A person's decision on a knowledge document, as Jig's command is named. */

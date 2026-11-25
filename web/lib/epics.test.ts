@@ -6,6 +6,7 @@ import { listed } from './specs';
 const spec = (id: string, epic: 'open' | 'finished' | null, position: number | null = null): Spec => ({
   id,
   title: null,
+  summary: null,
   missingFiles: [],
   release: null,
   epic: epic && { branch: `epic/${id}`, state: epic, checkedOut: false, missing: false, fetched: false },

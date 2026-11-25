@@ -17,6 +17,7 @@ import type {
   Reviewers,
   Setting,
   Spec,
+  SpecDocument,
   SpecItem,
   SpecPhase,
   SpecProgress,
@@ -43,13 +44,14 @@ export type {
   Reviewers,
   Setting,
   Spec,
+  SpecDocument,
   SpecItem,
   SpecPhase,
   SpecProgress,
   TaskWrite,
   Upgrade,
 };
-export { ARTIFACT_KINDS } from '../jig/client.js';
+export { ARTIFACT_KINDS, SPEC_DOCUMENTS } from '../jig/client.js';
 export { RegistryUnreadable } from '../registry/projects.js';
 
 /** A project's live tasks by where they stand. */
@@ -546,6 +548,22 @@ export type TaskArtifact =
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
+/**
+ * One of a spec's documents as it is written, `lossy` where bytes that are not UTF-8 were dropped; `null` when Jig did not
+ * list the spec or has no such document; or why it cannot be read. Neither its path nor its ref is carried.
+ */
+export type SpecText =
+  | {
+      state: 'ready';
+      text: {
+        kind: SpecDocument;
+        bytes: number | null;
+        content: string;
+        lossy: boolean;
+      } | null;
+    }
+  | Exclude<ProjectView, { state: 'ready' }>;
+
 /** A spec with its open epic's place in Jig's queue: `null` without an open epic, or with one not queued. */
 export type ShownSpec = Spec & {
   queue: {
@@ -557,7 +575,8 @@ export type ShownSpec = Spec & {
 /**
  * A project's specs — the queued epics first, in the queue's order, then the other open epics, then the specs with
  * none, each in Jig's order — and the revision a write based on them carries; `editable` when the project's Jig adds,
- * moves and files roadmap items; or why the project cannot be read.
+ * moves and files roadmap items, and `canRead` when it reads a spec's documents (`specText`) and gives its short
+ * description; or why the project cannot be read.
  */
 export type ProjectSpecs =
   | {
@@ -565,6 +584,7 @@ export type ProjectSpecs =
       specs: ShownSpec[];
       revision: number;
       editable: boolean;
+      canRead: boolean;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
@@ -666,6 +686,11 @@ export interface ProjectSource {
   artifact(id: string, taskId: string, kind: ArtifactKind): Promise<TaskArtifact | undefined>;
   /** A connected project's specs with their roadmaps; `undefined` when no project has that id. */
   specs(id: string): Promise<ProjectSpecs | undefined>;
+  /**
+   * One of a spec's documents as it is written, read through the project's Jig for a spec Jig itself lists — anything
+   * else is `null`, Jig not run. Below Jig 0.48.0 `unsupported`. `undefined` when no project has that id.
+   */
+  specText(id: string, spec: string, kind: SpecDocument): Promise<SpecText | undefined>;
   /** A project's finished tasks, read through Jig at each call and kept nowhere; a failure stays this read's. */
   finished(id: string): Promise<ProjectFinished | undefined>;
   /** Reads a connected project through Jig now, as a person's Read again asks; `undefined` when no project has that id. */

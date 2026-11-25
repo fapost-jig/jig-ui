@@ -387,7 +387,7 @@ describe('/api/projects and /api/workspace', () => {
 
   it("serves a project's specs, its state when it is not readable, and 404 for an unknown id", async () => {
     const text = await (await call('GET', '/api/projects/ready/specs')).text();
-    expect(JSON.parse(text)).toEqual({ specs: { state: 'ready', specs: [], revision: 1, editable: false } });
+    expect(JSON.parse(text)).toEqual({ specs: { state: 'ready', specs: [], revision: 1, editable: false, canRead: false } });
     expectNoPath(text);
     expect(await (await call('GET', '/api/projects/broken/specs')).json()).toEqual({
       specs: { id: 'broken', state: 'unreadable', code: 'failed' },
@@ -1069,6 +1069,42 @@ describe('/api/projects/:id/queue', () => {
     expect(asked).toEqual(['plan', 'spec']);
     expect((await read('/api/projects/x/tasks/b/artifacts', null)).status).toBe(401);
     expect((await read('/api/projects/x/tasks/b/artifacts/plan', null)).status).toBe(401);
+  });
+
+  it("serves a spec's documents as written, and 404 or 422 for what Jig lists no such", async () => {
+    const asked: string[] = [];
+    const source: ProjectSource = {
+      ...localSource(join(webRoot, 'spec-documents-config')),
+      specText: (id, spec, kind) => {
+        asked.push(`${spec} ${kind}`);
+        return Promise.resolve(
+          id !== 'x'
+            ? undefined
+            : spec === 'old'
+              ? { id, state: 'unsupported', jigVersion: '0.47.0', minimum: '0.48.0' }
+              : { state: 'ready', text: spec === 'shop' ? { kind, bytes: 7, content: '# Shop\n', lossy: false } : null },
+        );
+      },
+    };
+    const fake = createApp({ port: PORT, token: TOKEN, source, webRoot });
+    const read = async (path: string, cookie: string | null = COOKIE) => {
+      const res = await fake.request(path, { headers: cookie ? { host: HOST, cookie } : { host: HOST } });
+      return { status: res.status, body: await res.json() };
+    };
+    const refused = (code: string) => ({ error: { code, message: expect.any(String) } });
+    expect(await read('/api/projects/x/specs/shop/documents/roadmap')).toEqual({
+      status: 200,
+      body: { text: { state: 'ready', kind: 'roadmap', bytes: 7, content: '# Shop\n', lossy: false } },
+    });
+    expect(await read('/api/projects/x/specs/old/documents/spec')).toEqual({
+      status: 200,
+      body: { text: { id: 'x', state: 'unsupported', jigVersion: '0.47.0', minimum: '0.48.0' } },
+    });
+    expect(await read('/api/projects/x/specs/gone/documents/spec')).toEqual({ status: 404, body: refused('not-found') });
+    expect(await read('/api/projects/y/specs/shop/documents/spec')).toEqual({ status: 404, body: refused('not-connected') });
+    expect(await read('/api/projects/x/specs/shop/documents/research')).toEqual({ status: 422, body: refused('usage') });
+    expect(asked).toEqual(['shop roadmap', 'old spec', 'gone spec', 'shop spec']);
+    expect((await read('/api/projects/x/specs/shop/documents/spec', null)).status).toBe(401);
   });
 
   it('forgets what an upgrade came to, refuses a disconnect while one runs, and is refused without the token', async () => {

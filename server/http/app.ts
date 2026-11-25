@@ -18,6 +18,8 @@ import {
   type Place,
   type ProjectSource,
   RegistryUnreadable,
+  SPEC_DOCUMENTS,
+  type SpecDocument,
   type TaskWrite,
   type Written,
 } from '../source/project-source.js';
@@ -83,6 +85,9 @@ const isPriority = (v: unknown): v is number | null => v === null || (Number.isI
 
 /** A kind of document Jig keeps for a task (`jig task artifact`). */
 const isArtifactKind = (v: string): v is ArtifactKind => (ARTIFACT_KINDS as readonly string[]).includes(v);
+
+/** A document Jig reads of a spec (`jig spec read`). */
+const isSpecDocument = (v: string): v is SpecDocument => (SPEC_DOCUMENTS as readonly string[]).includes(v);
 
 /** A new task's id as Jig takes one (`jig_valid_id`): never empty, never led by `.` or `-`, so never a flag. */
 const isNewId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(v);
@@ -379,6 +384,18 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
         if (read.state !== 'ready') return c.json({ text: read }, 200);
         if (read.text === null) return refuse(c, 404, 'not-found', 'This project proposes no document with this id.');
+        return c.json({ text: { state: read.state, ...read.text } }, 200);
+      })
+
+      // One of a spec's documents as it is written (Jig 0.48.0): only the words, never where the file is.
+      .get('/api/projects/:id/specs/:spec/documents/:kind', async (c) => {
+        const kind = c.req.param('kind');
+        if (!isSpecDocument(kind))
+          return refuse(c, 422, 'usage', `Jig reads a spec's documents of these kinds: ${SPEC_DOCUMENTS.join(', ')}.`);
+        const read = await source.specText(c.req.param('id'), c.req.param('spec'), kind);
+        if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
+        if (read.state !== 'ready') return c.json({ text: read }, 200);
+        if (read.text === null) return refuse(c, 404, 'not-found', 'Jig lists no spec with this document.');
         return c.json({ text: { state: read.state, ...read.text } }, 200);
       })
 

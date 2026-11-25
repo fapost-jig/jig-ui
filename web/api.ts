@@ -50,6 +50,9 @@ export type TaskPullRequest = NonNullable<Attention['taskPullRequest']>;
 export type Setting = Extract<Settings, { state: 'ready' }>['keys'][number];
 export type Specs = Ok<Api['projects'][':id']['specs']['$get']>['specs'];
 export type Spec = Extract<Specs, { state: 'ready' }>['specs'][number];
+/** One of a spec's documents as it is written, or why the project's Jig cannot read it. */
+export type SpecText = Ok<Api['projects'][':id']['specs'][':spec']['documents'][':kind']['$get']>['text'];
+export type SpecDocument = Extract<SpecText, { state: 'ready' }>['kind'];
 export type SpecItem = Spec['phases'][number]['items'][number];
 export type Failure = InferResponseType<Api['projects']['$post'], 422>;
 type KnowledgeApi = Api['projects'][':id']['knowledge'];
@@ -163,6 +166,15 @@ export async function readArtifact(project: string, task: string, kind: Artifact
   const res = await call(() => client.api.projects[':id'].tasks[':task'].artifacts[':kind'].$get({ param }));
   if (!res) return undefined;
   if (res.status === 200) return (await res.json()).artifact;
+  return 'not-found';
+}
+
+/** One of a spec's documents as it is written, or `not-found` when Jig lists no such; undefined when `call` failed. */
+export async function readSpecText(project: string, spec: string, kind: SpecDocument): Promise<SpecText | 'not-found' | undefined> {
+  const param = { id: encodeURIComponent(project), spec: encodeURIComponent(spec), kind };
+  const res = await call(() => client.api.projects[':id'].specs[':spec'].documents[':kind'].$get({ param }));
+  if (!res) return undefined;
+  if (res.status === 200) return (await res.json()).text;
   return 'not-found';
 }
 

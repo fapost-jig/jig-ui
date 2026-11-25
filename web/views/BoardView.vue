@@ -17,12 +17,15 @@
     type Place,
     type PrStatus,
     readAgain,
+    readSpecText,
     readTask,
     runHousekeeping,
     runRefresh,
     type ReadyDetails,
     type Reviewers,
     type SourceDiff,
+    type SpecDocument,
+    type SpecText,
     type SpecItem,
     type Specs,
     type Staged,
@@ -45,6 +48,7 @@
   import { Toggle } from '@/components/ui/toggle';
   import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
   import { conflict } from '@/lib/conflict';
+  import { landed, type OpenDocument, opened, ownedBy } from '@/lib/documents';
   import { listed } from '@/lib/specs';
   import { useDecisions } from '@/lib/decisions';
   import { movable } from '@/lib/epics';
@@ -504,6 +508,29 @@
       : undefined,
   );
 
+  /** The chosen spec's document open in a dialog, being read or as read: one at a time, and none once another spec is chosen. */
+  const specDocument = ref<OpenDocument<SpecDocument, SpecText>>();
+
+  const loadSpecDocument = lastWins(
+    async () => {
+      const open = specDocument.value;
+      if (!open) return undefined;
+      // A read that did not get through, or that the project's Jig did not answer with words, is the document's own failure.
+      return { ...open, read: (await readSpecText(props.id, open.owner, open.kind)) ?? ('failed' as const) };
+    },
+    (read) => (specDocument.value = landed(specDocument.value, read)),
+  );
+
+  function openSpecDocument(spec: string, kind: SpecDocument): void {
+    specDocument.value = opened(spec, kind);
+    void loadSpecDocument();
+  }
+
+  watch(
+    () => chosenSpec.value?.id,
+    () => (specDocument.value = undefined),
+  );
+
   function chooseSpec(spec: unknown): void {
     if (typeof spec === 'string') void router.replace({ query: { ...route.query, spec } });
   }
@@ -816,6 +843,7 @@
       void loadWaiting();
       void loadFinished();
       void readSelected();
+      void loadSpecDocument();
       if (view.value === 'knowledge') void loadKnowledge();
     }),
   );
@@ -975,7 +1003,11 @@
           :columns="columnOf"
           :busy="pendingSpec === chosenSpec.id"
           :editable="specs.editable"
+          :can-read="specs.canRead"
+          :document="ownedBy(specDocument, chosenSpec.id)"
           :disabled="pendingSpec !== undefined"
+          @open="(kind) => openSpecDocument(chosenSpec!.id, kind)"
+          @close="specDocument = undefined"
           @add="(phase, text) => addItem(chosenSpec!.id, phase, text)"
           @move="(item, place) => moveItem(chosenSpec!.id, item, place)"
           @file="(item) => (filingItem = { spec: chosenSpec!.id, item })"

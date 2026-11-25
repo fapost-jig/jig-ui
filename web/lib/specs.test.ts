@@ -3,6 +3,8 @@ import type { Spec } from '../api';
 import {
   agentRequests,
   complete,
+  documentButtons,
+  documentNote,
   filingGoal,
   itemStanding,
   itemTitle,
@@ -16,6 +18,7 @@ import {
   openingPhase,
   shownFog,
   shownRoadmap,
+  summaryOf,
   waitingItems,
   waitingState,
 } from './specs';
@@ -79,6 +82,7 @@ describe('agentRequests', () => {
   const spec = (fog: number, ...phases: ReturnType<typeof phase>[]): Spec => ({
     id: 'shop',
     title: null,
+    summary: null,
     missingFiles: [],
     release: null,
     epic: null,
@@ -116,6 +120,7 @@ describe('a complete spec', () => {
   const made = (id: string, progress: Spec['progress'], title: string | null = null, epic: Spec['epic'] = null): Spec => ({
     id,
     title,
+    summary: null,
     missingFiles: [],
     release: null,
     epic,
@@ -200,6 +205,7 @@ describe('editing a roadmap', () => {
     ({
       id: 'shop',
       title: null,
+      summary: null,
       missingFiles: [],
       release: null,
       epic: null,
@@ -368,5 +374,36 @@ describe('the roadmap board', () => {
     ['the first of none', [], 0],
   ] as const)('opens on %s', (_, phases, at) => {
     expect(openingPhase(phases.map((items) => ({ items: [...items] })))).toBe(at);
+  });
+});
+
+describe("a spec's description and documents", () => {
+  const spec = (summary: string | null) => ({ summary }) as Spec;
+
+  it('shows the words Jig gave, none for a spec without them or with blank ones', () => {
+    expect(summaryOf(spec('  A control center.  '))).toBe('A control center.');
+    expect(summaryOf(spec(null))).toBeNull();
+    expect(summaryOf(spec('   '))).toBeNull();
+  });
+
+  const partial = (over: Partial<Spec>) => ({ missingFiles: [], epic: null, waiting: null, ...over }) as Spec;
+
+  it('offers both documents, none that the spec lacks', () => {
+    expect(documentButtons(partial({})).map((d) => d.kind)).toEqual(['spec', 'roadmap']);
+    expect(documentButtons(partial({ missingFiles: ['roadmap.md'] })).map((d) => d.kind)).toEqual(['spec']);
+    expect(documentButtons(partial({ missingFiles: ['spec.md', 'roadmap.md'] }))).toEqual([]);
+  });
+
+  it('says up front that a roadmap whose epic branch is nowhere cannot be read', () => {
+    const epic = { missing: true } as Spec['epic'];
+    expect(documentButtons(partial({ epic })).map((d) => d.blocked)).toEqual([null, "the epic's branch is nowhere"]);
+    expect(documentButtons(partial({ epic: { missing: false } as Spec['epic'] })).map((d) => d.blocked)).toEqual([null, null]);
+  });
+
+  it('notes that the roadmap read leaves out the edits waiting on the spec branch', () => {
+    const waiting = { branch: 'spec/shop' } as Spec['waiting'];
+    expect(documentNote(partial({ waiting }), 'roadmap')).toContain('spec/shop');
+    expect(documentNote(partial({ waiting }), 'spec')).toBeNull();
+    expect(documentNote(partial({}), 'roadmap')).toBeNull();
   });
 });

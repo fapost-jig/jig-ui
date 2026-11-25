@@ -103,6 +103,8 @@ function project(
     /** What `task artifacts` (once no file `hold-artifacts` is in the project) and `task artifact read` print: an envelope's `data`, or a refusal's code. */
     artifacts?: unknown;
     artifact?: unknown;
+    /** What `spec read` prints: an envelope's `data`, or a refusal's code. */
+    specText?: unknown;
     /** What `config keys` prints: an envelope's `data`, or a whole envelope as a string. */
     settings?: unknown;
     /** What `spec item add|move|file` prints once no file `hold` is in the project: an envelope's `data`, or a refusal's code. */
@@ -167,6 +169,7 @@ function project(
   );
   writeFileSync(join(dir, 'item.json'), answer(answers.item ?? { spec: 'x', item: {}, write: { note: null } }));
   writeFileSync(join(dir, 'artifact.json'), answer(answers.artifact ?? 'not-found'));
+  writeFileSync(join(dir, 'specread.json'), answer(answers.specText ?? 'not-found'));
   const knowledge = answers.knowledge ?? {};
   writeFileSync(join(dir, 'proposed.json'), answer(knowledge.proposed ?? { proposals: [], waiting: null }));
   writeFileSync(join(dir, 'sources.json'), answer(knowledge.sources ?? { sources: [], counts: {}, waiting: null }));
@@ -206,6 +209,7 @@ case "$*" in
   "knowledge proposed --json") cat proposed.json; if grep -q '"error"' proposed.json; then exit 1; fi ;;
   "knowledge sources --json") cat sources.json ;;
   "knowledge sources --diff "*) cat diff.json; if grep -q '"error"' diff.json; then exit 1; fi ;;
+  "spec read "*) cat specread.json; if grep -q '"error"' specread.json; then exit 1; fi ;;
   "knowledge read "*) cat read.json; if grep -q '"error"' read.json; then exit 1; fi ;;
   "knowledge accept "*|"knowledge reject "*|"knowledge reviewed "*|"knowledge decide "*) while [ -f hold ]; do sleep 0.05; done; cat decision.json; if grep -q '"error"' decision.json; then exit 1; fi ;;
   "task artifact read "*) cat artifact.json; if grep -q '"error"' artifact.json; then exit 1; fi ;;
@@ -250,6 +254,56 @@ describe('localSource, finding projects', () => {
     const refused = { code: 'not-a-folder', message: 'There is no folder at this path.' };
     expect(await source.scan(join(root, 'nowhere'))).toEqual(refused);
     expect(await source.scan(join(root, 'scan', 'one', 'status.json'))).toEqual(refused);
+  });
+});
+
+describe("localSource, a spec's documents", () => {
+  const source = localSource(join(root, 'spec-documents-config'));
+  const shop = {
+    id: 'shop',
+    title: 'Shop',
+    summary: 'A shop.',
+    missing_files: [],
+    release: null,
+    epic: null,
+    progress: null,
+    phases: [],
+  };
+  const document = { spec: 'shop', kind: 'spec', path: '.ai/specs/shop/spec.md', ref: null, bytes: 7, content: '# Shop\n', lossy: false };
+
+  it('reads a document of a spec Jig lists, without the path Jig prints, and says that Jig can read from 0.48.0', async () => {
+    const dir = project('spec-docs', '0.48.0', { specs: { specs: [shop] }, specText: document });
+    await source.connect(dir);
+    expect(await source.specs('spec-docs')).toMatchObject({ state: 'ready', canRead: true, specs: [{ id: 'shop', summary: 'A shop.' }] });
+    expect(await source.specText('spec-docs', 'shop', 'spec')).toEqual({
+      state: 'ready',
+      text: { kind: 'spec', bytes: 7, content: '# Shop\n', lossy: false },
+    });
+    expect(calls(dir)).toContain('spec read shop spec --json');
+  });
+
+  it('passes no id Jig did not list to Jig, and answers null for a document Jig does not have', async () => {
+    const dir = project('spec-docs-none', '0.48.0', { specs: { specs: [shop] }, specText: document });
+    await source.connect(dir);
+    for (const id of ['--json', 'nobody'])
+      expect(await source.specText('spec-docs-none', id, 'roadmap')).toEqual({ state: 'ready', text: null });
+    expect(calls(dir).filter((c) => c.startsWith('spec read'))).toEqual([]);
+    await source.connect(project('spec-docs-gone', '0.48.0', { specs: { specs: [shop] }, specText: 'not-found' }));
+    expect(await source.specText('spec-docs-gone', 'shop', 'roadmap')).toEqual({ state: 'ready', text: null });
+    expect(await source.specText('nobody', 'shop', 'spec')).toBeUndefined();
+  });
+
+  it('answers unsupported below Jig 0.48.0, running no read', async () => {
+    const dir = project('spec-docs-old', '0.47.0', { specs: { specs: [shop] } });
+    await source.connect(dir);
+    expect(await source.specs('spec-docs-old')).toMatchObject({ state: 'ready', canRead: false });
+    expect(await source.specText('spec-docs-old', 'shop', 'spec')).toEqual({
+      id: 'spec-docs-old',
+      state: 'unsupported',
+      jigVersion: '0.47.0',
+      minimum: '0.48.0',
+    });
+    expect(calls(dir).filter((c) => c.startsWith('spec read'))).toEqual([]);
   });
 });
 
@@ -441,6 +495,7 @@ describe('localSource', () => {
         {
           id: 'billing',
           title: 'Billing',
+          summary: null,
           missingFiles: [],
           release: 'minor',
           epic: { branch: 'epic/billing', state: 'open', checkedOut: true, missing: false, fetched: false },
@@ -453,6 +508,7 @@ describe('localSource', () => {
       ],
       revision: 7,
       editable: false,
+      canRead: false,
     });
     expect(await source.specs('old')).toEqual({ id: 'old', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0' });
     expect(await source.specs('nobody')).toBeUndefined();
@@ -569,7 +625,7 @@ describe('localSource', () => {
     const specs = JSON.stringify({ schema: 1, revision: 3, generated_at: 'x', data: { specs: [] } });
     const dir = project('older-specs', '0.31.0', { specs });
     await source.connect(dir);
-    expect(await source.specs('older-specs')).toEqual({ state: 'ready', specs: [], revision: 3, editable: false });
+    expect(await source.specs('older-specs')).toEqual({ state: 'ready', specs: [], revision: 3, editable: false, canRead: false });
     expect(await source.tasks('older-specs')).toMatchObject({ revision: 7 });
     await source.disconnect('older-specs');
   });
