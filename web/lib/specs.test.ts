@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { Spec } from '../api';
 import {
   agentRequests,
+  complete,
   filingGoal,
   itemStanding,
   itemTitle,
   itemWord,
   itemWords,
+  kind,
   laneOf,
   laneStep,
+  listed,
+  matchingSpecs,
   openingPhase,
   shownFog,
   shownRoadmap,
@@ -105,6 +109,78 @@ describe('agentRequests', () => {
   it('asks nothing of a spec whose items all have tasks, or whose roadmap cannot be read', () => {
     expect(agentRequests(spec(0, phase(1, done, item('refunds', 'refunds'))), 'acme')).toEqual([]);
     expect(agentRequests({ ...spec(0), progress: null }, 'acme')).toEqual([]);
+  });
+});
+
+describe('a complete spec', () => {
+  const made = (id: string, progress: Spec['progress'], title: string | null = null, epic: Spec['epic'] = null): Spec => ({
+    id,
+    title,
+    missingFiles: [],
+    release: null,
+    epic,
+    progress,
+    phases: [],
+    waiting: null,
+    queue: null,
+  });
+  const some = (id: string) => made(id, { done: 1, total: 2, filed: 1, fog: 0 });
+  const full = (id: string, epic: Spec['epic'] = null) => made(id, { done: 2, total: 2, filed: 0, fog: 0 }, null, epic);
+  const open = { branch: 'epic/x', state: 'open', checkedOut: false, missing: false, fetched: false } as const;
+
+  it('has every item done; one without items or without a readable roadmap is not', () => {
+    expect(complete(full('a'))).toBe(true);
+    expect(complete(some('a'))).toBe(false);
+    expect(complete(made('a', { done: 0, total: 0, filed: 0, fog: 0 }))).toBe(false);
+    expect(complete(made('a', null))).toBe(false);
+  });
+
+  it('goes last in the list, the others and the complete ones each keeping their order', () => {
+    const ids = listed([full('a'), some('b'), full('c'), some('d')]).map((s) => s.id);
+    expect(ids).toEqual(['b', 'd', 'a', 'c']);
+  });
+
+  it('asks to close it, or to finish its epic while that is open', () => {
+    expect(agentRequests(full('a'), 'acme')).toEqual(['Close spec a in acme: its roadmap is complete']);
+    expect(agentRequests(full('a', open), 'acme')).toEqual(['Finish the epic of spec a in acme: its roadmap is complete']);
+  });
+
+  it('asks nothing once its epic is finished: the finish pull request is what waits', () => {
+    expect(agentRequests(full('a', { ...open, state: 'finished' }), 'acme')).toEqual([]);
+  });
+
+  it('is judged by the roadmap the head shows: not complete while edits waiting add an item', () => {
+    const waiting: Spec = {
+      ...full('a'),
+      waiting: {
+        branch: 'spec/a',
+        base: 'main',
+        commits: 1,
+        pushed: false,
+        pr: null,
+        progress: { done: 2, total: 3, filed: 0, fog: 0 },
+        phases: [],
+      },
+    };
+    expect(complete(waiting)).toBe(false);
+    expect(listed([waiting, some('b')]).map((s) => s.id)).toEqual(['a', 'b']);
+    expect(agentRequests(waiting, 'acme')).toEqual([]);
+  });
+
+  it('says its epic and priority in one badge', () => {
+    const queued = (priority: number | null): Spec => ({ ...full('a'), queue: { position: 100, priority } });
+    expect(kind(full('a', open))).toBe('epic');
+    expect(kind({ ...queued(1), epic: open })).toBe('epic · P1');
+    expect(kind(queued(0))).toBe('P0');
+    expect(kind(full('a'))).toBe('');
+  });
+
+  it('is found by the words of its title or its id, whatever their case', () => {
+    const specs = [made('audit-log', null, 'Who changed what'), made('carousel', null, 'Rich cards')];
+    expect(matchingSpecs(specs, 'CHANGED').map((s) => s.id)).toEqual(['audit-log']);
+    expect(matchingSpecs(specs, ' carou ').map((s) => s.id)).toEqual(['carousel']);
+    expect(matchingSpecs(specs, '')).toEqual(specs);
+    expect(matchingSpecs(specs, 'nothing')).toEqual([]);
   });
 });
 

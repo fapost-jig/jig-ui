@@ -1,12 +1,23 @@
 <script setup lang="ts">
-  import { ExternalLink, Plus } from '@lucide/vue';
+  import { ChevronRight, ExternalLink, Plus } from '@lucide/vue';
   import { computed, ref } from 'vue';
   import { type ItemPlace, link, type Spec, type SpecItem } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
+  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
   import { Input } from '@/components/ui/input';
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-  import { agentRequests, itemStanding, LANES, laneOf, openingPhase, shownRoadmap, waitingItems, waitingState } from '@/lib/specs';
+  import {
+    agentRequests,
+    complete,
+    itemStanding,
+    LANES,
+    laneOf,
+    openingPhase,
+    shownRoadmap,
+    waitingItems,
+    waitingState,
+  } from '@/lib/specs';
   import { laneAccent, toneText } from '@/lib/tones';
   import CopyCommand from './CopyCommand.vue';
   import GroupPanel from './GroupPanel.vue';
@@ -47,6 +58,7 @@
   const roadmap = computed(() => shownRoadmap(props.spec));
   const marked = computed(() => waitingItems(props.spec));
   const numbered = computed(() => roadmap.value.phases.flatMap((p) => (p.phase === null ? [] : [p.phase])));
+  const finished = computed(() => complete(props.spec));
   const requests = computed(() => agentRequests(props.spec, props.project));
 
   /** The phase shown, by its place in the roadmap: the first with work left when the board opens. */
@@ -79,9 +91,19 @@
 <template>
   <section class="flex flex-col gap-5" :aria-labelledby="`spec-${spec.id}`">
     <header class="flex flex-col gap-2">
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h2 :id="`spec-${spec.id}`" class="text-base font-semibold">{{ spec.title ?? spec.id }}</h2>
-        <span v-if="spec.title" class="font-mono text-xs text-muted-foreground">{{ spec.id }}</span>
+      <h2 :id="`spec-${spec.id}`" class="text-[17px] leading-snug font-semibold">{{ spec.title ?? spec.id }}</h2>
+      <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <code v-if="spec.title">{{ spec.id }}</code>
+        <ProgressBar v-if="roadmap.progress" :done="roadmap.progress.done" :total="roadmap.progress.total" />
+        <span v-if="roadmap.progress && roadmap.progress.fog > 0">{{ roadmap.progress.fog }} fog</span>
+        <span v-if="spec.epic">
+          epic <code class="text-foreground">{{ spec.epic.branch }}</code> — {{ spec.epic.state
+          }}<template v-if="spec.epic.checkedOut">, checked out here</template
+          ><template v-if="spec.epic.fetched">, as of the last fetch</template>
+          <span v-if="spec.epic.missing" :class="toneText.attention">, the branch is nowhere</span>
+        </span>
+        <span v-else>each phase ships on its own</span>
+        <span v-if="spec.release">the release raises the {{ spec.release }} version</span>
         <span class="ml-auto flex items-center gap-2">
           <Badge v-if="spec.queue?.priority != null" variant="secondary" :title="`Priority ${spec.queue.priority}`">
             P{{ spec.queue.priority }}
@@ -89,19 +111,8 @@
           <!-- The epic's queue menu, from the page that writes it. -->
           <slot name="menu" />
         </span>
-      </div>
-      <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-        <ProgressBar v-if="roadmap.progress" :done="roadmap.progress.done" :total="roadmap.progress.total" />
-        <span v-if="roadmap.progress && roadmap.progress.fog > 0">{{ roadmap.progress.fog }} fog</span>
-        <span v-if="spec.epic">
-          epic <code class="text-xs text-foreground">{{ spec.epic.branch }}</code> — {{ spec.epic.state
-          }}<template v-if="spec.epic.checkedOut">, checked out here</template
-          ><template v-if="spec.epic.fetched">, as of the last fetch</template>
-          <span v-if="spec.epic.missing" :class="toneText.attention">, the branch is nowhere</span>
-        </span>
-        <span v-else>each phase ships on its own</span>
-        <span v-if="spec.release">the release raises the {{ spec.release }} version</span>
       </p>
+      <p v-if="finished" class="text-[13px]" :class="toneText.good">The roadmap is complete.</p>
       <p v-if="busy" class="text-[13px] text-muted-foreground" role="status">sending to Jig…</p>
       <p v-if="spec.waiting" class="text-[13px]" :class="toneText.attention">
         Edits wait on <code class="text-xs">{{ spec.waiting.branch }}</code> for <code class="text-xs">{{ spec.waiting.base }}</code
@@ -121,10 +132,16 @@
         Missing from the spec: {{ spec.missingFiles.join(', ') }}
       </p>
       <p v-else-if="roadmap.progress === null" class="text-[13px]" :class="toneText.attention">The roadmap cannot be read.</p>
-      <div v-if="requests.length" class="flex max-w-3xl flex-col gap-1">
-        <p class="text-[13px] text-muted-foreground">Ask your agent:</p>
-        <CopyCommand v-for="request in requests" :key="request" :command="request" />
-      </div>
+      <Collapsible v-if="requests.length" class="group max-w-3xl text-[13px] text-muted-foreground">
+        <CollapsibleTrigger class="flex w-fit items-center gap-1">
+          <ChevronRight class="size-3.5 transition-transform group-data-[state=open]:rotate-90" aria-hidden="true" />Ask your agent ({{
+            requests.length
+          }})
+        </CollapsibleTrigger>
+        <CollapsibleContent class="mt-1 flex flex-col gap-1">
+          <CopyCommand v-for="request in requests" :key="request" :command="request" />
+        </CollapsibleContent>
+      </Collapsible>
     </header>
 
     <Tabs v-if="roadmap.phases.length > 0" v-model="at" class="gap-4">

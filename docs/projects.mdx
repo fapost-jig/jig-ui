@@ -489,9 +489,11 @@ as it says it, with no bell. When Jig refuses the mark for another reason, the l
 ## Specs
 
 **Specs** — the third choice beside Board and List — shows the project's specs as Jig's
-`jig spec list` reports them, one at a time: with more than one, a tab for each, in the order
-below and on as many rows as they need, chooses which, and the page's address keeps the choice. A spec shows its title, how many
-roadmap items are done out of all of them, and its fog. An epic shows its branch, whether it is open or finished, and whether its
+`jig spec list` reports them: a list of the specs stands beside the chosen one, with a search box above it that
+finds a spec by the words of its title or its id. A row shows the spec's title, a badge for its epic and its priority
+(*epic · P1*), and how many roadmap items are done; a spec whose roadmap is complete goes to the end of the list, with a
+✓ and *close it*. A press on a row chooses the spec, and the page's address keeps the choice. The chosen spec shows its
+title, how many roadmap items are done out of all of them, and its fog. An epic shows its branch, whether it is open or finished, and whether its
 roadmap was read from the remote branch as it was at the last fetch, or the branch is nowhere;
 the version level its release raises is shown when the roadmap records one.
 
@@ -510,7 +512,10 @@ missing `spec.md` or `roadmap.md` says so. The specs follow the project like the
 Beyond [editing a roadmap](#editing-a-roadmap), the page plans nothing in a spec itself: a spec with
 work for your agent offers the request to copy. For the first phase with an item that has no task,
 it is *File the tasks for phase 3 of spec shop in acme*; while the spec has fog, *Continue spec shop
-in acme: lift its fog items*. Your agent takes them with Jig's `jig-idea` skill.
+in acme: lift its fog items*. For a spec whose roadmap is complete, it is *Close spec shop in acme* — or, while its
+epic is open, *Finish the epic of spec shop in acme*; once the epic is finished, its finish pull request is what
+waits, and the page asks for nothing. Your agent takes them with Jig's `jig-idea` skill. The requests sit under **Ask
+your agent**, folded: a press on it opens them.
 
 ### Ordering the epics
 
@@ -518,7 +523,7 @@ The specs with an open epic come first, in the order of the project's queue — 
 `jig queue next` takes their tasks — then the specs with none. An epic's ⋯ menu moves it **Up** or
 **Down** past the epic next to it, or **To top** or **To bottom** of the whole queue, ahead of or
 after the tasks that belong to no epic too; it also sets the epic's priority, from P0 to P5, shown
-beside its title and on its tab. Jig UI runs `jig queue move` and `jig queue set` with the revision of the specs
+beside its title and as a badge on its row in the list. Jig UI runs `jig queue move` and `jig queue set` with the revision of the specs
 you saw, so a change made in the project meanwhile is refused and the specs are read again. An epic
 not moved or prioritised yet is not in the queue; it follows the ones that are, in Jig's order.
 Setting its priority puts it in the queue too, at the bottom.

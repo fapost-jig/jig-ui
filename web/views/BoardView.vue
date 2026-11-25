@@ -38,14 +38,14 @@
   import KnowledgeView from '@/components/KnowledgeView.vue';
   import NewTaskForm from '@/components/NewTaskForm.vue';
   import SpecBoard from '@/components/SpecBoard.vue';
+  import SpecList from '@/components/SpecList.vue';
   import StateLine from '@/components/StateLine.vue';
   import { Button } from '@/components/ui/button';
-  import { Badge } from '@/components/ui/badge';
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
   import { Toggle } from '@/components/ui/toggle';
   import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
   import { conflict } from '@/lib/conflict';
+  import { listed } from '@/lib/specs';
   import { useDecisions } from '@/lib/decisions';
   import { movable } from '@/lib/epics';
   import { type FINISHED_WRITES, settleFinished } from '@/lib/finished';
@@ -500,7 +500,7 @@
   /** The spec the Specs view shows, kept in the address (`?spec=`) like the board's sort: the first when it names none of them. */
   const chosenSpec = computed(() =>
     typeof specs.value === 'object' && specs.value.state === 'ready'
-      ? (specs.value.specs.find((s) => s.id === route.query.spec) ?? specs.value.specs[0])
+      ? (specs.value.specs.find((s) => s.id === route.query.spec) ?? listed(specs.value.specs)[0])
       : undefined,
   );
 
@@ -513,7 +513,7 @@
     typeof specs.value === 'object' && specs.value.state === 'ready' ? specs.value.specs.map((s) => s.id) : [],
   );
 
-  /** A card's spec, opened on the Specs view as a press on Specs and a choice of its tab would: the board's view stays in the address. */
+  /** A card's spec, opened on the Specs view as a press on Specs and a choice of its row in the list would: the board's view stays in the address. */
   function openSpec(spec: string): void {
     show('specs');
     chooseSpec(spec);
@@ -966,38 +966,31 @@
       <p v-else-if="specs.specs.length === 0" class="p-4 text-muted-foreground">
         No specs in this project. A spec is written with the <code>jig-idea</code> skill and kept in <code>.ai/specs/</code>.
       </p>
-      <Tabs v-else-if="chosenSpec" :model-value="chosenSpec.id" class="gap-5 px-6 py-5" @update:model-value="chooseSpec">
-        <TabsList v-if="specs.specs.length > 1" aria-label="Specs" class="max-w-full flex-wrap">
-          <TabsTrigger v-for="spec in specs.specs" :key="spec.id" :value="spec.id" :title="spec.title ?? spec.id" class="shrink-0">
-            {{ spec.id }}
-            <Badge v-if="spec.queue?.priority != null" variant="secondary">P{{ spec.queue.priority }}</Badge>
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent :value="chosenSpec.id">
-          <SpecBoard
-            :key="chosenSpec.id"
-            :spec="chosenSpec"
-            :project="id"
-            :columns="columnOf"
-            :busy="pendingSpec === chosenSpec.id"
-            :editable="specs.editable"
-            :disabled="pendingSpec !== undefined"
-            @add="(phase, text) => addItem(chosenSpec!.id, phase, text)"
-            @move="(item, place) => moveItem(chosenSpec!.id, item, place)"
-            @file="(item) => (filingItem = { spec: chosenSpec!.id, item })"
-          >
-            <template v-if="movable(chosenSpec)" #menu>
-              <EpicMenu
-                :spec="chosenSpec"
-                :specs="specs.specs"
-                :disabled="pendingSpec !== undefined"
-                @move="(place) => moveEpic(chosenSpec!.id, place)"
-                @prioritise="(priority) => prioritiseEpic(chosenSpec!.id, priority)"
-              />
-            </template>
-          </SpecBoard>
-        </TabsContent>
-      </Tabs>
+      <div v-else-if="chosenSpec" class="grid gap-5 px-6 py-5 md:grid-cols-[240px_minmax(0,1fr)] md:items-start">
+        <SpecList :specs="specs.specs" :chosen="chosenSpec.id" @choose="chooseSpec" />
+        <SpecBoard
+          :key="chosenSpec.id"
+          :spec="chosenSpec"
+          :project="id"
+          :columns="columnOf"
+          :busy="pendingSpec === chosenSpec.id"
+          :editable="specs.editable"
+          :disabled="pendingSpec !== undefined"
+          @add="(phase, text) => addItem(chosenSpec!.id, phase, text)"
+          @move="(item, place) => moveItem(chosenSpec!.id, item, place)"
+          @file="(item) => (filingItem = { spec: chosenSpec!.id, item })"
+        >
+          <template v-if="movable(chosenSpec)" #menu>
+            <EpicMenu
+              :spec="chosenSpec"
+              :specs="listed(specs.specs)"
+              :disabled="pendingSpec !== undefined"
+              @move="(place) => moveEpic(chosenSpec!.id, place)"
+              @prioritise="(priority) => prioritiseEpic(chosenSpec!.id, priority)"
+            />
+          </template>
+        </SpecBoard>
+      </div>
       <FileItemDialog
         v-if="filingItem"
         :key="filingItem.item.id ?? ''"

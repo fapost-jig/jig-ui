@@ -38,11 +38,39 @@ function split(text: string): Words {
 }
 
 /**
- * What to ask the person's agent for on a spec, in jig-idea's words: to file the tasks of the first
- * phase with an item that has none, and to continue the spec while it has fog. Items before the first
+ * A spec whose roadmap is complete, by Jig's own numbers: every item done, in the roadmap the head shows — the waiting
+ * one while edits wait. A roadmap that cannot be read is not.
+ */
+export const complete = (spec: Spec): boolean => {
+  const { progress } = shownRoadmap(spec);
+  return progress !== null && progress.total > 0 && progress.done === progress.total;
+};
+
+/** Epic and priority as one badge's words on a spec's row: "epic · P1", "epic", "P1"; none for a spec with neither. */
+export const kind = (spec: Spec): string =>
+  [spec.epic ? 'epic' : null, spec.queue?.priority != null ? `P${spec.queue.priority}` : null].filter((part) => part !== null).join(' · ');
+
+/** The specs in the order the list shows them: Jig's order, the complete ones moved to the end, each group keeping its order. */
+export const listed = (specs: Spec[]): Spec[] => [...specs.filter((s) => !complete(s)), ...specs.filter(complete)];
+
+/** The specs whose title or id has the words typed in it, whatever their case; all of them for no words. */
+export function matchingSpecs(specs: Spec[], query: string): Spec[] {
+  const words = query.trim().toLowerCase();
+  return words === '' ? specs : specs.filter((s) => `${s.title ?? ''}\n${s.id}`.toLowerCase().includes(words));
+}
+
+/**
+ * What to ask the person's agent for on a spec, in jig-idea's words: for a spec whose roadmap is complete, to finish its
+ * epic while that is open, to close it when it has none, and nothing once its epic is finished (its finish pull request
+ * is what waits); else to file the tasks of the first phase with an item that has none, and to continue the
+ * spec while it has fog. Items before the first
  * phase heading are left out: "phase N" cannot name them.
  */
 export function agentRequests(spec: Spec, project: string): string[] {
+  if (complete(spec)) {
+    if (spec.epic === null) return [`Close spec ${spec.id} in ${project}: its roadmap is complete`];
+    return spec.epic.state === 'open' ? [`Finish the epic of spec ${spec.id} in ${project}: its roadmap is complete`] : [];
+  }
   const unfiled = spec.phases.find((p) => p.phase !== null && p.items.some((i) => i.task === null && !i.fog && !i.checked));
   return [
     ...(unfiled ? [`File the tasks for phase ${unfiled.phase} of spec ${spec.id} in ${project}`] : []),
