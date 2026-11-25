@@ -10,7 +10,7 @@ Goal: the Specs view is a list on the left and the chosen spec on the right, wit
 Jig. Done when: twenty specs are found by search, read by title, and a complete one is marked
 "close it" at the bottom with the request to close it.
 
-- [ ] Specs list beside the chosen spec — the list with search, scrolling, full titles at 12px, a hairline between rows, the chosen row as a card, epic and priority as a badge, complete specs last with ✓ and "close it"; the head with title, meta line, "Ask your agent" collapsed with the close request for a complete spec, then the phases and board
+- [ ] `specs-list-beside-spec` — Specs list beside the chosen spec — the list with search, scrolling, full titles at 12px, a hairline between rows, the chosen row as a card, epic and priority as a badge, complete specs last with ✓ and "close it"; the head with title, meta line, "Ask your agent" collapsed with the close request for a complete spec, then the phases and board
 
 ## Phase 2 — A spec's words from Jig
 
