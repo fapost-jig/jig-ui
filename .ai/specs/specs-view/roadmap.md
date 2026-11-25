@@ -18,7 +18,7 @@ Goal: Jig gives a spec's summary and its documents' text through its contract. D
 release has both and Jig UI's adapter can read them. Filed in `fapost-jig/jig`.
 
 - [x] Summary in `jig spec list --json` — a short description of each spec, from the source Jig decides (see Open questions)
-- [ ] Text of a spec's documents — a command that gives `spec.md` and `roadmap.md` as written, in JSON
+- [x] Text of a spec's documents — a command that gives `spec.md` and `roadmap.md` as written, in JSON
 
 ## Phase 3 — The spec's words on the page
 
