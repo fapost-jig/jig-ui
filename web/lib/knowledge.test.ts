@@ -7,10 +7,13 @@ import {
   isMarkdown,
   knowledgeRefusal,
   newer,
+  openOne,
   pendingLine,
   noKnowledge,
   readFirst,
+  diffRead,
   shownDiff,
+  textRead,
   shownText,
   sourceActions,
   sourceLine,
@@ -213,6 +216,27 @@ describe('shownDiff', () => {
   });
 });
 
+describe('what a dialog reads of an open diff or text', () => {
+  it('keeps being read and gone, and counts anything Jig could not read as failed', () => {
+    expect(diffRead('reading')).toBe('reading');
+    expect(diffRead('not-found')).toBe('not-found');
+    expect(diffRead({ id: 'x', state: 'unreadable', code: 'failed' })).toBe('failed');
+    expect(textRead('reading')).toBe('reading');
+    expect(textRead('not-found')).toBe('not-found');
+    expect(textRead({ id: 'x', state: 'unreadable', code: 'failed' })).toBe('failed');
+  });
+
+  it('is ready for a diff, with none to compare with as well, and for a text', () => {
+    expect(diffRead({ state: 'ready', diff: '+a\n', lossy: true })).toEqual({ state: 'ready', content: '+a\n', lossy: true });
+    expect(diffRead({ state: 'ready', diff: null, lossy: false })).toEqual({ state: 'ready', content: '', lossy: false });
+    expect(textRead({ state: 'ready', content: '# A', lossy: false, source: null })).toEqual({
+      state: 'ready',
+      content: '# A',
+      lossy: false,
+    });
+  });
+});
+
 describe('knowledgeRefusal', () => {
   it.each([
     ['git-not-allowed', [], "Jig commits nothing in this clone (agent.git is none): choose a level in the project's Settings."],
@@ -302,5 +326,15 @@ describe('newer', () => {
     expect(newer(at(7), { id: 'x', state: 'unreadable', code: 'failed' })).toBe(true);
     expect(newer({ id: 'x', state: 'unreadable', code: 'failed' }, at(7))).toBe(false);
     expect(newer('not-connected', undefined)).toBe(false);
+  });
+});
+
+describe('openOne', () => {
+  it('opens a diff with no text and no other diff open', () => {
+    expect(openOne('diff', 'a')).toEqual({ diffs: { a: 'reading' }, texts: {} });
+  });
+
+  it('opens a text with no diff open', () => {
+    expect(openOne('text', 'a')).toEqual({ diffs: {}, texts: { a: 'reading' } });
   });
 });

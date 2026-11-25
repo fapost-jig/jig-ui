@@ -21,7 +21,7 @@ paths:
   - web/lib/writes.ts
   - web/components/ActionList.vue
 summary: What a task's details show from Jig's task row and queue, and its documents on the full page; why only offered actions reach the page and a document is shown as written
-reviewed_at: 2026-11-19
+reviewed_at: 2026-11-25
 ---
 # Task details
 
@@ -47,10 +47,11 @@ like the board.
 
 The full page also lists the task's **documents** (`web/components/TaskDocuments.vue`): the ones
 Jig 0.39.0 reports there — written, empty, or not readable with Jig's word for why — in Jig's order,
-from `GET /api/projects/:id/tasks/:task/artifacts`; a click opens one, read from `…/artifacts/:kind`
-and rendered from its Markdown (`web/lib/markdown.ts`). Both are read through Jig at each call, not
-held with the board's read; on a change of the project the list and every open document are read
-again. A project on an older Jig says so in the section.
+from `GET /api/projects/:id/tasks/:task/artifacts`; a click opens one in the page's document dialog
+(`web/components/DocumentDialog.vue`), one at a time, read from `…/artifacts/:kind` and rendered from
+its Markdown (`web/lib/markdown.ts`). Both are read through Jig at each call, not held with the
+board's read; on a change of the project the list and the open document are read again, a failed
+reread keeping the document shown. A project on an older Jig says so in the section.
 
 From Jig 0.46.0 the full page **runs a person's writes** where Jig offers them
 (adr-20261118-a-person-writes-on-a-task-from-its-page): a design at its gate is shown as written with **Approve the
@@ -105,4 +106,6 @@ so the page never decides what is allowed.
 - Showing refused actions with Jig's reason — rejected for the path rule above.
 - Documents as plain text — proposed, and set aside by the maintainer at task `task-artifacts`'s
   gate: a document read raw. Native `<details>` for each document — the Reka `Collapsible` instead,
-  as convention-vue asks of a disclosure.
+  as convention-vue asks of a disclosure; the Collapsible in turn gave way to the dialog at task
+  `documents-in-a-dialog` (2026-11-25), the maintainer asking that every document on the page open in
+  one (adr-20261125-a-specs-documents-are-shown-as-written).

@@ -58,6 +58,10 @@ paths included, on 2026-11-25 (in the session, after the review asked for it).
 ## Consequences
 
 - A spec's text is on the page as written, paths included — the same exposure task documents have.
-- The dialog is the place a later task moves a task's documents and knowledge texts to.
+- The dialog is the place a later task moves a task's documents and knowledge texts to — done in task
+  `documents-in-a-dialog` (2026-11-25): a task's documents, a proposed knowledge document's text and a
+  changed source's diff open in it, one at a time, the dialog taking a slot for what is not one
+  Markdown document; the design at a task's gate stays on the page above Approve, since the approval
+  is of what is shown there.
 - A roadmap read through `jig spec read` leaves out edits waiting on the spec's branch, which the
   board shows; the dialog says so while edits wait.

@@ -1,38 +1,35 @@
 <script setup lang="ts">
-  import { ChevronDown, ChevronRight } from '@lucide/vue';
+  import { ChevronRight } from '@lucide/vue';
   import { computed } from 'vue';
   import type { ArtifactKind, TaskArtifact, TaskArtifacts } from '@/api';
   import { Button } from '@/components/ui/button';
-  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
   import { documentLine, noDocuments } from '@/lib/artifacts';
-  import { prose, rendered } from '@/lib/markdown';
+  import type { OpenDocument } from '@/lib/documents';
   import { toneText } from '@/lib/tones';
+  import DocumentDialog from './DocumentDialog.vue';
   import GroupPanel from './GroupPanel.vue';
 
-  /** A task's documents: the list Jig gave (`undefined` while it is read), and each open one — being read, read, or gone. */
+  /**
+   * A task's documents: the list Jig gave (`undefined` while it is read), and the one open in a dialog — being read, read,
+   * or gone. A document is open one at a time.
+   */
   const props = defineProps<{
+    task: string;
     documents?: TaskArtifacts;
-    open: Partial<Record<ArtifactKind, TaskArtifact | 'reading' | 'not-found'>>;
+    open?: OpenDocument<ArtifactKind, TaskArtifact>;
     reading?: boolean;
   }>();
 
-  defineEmits<{
-    toggle: [kind: ArtifactKind, open: boolean];
+  const emit = defineEmits<{
+    /** A document is chosen, or asked again (Read again). */
+    open: [kind: ArtifactKind];
+    close: [];
     readAgain: [];
   }>();
 
   const none = computed(() => props.documents && noDocuments(props.documents));
   const listed = computed(() =>
     props.documents?.state === 'ready' ? props.documents.artifacts.map((artifact) => ({ artifact, line: documentLine(artifact) })) : [],
-  );
-
-  /** Each open document read, as HTML cleaned of anything that could run. */
-  const html = computed(() =>
-    Object.fromEntries(
-      Object.entries(props.open).flatMap(([kind, read]) =>
-        typeof read === 'object' && read.state === 'ready' ? [[kind, rendered(read.content)]] : [],
-      ),
-    ),
   );
 </script>
 
@@ -48,31 +45,28 @@
     </p>
     <ul v-else class="mx-2 mb-2 rounded-lg border bg-card">
       <li v-for="{ artifact, line } in listed" :key="artifact.kind" class="border-b last:border-b-0">
-        <Collapsible
-          :open="artifact.kind in open"
-          :disabled="artifact.state !== 'present'"
-          @update:open="(o: boolean) => $emit('toggle', artifact.kind, o)"
-        >
-          <h3>
-            <CollapsibleTrigger class="flex w-full items-center gap-2 px-4 py-2.5 text-left enabled:hover:bg-muted/50">
-              <ChevronDown v-if="artifact.kind in open" class="size-3 shrink-0" />
-              <ChevronRight v-else class="size-3 shrink-0" :class="{ invisible: artifact.state !== 'present' }" />
-              <span class="font-medium">{{ artifact.kind }}</span>
-              <span class="ml-auto text-right text-[13px]" :class="toneText[line.tone]">{{ line.text }}</span>
-            </CollapsibleTrigger>
-          </h3>
-          <CollapsibleContent>
-            <p v-if="open[artifact.kind] === 'reading'" class="px-4 pb-4 text-muted-foreground">Reading…</p>
-            <p v-else-if="open[artifact.kind] === 'not-found'" class="px-4 pb-4 text-muted-foreground">Jig no longer has it.</p>
-            <p v-else-if="html[artifact.kind] === undefined" class="flex flex-wrap items-center gap-x-3 px-4 pb-4" :class="toneText.bad">
-              Jig could not read it.
-              <Button variant="outline" size="xs" @click="$emit('toggle', artifact.kind, true)">Read again</Button>
-            </p>
-            <!-- eslint-disable-next-line vue/no-v-html -- cleaned by DOMPurify in lib/markdown.ts -->
-            <div v-else class="px-4 pb-4" :class="prose" v-html="html[artifact.kind]" />
-          </CollapsibleContent>
-        </Collapsible>
+        <h3>
+          <Button
+            variant="ghost"
+            class="h-auto w-full justify-start gap-2 rounded-none px-4 py-2.5 text-left text-sm"
+            :disabled="artifact.state !== 'present'"
+            @click="emit('open', artifact.kind)"
+          >
+            <ChevronRight class="size-3 shrink-0" :class="{ invisible: artifact.state !== 'present' }" />
+            <span class="font-medium">{{ artifact.kind }}</span>
+            <span class="ml-auto text-right text-[13px] font-normal" :class="toneText[line.tone]">{{ line.text }}</span>
+          </Button>
+        </h3>
       </li>
     </ul>
+    <DocumentDialog
+      v-if="open"
+      :id="task"
+      :open="true"
+      :title="open.kind"
+      :read="open.read"
+      @update:open="emit('close')"
+      @read-again="emit('open', open.kind)"
+    />
   </GroupPanel>
 </template>
