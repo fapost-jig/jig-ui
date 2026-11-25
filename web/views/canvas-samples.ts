@@ -819,6 +819,12 @@ export const knowledgeDiffs: Record<string, SourceDiff | 'reading'> = {
   'convention-review': { id: 'acme', state: 'unreadable', code: 'failed' },
 };
 
+/** The diffs of Jig 0.41.0's changed files: one with no approved text to compare with, one gone by the time it is read. */
+export const knowledgeDiffsLater: Record<string, SourceDiff | 'not-found'> = {
+  'convention-team-rules': { state: 'ready', diff: null, lossy: false },
+  'convention-release': 'not-found',
+};
+
 /** What Jig 0.41.0 reads of each record a decision can be sent on now. */
 const judged = { decidable: true, reason: null, lossy: false };
 

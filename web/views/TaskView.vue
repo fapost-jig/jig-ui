@@ -26,6 +26,7 @@
   import TaskFacts from '@/components/TaskFacts.vue';
   import TaskWrites from '@/components/TaskWrites.vue';
   import { Badge } from '@/components/ui/badge';
+  import { landed, type OpenDocument, opened } from '@/lib/documents';
   import { lastWins } from '@/lib/last-wins';
   import { reasonsOf, writeRefusal } from '@/lib/refusal';
   import { columnAccent, toneRule } from '@/lib/tones';
@@ -58,9 +59,10 @@
     if (read) await load();
   }
 
-  /** The task's documents Jig lists, and each one open: being read, read, or gone. */
+  /** The task's documents Jig lists. */
   const documents = ref<TaskArtifacts | 'not-connected' | 'not-found'>();
-  const open = ref<Partial<Record<ArtifactKind, TaskArtifact | 'reading' | 'not-found'>>>({});
+  /** The document open in a dialog, being read or as read: one at a time. */
+  const open = ref<OpenDocument<ArtifactKind, TaskArtifact>>();
   const listing = ref(false);
 
   const list = lastWins(
@@ -68,28 +70,21 @@
     (read) => (documents.value = read),
   );
 
-  /** Each open document's reads, the latest landing: a change can start one while another is under way. */
-  const reads = new Map<ArtifactKind, () => Promise<unknown>>();
-  function readDocument(kind: ArtifactKind): Promise<unknown> {
-    let read = reads.get(kind);
-    if (!read) {
-      read = lastWins(
-        () => readArtifact(props.project, props.task, kind),
-        (answer) => kind in open.value && (open.value[kind] = answer),
-      );
+  const readDocument = lastWins(
+    async () => {
+      const document = open.value;
+      if (!document) return undefined;
+      const read = await readArtifact(props.project, props.task, document.kind);
+      // A first read that did not get through is the document's own failure; a reread that fails keeps what is shown.
+      if (read === undefined && open.value?.read !== 'reading') return undefined;
+      return { ...document, read: read ?? ('failed' as const) };
+    },
+    (read) => (open.value = landed(open.value, read)),
+  );
 
-      reads.set(kind, read);
-    }
-    return read();
-  }
-
-  async function toggle(kind: ArtifactKind, opened: boolean): Promise<void> {
-    if (!opened) {
-      delete open.value[kind];
-      return;
-    }
-    open.value[kind] = 'reading';
-    await readDocument(kind);
+  function openDocument(kind: ArtifactKind): void {
+    open.value = opened(props.task, kind);
+    void readDocument();
   }
 
   async function relist(): Promise<void> {
@@ -132,6 +127,12 @@
         }),
       ),
     (read) => (gate.value = read.length > 0 ? read : undefined),
+  );
+
+  // Another task's page does not open with this one's document.
+  watch(
+    () => [props.project, props.task],
+    () => (open.value = undefined),
   );
 
   watch(
@@ -251,7 +252,7 @@
       void load();
       void list();
       void readGate();
-      for (const kind of Object.keys(open.value) as ArtifactKind[]) void readDocument(kind);
+      void readDocument();
     }),
   );
 </script>
@@ -308,10 +309,12 @@
 
       <TaskDocuments
         v-if="documents !== 'not-connected' && documents !== 'not-found'"
+        :task="task"
         :documents="documents"
         :open="open"
         :reading="listing"
-        @toggle="toggle"
+        @open="openDocument"
+        @close="open = undefined"
         @read-again="relist"
       />
 

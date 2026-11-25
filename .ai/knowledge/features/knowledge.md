@@ -9,7 +9,7 @@ paths:
   - "server/jig/fixtures/knowledge-*.json"
   - web/lib/decisions.ts
 summary: "The Knowledge view of a project's page: proposals to accept or reject after reading their text, and changed linked files to keep or drop after their diff, read on demand from Jig 0.40.0 (text and Drop from 0.41.0), decisions waiting on knowledge/decisions marked; linked from the workspace card's attention items"
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-25
 ---
 # Deciding knowledge
 
@@ -23,7 +23,9 @@ lists it (`readKnowledge` in `server/jig/client.ts`: `jig knowledge proposed --j
 
 - **Proposed** — each document nobody agreed to yet, in Jig's order: its id, type, summary and file;
   the paths and domains it would bind agents to; for a stub, the file it links and its size, or that
-  the file is gone; **Accept** and **Reject**. From Jig 0.41.0 its **Document** opens its text
+  the file is gone; **Accept** and **Reject**. From Jig 0.41.0 its **Document** opens its text in the
+  page's document dialog (`DocumentDialog.vue`, one text or diff at a time, Read again where Jig could
+  not read it)
   (`GET /api/projects/:id/knowledge/:doc/text`, `jig knowledge read`), the frontmatter cut, and for a
   stub the file it links as it is now: Markdown through `rendered()`, any other file in a `<pre>`.
   Below 0.41.0 the proposal names the file to read before deciding. A record Jig reads as not
@@ -33,7 +35,7 @@ lists it (`readKnowledge` in `server/jig/client.ts`: `jig knowledge proposed --j
   once the checkout has origin's base — Refresh does that only on the base itself
   (adr-20261113-refresh-brings-the-clone-up-from-the-card).
 - **Changed sources** — each approved stub whose linked file is `changed`, `unrecorded` (no approved
-  text kept) or `missing`. A changed one's **Diff since approved** opens Jig's unified diff
+  text kept) or `missing`. A changed one's **Diff since approved** opens, in the same dialog, Jig's unified diff
   (`GET /api/projects/:id/knowledge/:doc/diff`, `jig knowledge sources --diff`), plain text in a
   `<pre>`, each line toned by its first character; **Keep** (`jig knowledge reviewed`) on changed
   and unrecorded; from Jig 0.41.0 **Drop** (`jig knowledge reject`) on all three, which ends the

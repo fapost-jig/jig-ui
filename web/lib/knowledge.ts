@@ -1,5 +1,6 @@
 import type { Decision, DocumentText, Knowledge, LinkedSource, Proposal, SourceDiff } from '@/api';
 import { size } from './artifacts';
+import type { DocumentRead } from './documents';
 import { NO_COMMITS, refusal } from './refusal';
 import type { Tone } from './tones';
 
@@ -136,11 +137,17 @@ export type ShownDiff =
       lossy: boolean;
     };
 
-export function shownDiff(read: SourceDiff | 'reading' | 'not-found'): ShownDiff {
+export function shownDiff(read: SourceDiff | 'reading' | 'not-found' | 'failed'): ShownDiff {
   if (read === 'reading') return { kind: 'reading' };
   if (read === 'not-found') return { kind: 'gone' };
-  if (read.state !== 'ready') return { kind: 'failed' };
+  if (read === 'failed' || read.state !== 'ready') return { kind: 'failed' };
   return read.diff === null ? { kind: 'whole' } : { kind: 'lines', lines: diffLines(read.diff), lossy: read.lossy };
+}
+
+/** An open diff as a dialog reads it: the diff's lines are the slot's to show, so what is read carries only whether it was. */
+export function diffRead(read: SourceDiff | 'reading' | 'not-found' | 'failed'): DocumentRead {
+  if (typeof read === 'string') return read;
+  return read.state === 'ready' ? { state: 'ready', content: read.diff ?? '', lossy: read.lossy } : 'failed';
 }
 
 /** A document's text without its frontmatter, whose fields the view shows above it. */
@@ -168,15 +175,32 @@ export type ShownText =
       parts: TextPart[];
     };
 
-export function shownText(proposal: Proposal, read: DocumentText | 'reading' | 'not-found'): ShownText {
+export function shownText(proposal: Proposal, read: DocumentText | 'reading' | 'not-found' | 'failed'): ShownText {
   if (read === 'reading') return { kind: 'reading' };
   if (read === 'not-found') return { kind: 'gone' };
-  if (read.state !== 'ready') return { kind: 'failed' };
+  if (read === 'failed' || read.state !== 'ready') return { kind: 'failed' };
   const parts = [{ path: proposal.path, text: body(read.content), markdown: isMarkdown(proposal.path), lossy: read.lossy }];
   if (read.source && proposal.source !== null) {
     parts.push({ path: proposal.source, text: read.source.content, markdown: isMarkdown(proposal.source), lossy: read.source.lossy });
   }
   return { kind: 'text', parts };
+}
+
+/** One diff or one text is open at a time: opening either leaves the other, and any earlier one, closed, this one being read. */
+export function openOne(
+  kind: 'diff' | 'text',
+  doc: string,
+): {
+  diffs: Partial<Record<string, 'reading'>>;
+  texts: Partial<Record<string, 'reading'>>;
+} {
+  return kind === 'diff' ? { diffs: { [doc]: 'reading' }, texts: {} } : { diffs: {}, texts: { [doc]: 'reading' } };
+}
+
+/** An open text as a dialog reads it: its parts are the slot's to show, so what is read carries only whether it was. */
+export function textRead(read: DocumentText | 'reading' | 'not-found' | 'failed'): DocumentRead {
+  if (typeof read === 'string') return read;
+  return read.state === 'ready' ? { state: 'ready', content: read.content, lossy: read.lossy } : 'failed';
 }
 
 /**

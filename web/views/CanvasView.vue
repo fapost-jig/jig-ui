@@ -3,6 +3,8 @@
   // side. A component added to components/ or components/ui/ gets a section here.
   import { Copy } from '@lucide/vue';
   import { ref } from 'vue';
+  import type { ArtifactKind, DocumentText, SourceDiff, TaskArtifact } from '@/api';
+  import { type DocumentRead, type OpenDocument } from '@/lib/documents';
   import ActionList from '@/components/ActionList.vue';
   import AttentionItem from '@/components/AttentionItem.vue';
   import BoardColumns from '@/components/BoardColumns.vue';
@@ -83,6 +85,7 @@
     knowledge,
     knowledgeAttention,
     knowledgeDiffs,
+    knowledgeDiffsLater,
     knowledgeLater,
     knowledgeTexts,
     noDecisions,
@@ -171,6 +174,26 @@
   const filingOpen = ref<(typeof filingStates)[number]>();
   /** The sample document open in a DocumentDialog, by its name. */
   const documentOpen = ref<string>();
+
+  /** The task's document open in TaskDocuments, as the page holds it: its sample read, the others gone. */
+  const taskDocument = ref<OpenDocument<ArtifactKind, TaskArtifact>>();
+  const taskReads: Partial<Record<ArtifactKind, DocumentRead<TaskArtifact>>> = {
+    design: openDocument,
+    plan: 'reading',
+    task: { id: 'x', state: 'unreadable', code: 'failed' },
+  };
+
+  /** The diffs and texts open in KnowledgeView, as the page holds them: each document's sample read, a diff or text without one being read. */
+  const canvasDiffs = ref<Partial<Record<string, SourceDiff | 'reading' | 'not-found'>>>({});
+  const canvasDiffsLater = ref<Partial<Record<string, SourceDiff | 'reading' | 'not-found'>>>({});
+  const canvasTexts = ref<Partial<Record<string, DocumentText | 'reading' | 'not-found'>>>({});
+  function openedSample<T>(
+    samples: Record<string, T | 'reading' | 'not-found'>,
+    doc: string,
+    open: boolean,
+  ): Partial<Record<string, T | 'reading' | 'not-found'>> {
+    return open ? { [doc]: samples[doc] ?? 'reading' } : {};
+  }
 
   /** The header's Jig with a newer release: its question, while the update runs, and after Jig refused it. */
   const jigStates = [
@@ -723,21 +746,33 @@
 
     <CanvasSection
       title="TaskDocuments"
-      note="written, empty, not readable — design open, plan being read; none yet; Jig too old; Jig did not answer; being listed; a document Jig could not read"
+      note="written, empty, not readable — press design (read), plan (being read), task (Jig could not read it: Read again) or another (Jig no longer has it) to open it in a DocumentDialog, one at a time; none yet; Jig too old; Jig did not answer; being listed"
     >
-      <TaskDocuments :documents="documents" :open="{ design: openDocument, plan: 'reading' }" />
-      <TaskDocuments :documents="{ state: 'ready', artifacts: [] }" :open="{}" />
-      <TaskDocuments :documents="{ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.39.0' }" :open="{}" />
-      <TaskDocuments :documents="{ id: 'x', state: 'unreadable', code: 'timeout' }" :open="{}" />
-      <TaskDocuments :open="{}" />
-      <TaskDocuments :documents="documents" :open="{ task: { id: 'x', state: 'unreadable', code: 'failed' } }" />
+      <TaskDocuments
+        task="design-system"
+        :documents="documents"
+        :open="taskDocument"
+        @open="(kind) => (taskDocument = { owner: 'design-system', kind, read: taskReads[kind] ?? 'not-found' })"
+        @close="taskDocument = undefined"
+      />
+      <TaskDocuments task="design-system" :documents="{ state: 'ready', artifacts: [] }" />
+      <TaskDocuments task="design-system" :documents="{ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.39.0' }" />
+      <TaskDocuments task="design-system" :documents="{ id: 'x', state: 'unreadable', code: 'timeout' }" />
+      <TaskDocuments task="design-system" />
     </CanvasSection>
 
     <CanvasSection
       title="KnowledgeView"
-      note="proposals — a document, a stub, a stub whose file is gone, one accepted and waiting in a pull request; changed sources — a diff read with bytes dropped, one being read, no approved text, a file gone, one kept whose diff Jig could not read; then an Accept being sent and a Keep queued behind it, and decisions waiting pushed with no pull request"
+      note="proposals — a document, a stub, a stub whose file is gone, one accepted and waiting in a pull request; changed sources — press Diff since approved for a diff read with bytes dropped (team-rules), one being read (release) or one Jig could not read (review), each in a DocumentDialog; then an Accept being sent and a Keep queued behind it, and decisions waiting pushed with no pull request"
     >
-      <KnowledgeView :knowledge="knowledge" :diffs="knowledgeDiffs" :texts="{}" :queued="noDecisions" :sending="noDecisions" />
+      <KnowledgeView
+        :knowledge="knowledge"
+        :diffs="canvasDiffs"
+        :texts="{}"
+        :queued="noDecisions"
+        :sending="noDecisions"
+        @toggle="(doc, open) => (canvasDiffs = openedSample(knowledgeDiffs, doc, open))"
+      />
       <KnowledgeView
         :knowledge="{
           ...knowledge,
@@ -754,9 +789,17 @@
 
     <CanvasSection
       title="KnowledgeView, Jig 0.41.0"
-      note="proposals — a feature's text, a stub's with its Markdown file (bytes dropped) and with a file that is not Markdown, one not pushed being read, one after the decisions were cut whose name lost bytes and whose text Jig could not read, one no longer proposed when its text was read; changed sources — Keep and Drop, Drop on a file gone, one dropped and waiting, one changed only here; then a Drop queued and a Drop being sent"
+      note="proposals — press Document for a feature's text, a stub's with its Markdown file (bytes dropped) and with a file that is not Markdown, one not pushed being read, one after the decisions were cut whose name lost bytes and whose text Jig could not read, one no longer proposed when its text was read, each in a DocumentDialog with its parts in the slot; changed sources — Diff since approved with no approved text (team-rules) and one gone (release), and — Keep and Drop, Drop on a file gone, one dropped and waiting, one changed only here; then a Drop queued and a Drop being sent"
     >
-      <KnowledgeView :knowledge="knowledgeLater" :diffs="{}" :texts="knowledgeTexts" :queued="noDecisions" :sending="noDecisions" />
+      <KnowledgeView
+        :knowledge="knowledgeLater"
+        :diffs="canvasDiffsLater"
+        :texts="canvasTexts"
+        :queued="noDecisions"
+        :sending="noDecisions"
+        @toggle="(doc, open) => (canvasDiffsLater = openedSample(knowledgeDiffsLater, doc, open))"
+        @toggle-text="(doc, open) => (canvasTexts = openedSample(knowledgeTexts, doc, open))"
+      />
       <KnowledgeView
         :knowledge="{ ...knowledgeLater, proposals: [], sources: knowledgeLater.sources.slice(1, 3) }"
         :diffs="{}"
@@ -1004,7 +1047,7 @@
 
     <CanvasSection
       title="DocumentDialog"
-      note="open one: a document read, one being read, one Jig no longer has, one Jig could not read (Read again), one with bytes dropped"
+      note="open one: a document read, one being read, one Jig no longer has, one Jig could not read (Read again), one with bytes dropped; and with its own words for gone and failed and ready content in its slot (a knowledge text in parts, a diff), under KnowledgeView"
     >
       <div class="flex flex-wrap gap-2">
         <Button v-for="(read, name) in specDocuments" :key="name" variant="outline" size="xs" @click="documentOpen = name">{{

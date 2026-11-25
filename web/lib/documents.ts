@@ -3,7 +3,8 @@ export type DocumentAnswer =
   | {
       state: 'ready';
       content: string;
-      lossy: boolean;
+      /** Bytes that are not UTF-8 were dropped; a document that never carries it (a task's) is whole. */
+      lossy?: boolean;
     }
   | {
       state: 'unsupported' | 'incompatible' | 'unavailable' | 'unreadable';
@@ -31,7 +32,7 @@ export type ShownDocument =
  */
 export function shownDocument(read: DocumentRead): ShownDocument {
   if (typeof read === 'string') return { state: read };
-  if (read.state === 'ready') return { state: 'ready', content: read.content, lossy: read.lossy };
+  if (read.state === 'ready') return { state: 'ready', content: read.content, lossy: read.lossy ?? false };
   return { state: read.state === 'unreadable' && read.code === 'epic-missing' ? 'epic-missing' : 'failed' };
 }
 

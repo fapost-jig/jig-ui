@@ -7,6 +7,7 @@ describe('shownDocument', () => {
     expect(shownDocument('not-found')).toEqual({ state: 'not-found' });
     expect(shownDocument('failed')).toEqual({ state: 'failed' });
     expect(shownDocument({ state: 'ready', content: '# A', lossy: true })).toEqual({ state: 'ready', content: '# A', lossy: true });
+    expect(shownDocument({ state: 'ready', content: '# B' })).toEqual({ state: 'ready', content: '# B', lossy: false });
     expect(shownDocument({ state: 'unsupported' })).toEqual({ state: 'failed' });
     expect(shownDocument({ state: 'unreadable', code: 'failed' })).toEqual({ state: 'failed' });
     expect(shownDocument({ state: 'unreadable' })).toEqual({ state: 'failed' });

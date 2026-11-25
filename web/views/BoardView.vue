@@ -54,7 +54,7 @@
   import { movable } from '@/lib/epics';
   import { type FINISHED_WRITES, settleFinished } from '@/lib/finished';
   import { DOING } from '@/lib/writes';
-  import { knowledgeRefusal, newer, noKnowledge } from '@/lib/knowledge';
+  import { knowledgeRefusal, newer, noKnowledge, openOne } from '@/lib/knowledge';
   import { lastWins } from '@/lib/last-wins';
   import { mergedLine } from '@/lib/pr-status';
   import { knowledgeWaiting, type HousekeepingState, type RefreshState } from '@/lib/projects';
@@ -718,8 +718,8 @@
 
   /** What waits for a decision in the project's knowledge, read only while the view shows it, and each diff and text open there. */
   const knowledge = ref<Knowledge | 'not-connected'>();
-  const diffs = ref<Partial<Record<string, SourceDiff | 'reading' | 'not-found'>>>({});
-  const texts = ref<Partial<Record<string, DocumentText | 'reading' | 'not-found'>>>({});
+  const diffs = ref<Partial<Record<string, SourceDiff | 'reading' | 'not-found' | 'failed'>>>({});
+  const texts = ref<Partial<Record<string, DocumentText | 'reading' | 'not-found' | 'failed'>>>({});
   function showKnowledge(read: Knowledge | 'not-connected'): void {
     knowledge.value = read;
     // A diff stays open while its file is still listed as changed, and is read again with the list.
@@ -748,11 +748,12 @@
 
   /**
    * Reads what one document shows while it is open, each document through its own `lastWins`: an older answer never
-   * overwrites a newer one, and nothing lands once the document is closed.
+   * overwrites a newer one, and nothing lands once the document is closed. A read that does not get through lands only on
+   * a document still being read: one read again on a change keeps what it showed.
    */
   function perDocument<T>(
-    open: Ref<Partial<Record<string, T | 'reading' | 'not-found'>>>,
-    read: (doc: string) => Promise<T | 'not-found' | undefined>,
+    open: Ref<Partial<Record<string, T | 'reading' | 'not-found' | 'failed'>>>,
+    read: (doc: string) => Promise<T | 'not-found' | 'failed'>,
   ): (doc: string) => Promise<unknown> {
     const reads = new Map<string, () => Promise<unknown>>();
     return (doc) => {
@@ -761,7 +762,7 @@
       if (!run) {
         run = lastWins(
           () => read(doc),
-          (answer) => doc in open.value && (open.value[doc] = answer),
+          (answer) => doc in open.value && (answer !== 'failed' || open.value[doc] === 'reading') && (open.value[doc] = answer),
         );
 
         reads.set(doc, run);
@@ -775,12 +776,15 @@
       client.api.projects[':id'].knowledge[':doc'].diff.$get({ param: { ...param, doc: encodeURIComponent(doc) } }),
     );
 
-    return res && (res.status === 200 ? (await res.json()).diff : 'not-found');
+    return res ? (res.status === 200 ? (await res.json()).diff : 'not-found') : ('failed' as const);
   });
 
+  // A diff or a text is open in a dialog, one at a time: opening one closes any other.
   function toggleDiff(doc: string, open: boolean): void {
-    if (open) void readDiff(doc);
-    else delete diffs.value[doc];
+    if (open) {
+      ({ diffs: diffs.value, texts: texts.value } = openOne('diff', doc));
+      void readDiff(doc);
+    } else delete diffs.value[doc];
   }
 
   const readText = perDocument(texts, async (doc) => {
@@ -788,12 +792,14 @@
       client.api.projects[':id'].knowledge[':doc'].text.$get({ param: { ...param, doc: encodeURIComponent(doc) } }),
     );
 
-    return res && (res.status === 200 ? (await res.json()).text : 'not-found');
+    return res ? (res.status === 200 ? (await res.json()).text : 'not-found') : ('failed' as const);
   });
 
   function toggleText(doc: string, open: boolean): void {
-    if (open) void readText(doc);
-    else delete texts.value[doc];
+    if (open) {
+      ({ diffs: diffs.value, texts: texts.value } = openOne('text', doc));
+      void readText(doc);
+    } else delete texts.value[doc];
   }
 
   /**
