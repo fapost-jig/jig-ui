@@ -1,25 +1,22 @@
 <script setup lang="ts">
   import { ChevronDown, ChevronRight } from '@lucide/vue';
-  import { computed, ref } from 'vue';
+  import { ref } from 'vue';
   import type { Column, Place, PrStatus, ReadyDetails, Reviewers } from '@/api';
   import type { StagingStep } from '@/lib/staging';
-  import { Badge } from '@/components/ui/badge';
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
   import { useDrop } from '@/lib/drop';
   import { specOpens } from '@/lib/sift';
   import { columnAccent } from '@/lib/tones';
   import ColumnHeader from './ColumnHeader.vue';
   import GroupPanel from './GroupPanel.vue';
-  import TaskBrief from './TaskBrief.vue';
   import TaskRow from './TaskRow.vue';
 
   /**
-   * The board as folding groups of rows under a strip that counts every column, a zero included; `selected` is the row
-   * whose `details` the pane shows. An empty group is its muted header, except In progress, which keeps a dashed box
+   * The board as folding groups of rows under a strip that counts every column, a zero included; a row opens its task's page. An empty group is its muted header, except In progress, which keeps a dashed box
    * saying how a task comes there. A row is moved in Jig's queue by dragging it within its group, or from its menu;
    * `pending` is the one whose change is on its way.
    */
-  const props = defineProps<{
+  defineProps<{
     project: string;
     columns: Column[];
     selected?: string;
@@ -63,8 +60,6 @@
   );
 
   const { gap } = drag;
-
-  const picked = computed(() => props.columns.flatMap((c) => c.cards).find((t) => t.id === props.selected));
 
   /** Columns folded away; all open to begin with. */
   const folded = ref(new Set<string>());
@@ -137,6 +132,7 @@
                   aria-hidden="true"
                 />
                 <TaskRow
+                  :project="project"
                   :task="task"
                   :selected="selected === task.id"
                   :cards="column.cards"
@@ -173,18 +169,5 @@
         </Collapsible>
       </div>
     </div>
-    <aside class="w-96 shrink-0 overflow-y-auto border-l" aria-label="Task">
-      <template v-if="picked">
-        <div class="flex items-center gap-2 border-b px-4 py-2.5">
-          <span class="font-mono text-[13px] font-medium break-all">{{ picked.id }}</span>
-          <Badge v-if="picked.class" variant="outline">{{ picked.class }}</Badge>
-        </div>
-        <div class="flex flex-col gap-3 p-4">
-          <p v-if="picked.goal" class="font-medium">{{ picked.goal }}</p>
-          <TaskBrief :project="project" :task="picked.id" :details="details" />
-        </div>
-      </template>
-      <p v-else class="p-4 text-[13px] text-muted-foreground">Pick a task to see its details.</p>
-    </aside>
   </div>
 </template>

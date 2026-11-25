@@ -51,6 +51,9 @@ const task = (id: string, more: Partial<Task>): Task => ({
   started: true,
   gate: null,
   autopilot: null,
+  stage: null,
+  updatedAt: null,
+  waitsFor: [],
   pullRequest: null,
   priority: null,
   queue: null,
@@ -434,6 +437,7 @@ export const housekeepingRuns: HousekeepingState[] = [
       '  quiet-design-nits, quiet-design',
       'housekeeping: deleted branch task/quiet-design',
     ],
+    summary: 'removed 2 · 1 branch deleted',
   },
   { state: 'refused', message: "Jig's housekeeping failed.", reasons: ['housekeeping.trash_ttl: not a duration'] },
 ];

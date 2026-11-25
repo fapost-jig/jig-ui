@@ -1,8 +1,9 @@
 <script setup lang="ts">
+  import { describe } from '@/api';
   import type { Listed } from '@/lib/projects';
   import { attentionFill, badFill } from '@/lib/tones';
 
-  /** Beside a project's name in a list: how many things need the person there, `!` when it cannot be read, `…` while it is read; nothing else. */
+  /** Beside a project's name in a list: how many things need the person there, `!` when it cannot be read — why, on hover —, `…` while it is read; nothing else. */
   defineProps<{
     project: Listed;
   }>();
@@ -22,7 +23,8 @@
     v-else-if="project.state !== 'ready'"
     :class="badFill"
     class="min-w-5 rounded-full px-1.5 text-center text-xs font-medium"
-    aria-label="not readable"
+    :title="describe(project)"
+    :aria-label="`not readable: ${describe(project)}`"
     >!</span
   >
 </template>

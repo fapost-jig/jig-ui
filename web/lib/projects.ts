@@ -66,6 +66,8 @@ export type HousekeepingState =
   | {
       state: 'done';
       report: string[];
+      /** What it changed, in a few words the server read from the report; `null` when it changed nothing. */
+      summary: string | null;
     }
   | {
       state: 'refused';
@@ -75,7 +77,7 @@ export type HousekeepingState =
 
 /** Housekeeping's answer as a card and a project's page show it: Jig's report, or why it did not run, with Jig's reasons. */
 export function housekeepingOf(answer: HousekeepingAnswer): HousekeepingState | undefined {
-  if ('report' in answer) return { state: 'done', report: answer.report };
+  if ('report' in answer) return { state: 'done', report: answer.report, summary: answer.summary };
   if ('error' in answer) return { state: 'refused', message: answer.error.message, reasons: reasonsOf(answer.error) };
   return undefined;
 }

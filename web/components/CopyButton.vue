@@ -3,10 +3,11 @@
   import { ref } from 'vue';
   import { Button } from '@/components/ui/button';
 
-  /** `label` is the button's word (`copy` by default); the button is named by what it copies. */
+  /** `label` is the button's word (`copy` by default); `icon` shows the icon alone. The button is named by what it copies. */
   const props = defineProps<{
     text: string;
     label?: string;
+    icon?: boolean;
   }>();
 
   const copied = ref(false);
@@ -23,9 +24,15 @@
 </script>
 
 <template>
-  <Button variant="ghost" size="xs" :aria-label="copied ? 'Copied' : `Copy ${text}`" @click="copy">
+  <Button
+    variant="ghost"
+    :size="icon ? 'icon-xs' : 'xs'"
+    :aria-label="copied ? 'Copied' : `Copy ${text}`"
+    :title="icon ? (copied ? 'Copied' : 'Copy the id') : undefined"
+    @click.stop="copy"
+  >
     <Check v-if="copied" />
     <Copy v-else />
-    {{ copied ? 'copied' : (label ?? 'copy') }}
+    <template v-if="!icon">{{ copied ? 'copied' : (label ?? 'copy') }}</template>
   </Button>
 </template>

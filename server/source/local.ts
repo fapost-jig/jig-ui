@@ -15,6 +15,7 @@ import {
   fileTask,
   hasJig,
   housekeeping,
+  housekeepingSummary,
   JigRefusal,
   JigShapeError,
   KNOWLEDGE_JIG_VERSION,
@@ -202,8 +203,18 @@ interface Takes {
   writes: boolean;
 }
 
-/** A live task as a board's card shows it, with its place in the queue if it has one. */
-const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
+/** What a card's dependencies are read against: the queue as shown, and the items still open in it. */
+interface Waiting {
+  queue: ShownQueue;
+  open: ReadonlySet<string>;
+}
+
+/**
+ * A live task as a board's card shows it, with its place in the queue if it has one. `waiting` holds the queue items
+ * still open — live tasks (`task:<id>`) and open epics (`epic:<spec>`) —: a dependency on one of them, the task's own or its
+ * epic's, is not met yet.
+ */
+const card = (t: Live, q: QueueItem | undefined, takes: Takes, waiting: Waiting): Task => ({
   id: t.id,
   class: t.class,
   status: t.status,
@@ -230,6 +241,17 @@ const card = (t: Live, q: QueueItem | undefined, takes: Takes): Task => ({
   started: t.branch !== null,
   gate: t.gate?.state ?? null,
   autopilot: t.autopilot?.state ?? null,
+  stage: t.autopilot?.state === 'on' || t.autopilot?.state === 'stopped' ? (t.autopilot.stage ?? null) : null,
+  updatedAt: t.updatedAt,
+  waitsFor: q
+    ? [
+        ...new Set(
+          waitsFor(waiting.queue, q)
+            .map((d) => d.on)
+            .filter((on) => waiting.open.has(on)),
+        ),
+      ]
+    : [],
   pullRequest: t.pullRequest,
   priority: q?.priority ?? null,
   queue: q ? { level: q.level, position: q.position } : null,
@@ -264,8 +286,15 @@ const waitsFor = (queue: ShownQueue, q: QueueItem): TaskDetails['dependsOn'] => 
 ];
 
 /** A live task in full; where its worktree is was never read, and an action Jig refuses is left out. */
-const details = (t: Live, q: QueueItem | undefined, queue: ShownQueue, attention: Attention[], takes: Takes): TaskDetails => ({
-  ...card(t, q, takes),
+const details = (
+  t: Live,
+  q: QueueItem | undefined,
+  queue: ShownQueue,
+  attention: Attention[],
+  takes: Takes,
+  waiting: Waiting,
+): TaskDetails => ({
+  ...card(t, q, takes, waiting),
   issue: t.issue,
   branch: t.branch,
   baseBranch: t.baseBranch,
@@ -335,6 +364,10 @@ async function readProject(project: Project): Promise<Read> {
     tasks: queue.items.filter((q) => live.some((t) => t.id === q.id)),
     epics: queue.epics.filter((e) => open.has(e.id)),
   };
+  const waiting = {
+    queue: shownQueue,
+    open: new Set([...live.map((t) => `task:${t.id}`), ...shownQueue.epics.map((e) => `epic:${e.id}`)]),
+  };
   // The oldest of the reads the board is made of: a write against it is refused if anything was written after any of them.
   const revision = Math.min(status.revision, list.revision, queue.revision);
   const takes = {
@@ -359,13 +392,13 @@ async function readProject(project: Project): Promise<Read> {
     },
     tasks: {
       state: 'ready',
-      tasks: live.map((t) => card(t, queued.get(t.id), takes)),
+      tasks: live.map((t) => card(t, queued.get(t.id), takes, waiting)),
       // From Jig 0.46.0 the list of finished tasks holds the archived ones too: the page brings them back from there.
       finishedCount: list.finished + (supports(jigVersion, WRITES_JIG_VERSION) ? list.archived : 0),
       stagingFlow,
       revision,
     },
-    details: live.map((t) => details(t, queued.get(t.id), shownQueue, status.attention, takes)),
+    details: live.map((t) => details(t, queued.get(t.id), shownQueue, status.attention, takes, waiting)),
     // The specs are read beside the queue: a write of an epic carries the older of the two reads, or of the board's.
     specs: {
       state: 'ready',
@@ -1133,8 +1166,9 @@ export function localSource(
         // A live task's offer is the board's; one that is not live, the last finished read's.
         const live = read.details.find((t) => t.id === taskId);
         const offers: string[] = live ? live.actions.map((a) => a.id) : (entries.get(id)?.finished?.get(taskId) ?? []);
+        // Each write runs only where the last read offered Jig's own action for it (`answer-gate` from Jig 0.48.0).
         if (!offers.includes(write)) throw new JigRefusal('not-found');
-        return writeTask(root, taskId, write, write === 'abandon' ? reason : null, revision);
+        return writeTask(root, taskId, write, write === 'abandon' || write === 'answer-gate' ? reason : null, revision);
       });
     },
     landOnStaging(id, taskId, withoutReview, revision) {
@@ -1241,7 +1275,10 @@ export function localSource(
       return writing(id, [], (root) => fileTask(root, taskId, goal));
     },
     housekeeping(id) {
-      return writing(id, [], (root) => housekeeping(root));
+      return writing(id, [], async (root) => {
+        const report = await housekeeping(root);
+        return { state: 'written' as const, report, summary: housekeepingSummary(report) };
+      });
     },
     refresh(id) {
       return writing(id, [], (root, jigVersion) =>

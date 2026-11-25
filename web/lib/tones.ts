@@ -19,6 +19,26 @@ export const toneRule: Record<Tone, string> = {
   quiet: 'border-l-2 border-border pl-2 text-muted-foreground',
 };
 
+/** A task's id on its card, so the eye finds the task: an accent that means nothing more. */
+export const idAccent = 'text-indigo-600 dark:text-indigo-300';
+
+/** A spec's epic on a task's card: the task goes into the spec's epic branch. */
+export const epicAccent = 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300';
+
+/** A task's priority mark by how urgent it is: P0–P1 red, P2 orange, lower quiet; never green or amber, which mean done and needs you. */
+export function priorityAccent(priority: number): string {
+  if (priority <= 1) return 'bg-red-500/15 text-red-700 dark:text-red-300';
+  if (priority === 2) return 'bg-orange-500/15 text-orange-700 dark:text-orange-300';
+  return 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
+}
+
+/** A task's class mark: T3 and T4, which stop at a human gate, stand out; the rest are quiet. */
+export function classAccent(cls: string): string {
+  return /^T[34]$/.test(cls)
+    ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300'
+    : 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
+}
+
 /** Attention as a filled mark, the count on a project's tab. */
 export const attentionFill = 'bg-amber-500 text-black';
 
@@ -28,8 +48,24 @@ export const badFill = 'bg-red-600 text-white';
 /** Done as a filled bar, a roadmap's progress. */
 export const doneFill = 'bg-emerald-500';
 
-/** In progress as a fill, its column's stripe and the In work lane's. */
-const inProgressFill = 'bg-sky-500';
+/** In progress as a fill, its column's stripe and the In work lane's, and the latest event of a task's timeline. */
+export const inProgressFill = 'bg-sky-500';
+
+/** Work under way as words: a line saying the page reads or asks something now. */
+export const workingText = 'text-sky-700 dark:text-sky-300';
+
+/** A pull request's CI as a dot, by Jig's word for it: green passed, red failed, pending running. */
+export const ciDot: Record<string, string> = { green: 'bg-emerald-500', red: 'bg-red-500', pending: inProgressFill };
+
+/** CI not heard yet — housekeeping has not asked the forge since the pull request opened — as a hollow dot. */
+export const notHeardDot = 'border border-muted-foreground bg-transparent';
+
+/** How a finished task ended, as a chip: closed went well; abandoned and archived are only put away. */
+export const endingAccent: Record<string, string> = {
+  closed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  abandoned: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+  archived: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+};
 
 /** Each column's accent, by the column ids the board API sends; an id this page does not know gets none. */
 export const columnAccent: Record<string, string> = {

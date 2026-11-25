@@ -9,7 +9,6 @@ paths:
   - server/http/app.ts
   - server/jig/client.ts
   - web/views/TaskView.vue
-  - web/components/TaskBrief.vue
   - web/components/TaskFacts.vue
   - web/lib/queue.ts
   - web/components/TaskDocuments.vue
@@ -19,26 +18,27 @@ paths:
   - web/components/TaskWrites.vue
   - web/components/DependsEditor.vue
   - web/lib/writes.ts
-  - web/components/ActionList.vue
-summary: What a task's details show from Jig's task row and queue, and its documents on the full page; why only offered actions reach the page and a document is shown as written
+summary: What a task's page shows from Jig's task row and queue, its documents, and the writes it runs (approve or answer at the gate); why only offered actions reach the page and a document is shown as written
 reviewed_at: 2026-11-25
 ---
 # Task details
 
 ## What
 
-A click on a board card expands it into the task's facts; in the List, a selected row shows them
-in a pane (`web/components/TaskBrief.vue`), with a button that copies the task's id. "Open full
-details" opens `#/projects/<id>/tasks/<task>` (`web/views/TaskView.vue`), the page links land on,
-and only it lists the actions Jig offers — from Jig 0.46.0 running some of them itself (below). All three are served by
+A board card's goal and a List row link to the task's page, `/projects/<id>/tasks/<task>` (`web/views/TaskView.vue`),
+which is where the facts are: a card no longer expands and the List has no side pane
+(adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The page is two thirds the task — id with a copy
+button, spec, goal, status line, gate, what needs the person, documents — and one third what is known of it: the writes
+Jig offers (from Jig 0.46.0 running some of them itself, below), the facts (`web/components/TaskFacts.vue`),
+**Ask your agent** (`web/lib/agent-prompts.ts`, `web/components/AgentPrompts.vue`) and a timeline from the times Jig keeps.
+It is served by
 `GET /api/projects/:id/tasks/:task` from `ProjectSource.task`: the task's row from Jig's task list
 in full — column (the board's rule), status, class, branch and base, worktree's uncommitted count,
 knowledge decision, dates, gate, autopilot run with its stage and stop question, pull request with
 CI — on the staging flow the pull request into staging apart from the promotion, each with its state, CI, link and
 when Jig's housekeeping heard it (`pullRequests` in `web/lib/waits.ts`, tasks `staging-task-details-pr`,
 `review-staging-columns`, `staging-nits`) —, housekeeping flags — the attention items that name it, an item about its pull request in the forge cache's words
-(adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), the actions Jig offers with their
-commands, and from `jig queue list` its priority, its place and what it waits for. Its place is
+(adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), the actions Jig offers, and from `jig queue list` its priority, its place and what it waits for. Its place is
 counted among the live tasks and open epics of its level (`server/source/local.ts`): Jig keeps a
 finished task or epic in its queue until `jig queue remove`, and counting it would put a task
 behind work that is done. What it waits for is its own `depends_on`, then its epic's, each as
@@ -54,20 +54,21 @@ board's read; on a change of the project the list and the open document are read
 reread keeping the document shown. A project on an older Jig says so in the section.
 
 From Jig 0.46.0 the full page **runs a person's writes** where Jig offers them
-(adr-20261118-a-person-writes-on-a-task-from-its-page): a design at its gate is shown as written with **Approve the
-design** under it (`web/components/GateApproval.vue`), **Abandon…** with its reason and **Archive** sit above the
-commands (`web/components/TaskWrites.vue`), and "Waits for" takes a dependency away or adds one
-(`web/components/DependsEditor.vue`). The rest of the offered actions stay commands to copy; `start` is the request
-for the person's agent instead. Each write carries the revision of the read it was made on — the approval, the oldest
+(adr-20261118-a-person-writes-on-a-task-from-its-page): a design at its gate is shown as written with a field for an answer, **Approve the design** and **Send the
+answer** under it (`web/components/GateApproval.vue`, `answer-gate` from Jig 0.48.0 — `jig task gate <id> answered
+--answer <line>`: one line without a tab, at most 2000 characters, refused `stale-revision` after a rewrite;
+adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), **Abandon…** with its reason and **Archive** sit in the page's writes (`web/components/TaskWrites.vue`), and "Waits for" takes a dependency away or adds one
+(`web/components/DependsEditor.vue`). No other offered action is listed as a command: what has no button is asked of the agent in words (**Ask your
+agent**), `start` included, and an answer or approval waits in the task's state until an agent resumes it — the gate's
+panel says so. Each write carries the revision of the read it was made on — the approval, the oldest
 of the design documents' reads — and the page reads the task again after it, or goes back to the board once the task
 is no longer live.
 
 ## Why
 
-A card answers "where does it stand"; the details answer "what is it waiting for, and what do I
-run". The fields a person orders work by — priority, place, dependencies — sit first (a
-maintainer's colleague, task `card-fields-and-artifacts`); the actions left the expanded card,
-where a command to copy was noise, for the full page. The actions come from Jig's own table (Jig's adr-20261015-one-table-of-what-a-person-may-do),
+A card answers "where does it stand"; the page answers "what is it waiting for, and what do I
+do". The fields a person orders work by — priority, place, dependencies — sit first (a
+maintainer's colleague, task `card-fields-and-artifacts`); the actions left the card, where a command to copy was noise, for the page. The actions come from Jig's own table (Jig's adr-20261015-one-table-of-what-a-person-may-do),
 so the page never decides what is allowed.
 
 ## Constraints
@@ -76,8 +77,8 @@ so the page never decides what is allowed.
   text word for word and can name a checkout or worktree path; no path reaches `web/` (RULES.md).
   For the same reason the worktree is only its `uncommitted` count — JigClient drops the path.
 - **Jig UI runs only the writes of its ADR**, and only where Jig offers them on a Jig that takes them (0.46.0): an
-  approval, an abandon, an archive and the task's dependencies. Every other action is the command to run in the
-  project, and starting a task is the agent's work, never the page's.
+  approval, an answer at the gate, an abandon, an archive and the task's dependencies. Every other action is asked of the
+  agent in words, and starting a task is the agent's work, never the page's.
 - **A document is shown as written**, a path in it included — the one other place a path reaches
   the page besides Find projects (adr-20261030-a-task-document-is-shown-as-written). What Jig UI
   adds about it names none: its kind, time, size, and Jig's fixed word for one it cannot read.
@@ -91,6 +92,8 @@ so the page never decides what is allowed.
   JSON). They are read for a live task only, and not while the project upgrades.
 - Details cost no extra Jig run: the local adapter keeps one detail per live task in the same read
   as the board's rows (feature-live-updates). A finished task has none; its link says so.
+- **No strip of the route's stages** on the page: Jig names a route only in words (`jig task route`), and a copy of its
+  table would contradict a lean route (adr-20261014-board-columns-are-derived-from-jig-state).
 - An action id this Jig UI does not know is ignored in `server/jig/client.ts` (`ACTIONS`), as Jig's contract
   asks of a consumer; the page names the ones it knows.
 - Strict validation: the whole task row is checked (convention-jig-client), so a Jig that changes

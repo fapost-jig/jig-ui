@@ -178,6 +178,18 @@ export async function readSpecText(project: string, spec: string, kind: SpecDocu
   return 'not-found';
 }
 
+/**
+ * Answers a task's design at its gate (`jig task gate <id> answered --answer <text>`), where the approval is offered:
+ * `revision` is the design's read, the oldest of its documents', and a design rewritten since is refused `stale-revision`.
+ * Returns the request itself, as the approval's is sent through `call`: a blank answer is refused 422 `usage` before Jig runs.
+ */
+export function answerGate(project: string, task: string, answer: string, revision: number) {
+  return client.api.projects[':id'].tasks.act.$post({
+    param: { id: encodeURIComponent(project) },
+    json: { task, action: 'answer-gate', answer, revision },
+  });
+}
+
 /** Reads a project through Jig now (Read again); `false` when the request did not get through. */
 export async function readAgain(project: string): Promise<boolean> {
   return (await call(() => client.api.projects[':id'].read.$post({ param: { id: encodeURIComponent(project) } }))) !== undefined;

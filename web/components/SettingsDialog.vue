@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import ReadingLine from './ReadingLine.vue';
   import { computed, ref, watch } from 'vue';
   import type { Setting, Settings } from '@/api';
   import { Button } from '@/components/ui/button';
@@ -52,7 +53,7 @@
         </DialogDescription>
       </DialogHeader>
       <p v-if="notice" :class="[toneText.attention, 'sticky -top-4 z-10 bg-popover py-2']" role="status">{{ notice }}</p>
-      <p v-if="settings === undefined" class="text-muted-foreground">Reading the settings…</p>
+      <ReadingLine v-if="settings === undefined">Reading the settings…</ReadingLine>
       <p v-else-if="none" class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
         {{ none }}
         <Button v-if="settings.state === 'unreadable'" variant="outline" size="xs" :disabled="reading" @click="emit('readAgain')">

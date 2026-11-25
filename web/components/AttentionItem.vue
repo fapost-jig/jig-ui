@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ExternalLink } from '@lucide/vue';
+  import { ExternalLink, Loader2 } from '@lucide/vue';
   import { computed } from 'vue';
   import { type Attention, link, type PrStatus as Status } from '@/api';
   import { Button } from '@/components/ui/button';
@@ -97,7 +97,7 @@
           :disabled="refreshing"
           @click="$emit('refresh')"
         >
-          {{ refreshing ? 'Refreshing…' : 'Refresh' }}
+          <Loader2 v-if="refreshing" class="animate-spin" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}
         </Button>
         <Button
           v-if="closes"
@@ -109,7 +109,7 @@
           :aria-expanded="asking"
           @click="asking = !asking"
         >
-          {{ writing === 'close' ? 'Closing…' : 'Close task' }}
+          <Loader2 v-if="writing === 'close'" class="animate-spin" />{{ writing === 'close' ? 'Closing…' : 'Close task' }}
         </Button>
         <Button
           v-if="offers.includes('merge')"
@@ -121,7 +121,7 @@
           :aria-expanded="asking"
           @click="asking = !asking"
         >
-          {{ writing === 'merge' ? 'Merging…' : 'Merge…' }}
+          <Loader2 v-if="writing === 'merge'" class="animate-spin" />{{ writing === 'merge' ? 'Merging…' : 'Merge…' }}
         </Button>
         <Button
           v-if="offers.includes('land') && task"
@@ -132,7 +132,7 @@
           :aria-label="`Land ${task} on staging`"
           @click="$emit('land', task)"
         >
-          {{ writing === 'land' ? 'Landing…' : 'Land on staging' }}
+          <Loader2 v-if="writing === 'land'" class="animate-spin" />{{ writing === 'land' ? 'Landing…' : 'Land on staging' }}
         </Button>
         <Button
           v-if="offers.includes('pr-status') && task"

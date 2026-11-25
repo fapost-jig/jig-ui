@@ -2,37 +2,56 @@ import { link, type Task } from '../api';
 import { ago } from './ago';
 import type { Tone } from './tones';
 
+/** The icon a card's note leads with: what kind of wait it is. */
+export type NoteIcon = 'gate' | 'ask' | 'pause' | 'wait' | 'bot' | 'pull' | 'staging';
+
 /**
- * What a card says about where its task waits — the gate, the autopilot run, a pause, where it stands on Jig's
- * staging flow, the pull request — how loud, and the pull request's link when the note is about it. The first rule
- * that fits wins.
+ * What a card says about where its task waits — the gate, the autopilot run, a pause, what it depends on, where it
+ * stands on Jig's staging flow, the pull request — how loud, with what icon, and the pull request's link when the note
+ * is about it. `ref` is the first queue item it waits for (`task:<id>`, `epic:<spec>`). The first rule that fits wins.
  */
 export function waits(task: Omit<Task, 'resumesTo'>):
   | {
       text: string;
       tone: Tone;
+      icon: NoteIcon;
       url?: string;
+      ref?: string;
+      /** How many more open items it waits for beside `ref`. */
+      more?: number;
     }
   | undefined {
-  if (task.gate === 'waiting') return { text: 'Design waits at its gate', tone: 'attention' };
-  if (task.gate === 'changed') return { text: 'Design changed after approval', tone: 'attention' };
-  if (task.autopilot === 'stopped') return { text: 'Autopilot stopped with a question', tone: 'attention' };
+  if (task.gate === 'waiting') return { text: 'Design waits at its gate', tone: 'attention', icon: 'gate' };
+  if (task.gate === 'changed') return { text: 'Design changed after approval', tone: 'attention', icon: 'gate' };
+  // Answered from the board: the agent reworks the design when it resumes the task, and comes back to the gate.
+  if (task.gate === 'answered') return { text: 'Gate answered; waits for the design to be reworked', tone: 'quiet', icon: 'gate' };
+  if (task.autopilot === 'stopped') return { text: 'Autopilot stopped with a question', tone: 'attention', icon: 'ask' };
   // Below Jig 0.35.0 `jig task resume` takes no revision to write against (fapost-lab/jig#295): the page names the command.
-  if (task.paused) return { text: task.resumable ? 'Paused' : `Paused — jig task resume ${task.id}`, tone: 'quiet' };
+  if (task.paused) return { text: task.resumable ? 'Paused' : `Paused — jig task resume ${task.id}`, tone: 'quiet', icon: 'pause' };
+  // The first of what it still waits for in Jig's queue; the rest are on its page.
+  const on = task.waitsFor[0];
+  if (on) return { text: 'Waits for', tone: 'quiet', icon: 'wait', ref: on, more: task.waitsFor.length - 1 };
   const pr = task.pullRequest;
   // On Jig's staging flow the pull request is the one into staging: merged, the work is still not in the base.
-  if (task.parked?.reason === 'review') return { ...inReview(task.parked), url: link(pr?.url ?? null) };
-  if (task.parked?.reason === 'signal') return { text: 'On staging, waits for prepare for prod', tone: 'quiet' };
-  if (task.staging === 'behind') return { text: 'Fix not on staging yet', tone: 'quiet' };
+  if (task.parked?.reason === 'review') return { ...inReview(task.parked), icon: 'staging', url: link(pr?.url ?? null) };
+  if (task.parked?.reason === 'signal') return { text: 'On staging, waits for prepare for prod', tone: 'quiet', icon: 'staging' };
+  if (task.staging === 'behind') return { text: 'Fix not on staging yet', tone: 'quiet', icon: 'staging' };
   // `jig task promote` records the promotion's link; its state waits for the next housekeeping run.
   const promotion = task.promotion;
   if (promotion?.state || promotion?.url) {
-    return { text: `Promotion ${promotion.state ?? 'opened'}${ci(promotion)}`, tone: tone(promotion), url: link(promotion.url) };
+    return {
+      text: `Promotion ${promotion.state ?? 'opened'}${ci(promotion)}`,
+      tone: tone(promotion),
+      icon: 'pull',
+      url: link(promotion.url),
+    };
   }
-  if (task.staging === 'on') return { text: 'On staging', tone: 'quiet' };
-  if (pr) return { text: `Pull request ${pr.state ?? 'opened'}${ci(pr)}`, tone: tone(pr), url: link(pr.url) };
-  if (task.status === 'ready') return { text: 'No pull request yet', tone: 'quiet' };
-  return task.autopilot === 'on' ? { text: 'On autopilot', tone: 'quiet' } : undefined;
+  if (task.staging === 'on') return { text: 'On staging', tone: 'quiet', icon: 'staging' };
+  // A run at work says where it is; its pull request is on the card's footer.
+  if (task.autopilot === 'on') return { text: task.stage ? `Autopilot · ${task.stage}` : 'On autopilot', tone: 'quiet', icon: 'bot' };
+  if (pr) return { text: `Pull request ${pr.state ?? 'opened'}${ci(pr)}`, tone: tone(pr), icon: 'pull', url: link(pr.url) };
+  if (task.status === 'ready') return { text: 'No pull request yet', tone: 'quiet', icon: 'pull' };
+  return undefined;
 }
 
 type Pull = {

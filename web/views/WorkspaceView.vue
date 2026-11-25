@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import ReadingLine from '@/components/ReadingLine.vue';
   import { RotateCw } from '@lucide/vue';
   import { computed, onUnmounted, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
@@ -76,6 +77,19 @@
   const housekept = ref<Record<string, HousekeepingState>>({});
   /** A task closed, merged or landed from each card's items, while Jig writes it and, after, until dismissed. */
   const closing = ref<Record<string, ClosingState>>({});
+
+  // A finished report is shown once, as a toast on its project's card: another project shown, it is dropped, so it does
+  // not come back each time the first one is shown again. A run still under way is kept, and reports when it ends.
+  watch(
+    () => shown.value?.id,
+    (_, left) => {
+      if (left === undefined) return;
+      if (housekept.value[left]?.state !== 'running') delete housekept.value[left];
+      if (refreshes.value[left]?.state !== 'running') delete refreshes.value[left];
+      if (closing.value[left]?.state !== 'running') delete closing.value[left];
+    },
+  );
+
   /** The pull request whose status is open under its item on each card, and the forge's answer once read. */
   const statuses = ref<
     Record<
@@ -537,7 +551,7 @@
       <ConnectForm v-model="path" :busy="busy" :finding="finding" :refusal="refusal" @connect="connect" @find="find" />
       <FoundProjects v-if="found" :result="found" :connecting="connecting" :refusal="foundRefusal" @connect="connectFound" />
     </div>
-    <p v-if="projects === undefined" class="text-muted-foreground">Reading projects…</p>
+    <ReadingLine v-if="projects === undefined">Reading projects…</ReadingLine>
     <p v-else-if="projects.length === 0" class="text-muted-foreground">
       No projects yet. Paste the path of a project's main checkout above.
     </p>
@@ -548,7 +562,7 @@
     <!-- One column on a narrow screen: the list above the card. -->
     <div v-if="projects?.length" class="flex flex-col gap-4 md:flex-row md:items-start">
       <ProjectList :projects="projects" :chosen="shown?.id" class="md:w-64 md:shrink-0" />
-      <p v-if="shown?.state === 'reading'" class="min-w-0 flex-1 text-muted-foreground">Reading {{ shown.id }}…</p>
+      <ReadingLine v-if="shown?.state === 'reading'" class="min-w-0 flex-1">Reading {{ shown.id }}…</ReadingLine>
       <ProjectCard
         v-else-if="shown"
         :key="shown.id"

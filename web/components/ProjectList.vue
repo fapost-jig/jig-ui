@@ -21,14 +21,18 @@
 <template>
   <GroupPanel>
     <nav aria-label="Connected projects" class="flex flex-col gap-2 p-2">
-      <Input v-model="query" type="search" placeholder="Find a project…" aria-label="Find a project" />
+      <Input v-model="query" type="search" class="bg-card dark:bg-background" placeholder="Find a project…" aria-label="Find a project" />
       <p v-if="shown.length === 0" class="px-2 text-muted-foreground">No project is called that.</p>
       <ul v-else class="flex flex-col">
         <li v-for="project in shown" :key="project.id">
           <RouterLink
             :to="{ path: '/', query: { project: project.id } }"
             class="flex items-center gap-2 rounded-md px-2 py-1.5"
-            :class="project.id === chosen ? 'bg-card font-medium shadow-xs ring-1 ring-border' : 'hover:bg-card/60'"
+            :class="
+              project.id === chosen
+                ? 'bg-card font-medium shadow-xs ring-1 ring-border dark:bg-foreground/12 dark:ring-foreground/25'
+                : 'hover:bg-card/60'
+            "
             :aria-current="project.id === chosen ? 'page' : undefined"
           >
             <span class="min-w-0 flex-1 truncate">{{ project.id }}</span>

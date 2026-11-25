@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import ReadingLine from './ReadingLine.vue';
   import { computed, useSlots } from 'vue';
   import { Button } from '@/components/ui/button';
   import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -46,7 +47,7 @@
         <DialogDescription class="sr-only">The document as Jig has it.</DialogDescription>
       </DialogHeader>
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <p v-if="shown.state === 'reading'" class="text-muted-foreground" role="status">Reading…</p>
+        <ReadingLine v-if="shown.state === 'reading'">Reading…</ReadingLine>
         <p v-else-if="shown.state === 'not-found'" class="text-muted-foreground">{{ gone ?? 'Jig no longer has it.' }}</p>
         <p v-else-if="shown.state === 'epic-missing'" :class="toneText.attention">
           The branch of its epic is nowhere, so Jig cannot read it.

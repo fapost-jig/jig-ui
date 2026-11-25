@@ -27,7 +27,9 @@ Ready (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns) — t
 with none listed, by its setting `git.flow` — worked out from Jig's task list on every
 read by `server/board/columns.ts` (`columnOf`, first rule that fits wins: Paused, Backlog, Needs you, Review, On
 staging, Ready, In progress) and served by `GET /api/projects/:id/board`. Cards are light: id, class, priority, goal,
-and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`). A closed card with a goal names a
+and what the task waits for (gate, autopilot run, pull request — `web/lib/waits.ts`), its status line an icon and a note
+(`TaskNote`), its pull request a chip with its CI as a dot (`PullChip`, `web/lib/pull.ts`) and the day Jig last changed it
+(adr-20261125-the-page-opens-tasks-and-questions-over-the-board). A closed card with a goal names a
 task whose id starts with a tracker's key by that key alone (`SRD-2598`, `cardKey` in `web/lib/task-key.ts`), the goal
 saying the rest, so a long id is not squeezed beside the badges in a narrow column; any other id is broken at its
 hyphens. A task filed from a spec names it under its card or row, from Jig 0.46.0's `spec` on `jig task list`
@@ -37,10 +39,12 @@ and cuts nothing from it (`readProject` in `server/source/local.ts`). A press on
 it, opens that spec on the Specs view as a press on Specs and a choice in its list would, the sort and filters kept in the address;
 a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since the Specs
 view would show another (`specOpens` in `web/lib/sift.ts`). Finished
-tasks are not on the board: a toggle above it with their count opens the list of those Jig still
-keeps (`web/components/FinishedList.vue`, its words from `web/lib/finished.ts`). Beside the project's name, in every
-view, **Refresh** and **Housekeeping** run the card's writes, their answer under the header until **Dismiss**
-(`web/components/ChoreReports.vue`, the card's panels), and **↻** reads the project again at any time, not only where a
+tasks are not on the board: a button above it with their count opens the list of those Jig still
+keeps in a dialog with a search (`web/components/FinishedList.vue`, rows in `FinishedRows.vue`, its words from
+`web/lib/finished.ts`). Beside the project's name, in every
+view, **Refresh** and **Housekeeping** run the card's writes: a spinner on the button while one runs, its report a toast
+(`web/components/ChoreReports.vue`; a result goes by itself, an error stays until closed, and Housekeeping's toast
+opens its whole report in a dialog), and **↻** reads the project again at any time, not only where a
 read failed; each reads what the page shows again afterwards, the knowledge too in its view. They are shown whatever
 the project's Jig and its upgrade, the server's refusal being the guard (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name).
 
@@ -50,16 +54,17 @@ beside Board and List, the specs beside Specs, and beside Knowledge only above z
 `knowledge-proposed` and `sources-changed` items count in their detail (`knowledgeWaiting` in `web/lib/projects.ts`),
 from the project's held read, `GET /api/projects/:id` — never the knowledge itself, which is read only while its view
 shows (feature-knowledge): Board (`BoardColumns`), the
-columns side by side, where a click expands a card into its details; List (`BoardList`), the
-columns as folding groups of rows under a strip counting every column, a zero included, a selected
-row's details in a pane on the right. A row (`TaskRow`) is the task's whole id, wrapped and never cut,
-with its class and priority; its goal under it, or a muted "no goal yet"; and under that what it waits
-for — the card's order, so Board and List read alike (task `list-view-sections`). Each
+columns side by side, a card naming its task and linking its page, where its facts are
+(adr-20261125-the-page-opens-tasks-and-questions-over-the-board); List (`BoardList`), the
+columns as folding groups of rows under a strip counting every column, a zero included. A row (`TaskRow`) is a
+table line in the card's columns — the task's whole id, wrapped and never cut, its class and priority, its goal, or a
+muted "no goal yet", and what it waits for — linking the task's page, so Board and List read alike (task
+`list-view-sections`); narrower than `lg` the status takes a line of its own. Each
 column, and each List group, is a tinted panel with the column's accent as a stripe along its top;
 an empty column holds a dashed "nothing here" box, an empty group is its muted header alone — but In
 progress, which keeps a dashed box saying a task from Backlog comes there once started; both
 still take a drop, so Paused does (adr-20261110-the-page-speaks-a-quiet-design-language). The
-two take the columns and the selected task as props and emit the choice; the view holds it. Both read the details on demand (feature-task-details).
+two take the columns as props; the task's details are read on its page (feature-task-details).
 Specs (feature-specs) and Knowledge (feature-knowledge) are the third and fourth choices of the same switch; the sort
 and filters show for Board and List only. `?view=` in the address (the workspace card's link to Knowledge) opens that
 view as a press on it would, remembered, and is dropped from the address; `?spec=` names the spec
@@ -104,15 +109,16 @@ done, or moving.
   task is still paused — both send the person to the terminal. A drop on another column does
   nothing else, except a Review card's on On staging, which lands it (below).
 - A ready card carries a ✕ beside its menu where the task is `closable`: a press asks, **Close
-  task** in the question runs `jig task set <id> status consolidated` (adr-20261029-close-a-ready-task-from-the-board).
+  task** in the question — a dialog (adr-20261125-the-page-opens-tasks-and-questions-over-the-board) — runs `jig task set <id> status consolidated` (adr-20261029-close-a-ready-task-from-the-board). A close, merge or land
+  turns a spinner on its button and reports in a toast, as Refresh does.
   Unlike the other refusals, a refused close is said in Jig's own words — its `jig: error:` lines with
   the paths cut out (`closeRefusal` in `web/lib/refusal.ts`) — because the reason (pull request not
   merged, knowledge decision not recorded) is what the person needs, and only Jig knows it.
 - Off the staging flow, from Jig 0.46.0, **Merge…** is first in the menu of a card whose pull request Jig offers to
-  merge (`mergeable`), and such a card has no ✕: after a question (`WriteConfirm`) it runs `jig task merge-pr <id> --by
-  human`, which closes the task once its knowledge decision is recorded; the line above the board says whether it
+  merge (`mergeable`), and such a card has no ✕: after a question (`WriteConfirm`, a dialog) it runs `jig task merge-pr <id> --by
+  human`, which closes the task once its knowledge decision is recorded; a toast says whether it
   closed, and a refusal says why, with **Status…** beside it where the forge can say more. A card that can be neither
-  merged nor landed has **Status…** (`statusable`): a panel on the card that asks `jig task pr-status` only then — each
+  merged nor landed has **Status…** (`statusable`): a dialog that asks `jig task pr-status` only then — each
   check and how long it ran, the review, the base branch's rules, what holds the merge back
   (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 - On Jig's staging flow (0.45.0) a task's pull request goes into a staging branch and the task waits
@@ -139,7 +145,7 @@ done, or moving.
   others changed or left. The marks live as long as that line: dismiss, or the next change, clears
   both. Jig's revision rises with every write in the clone, so "nothing on the board changed" is a
   common answer while agents work.
-- "New task" above the board files a task with an id and a one-line goal (`jig task new <id>
+- "New task" above the board opens a dialog that files a task with an id and a one-line goal (`jig task new <id>
   --goal <goal>`, `POST /api/projects/:id/tasks`); it shows in Backlog once Jig wrote it. No
   revision: a new id overwrites nothing (adr-20261022-filing-a-task-carries-no-revision). An id
   Jig has — a finished task's too, which only the list of finished tasks shows — is refused with a line saying
@@ -151,7 +157,7 @@ done, or moving.
   holds a text, and, while a task names one, only the specs chosen (`specsOf`: by title, then None for a task of
   none; a spec the address chose is offered though no task names it, so a `?from=` link is never a filter with no
   control) — one epic's tasks at a glance. It is a view: nothing is written to Jig or stored; it lives in the board's address
-  (`#/projects/<id>?sort=priority&class=T1,T2&priority=P0,none&from=jig-ui,none&q=…`), so a reload or a link keeps
+  (`/projects/<id>?sort=priority&class=T1,T2&priority=P0,none&from=jig-ui,none&q=…`), so a reload or a link keeps
   it. Sorted other than by the queue, a card offers no move within its column — no drop, and no
   To top, Up, Down or To bottom in its menu — since its place there is not the queue's; a drop on
   another column, the priority and the pause stay. A filter keeps the moves: a drop or Up anchors on
@@ -161,7 +167,7 @@ done, or moving.
 - The order of the columns is not the order of the rules: what waits for the person comes first
   (maintainer, task `design-system`, 2026-10-18).
 - The board's read holds only how many finished tasks there are (`hidden` of `jig task list`, less
-  `archived` below Jig 0.46.0), which keeps the toggle's number, and a project's change signal, without reading them.
+  `archived` below Jig 0.46.0), which keeps the button's number, and a project's change signal, without reading them.
   The list holds what `jig task list --status consolidated` and `--status abandoned` return — from Jig 0.46.0
   `--status archived` too — read
   through `GET /api/projects/:id/finished` when the person opens it and on each change while it is
@@ -179,7 +185,7 @@ done, or moving.
   id, closed, abandoned or archived, the goal, the pull request and the day Jig last changed the task, the
   latest first; a finished task has no details. Its ⋯ menu holds what Jig offers on it from 0.46.0 —
   **Bring back**, **Close its roadmap item**, **Archive** — sent with the revision of the list's read; the
-  notice says Jig's note or its refusal. The list starts hidden on every
+  notice says Jig's note or its refusal. A finished task's write reports in a toast above the dialog. The dialog starts closed on every
   visit, and closes when the last finished task leaves; nothing remembers it. An empty read under
   a count above zero — housekeeping between the two reads — says Jig keeps none now.
 
@@ -190,8 +196,8 @@ done, or moving.
   person's git level is `none` (the `git-step` item), and pull request items move with
   housekeeping, not with the task. Attention stays on the workspace page.
 - vue-router for the board's address — rejected for two screens in `project-board`; adopted
-  with the design system when the page reached four (adr-20261018-page-built-from-shadcn-vue-with-router-and-canvas). The address stays
-  `#/projects/<id>`, with the bar's sort and filters as its query (task `board-sort-filter`).
+  with the design system when the page reached four (adr-20261018-page-built-from-shadcn-vue-with-router-and-canvas). The address is
+  `/projects/<id>` (a path since adr-20261125-the-page-opens-tasks-and-questions-over-the-board, history mode), with the bar's sort and filters as its query (task `board-sort-filter`).
 - Resuming from the page (task `resume-from-page`, 2026-10-26). Waited for Jig: 0.31.0's
   `jig task resume` took no `--revision` and no `--json` (fapost-lab/jig#295, in 0.35.0), and the
   maintainer chose to show the command meanwhile (task `pause-request`, 2026-10-22). Built as a

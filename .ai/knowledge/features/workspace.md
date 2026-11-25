@@ -22,13 +22,13 @@ paths:
   - web/components/StagingWork.vue
   - web/lib/staging.ts
 summary: "The workspace page: a list of the connected projects with search and the chosen one's card — Jig's attention items, the mark and count of projects whose Jig is older than the machine's, their upgrade from the card — and Find projects, which lists the Jig projects in a folder not connected yet"
-reviewed_at: 2026-11-20
+reviewed_at: 2026-11-25
 ---
 # Workspace — every connected project on one page
 
 ## What
 
-The page at `#/` (`web/views/WorkspaceView.vue`): a list of the connected projects by id, A–Z
+The page at `/` (`web/views/WorkspaceView.vue`): a list of the connected projects by id, A–Z
 (`byName` in `web/lib/projects.ts`, as the header's dropdown is too), with a search over their ids (`web/components/ProjectList.vue`) and, beside it, one project's card
 (`web/components/ProjectCard.vue`). The card is the project `?project=<id>` names, else the first
 that needs the person — not readable, or with an attention item — else the first
@@ -39,23 +39,24 @@ project's Knowledge view (`AttentionItem.vue`, feature-knowledge), and `needs-co
 closed") with **Close task** for a task the board's card could close (`closableTask` in `web/lib/projects.ts`, the task it
 gives being the item's `closes`;
 adr-20261029-close-a-ready-task-from-the-board) — and the housekeeping note. **Housekeeping**, left
-of Board, runs `jig housekeeping` in the project and leaves Jig's report on the card until **Dismiss**
-(adr-20261110-housekeeping-runs-from-the-project-card). **Refresh**, on Jig's `base-behind-origin` item and beside a
+of Board, runs `jig housekeeping` in the project and reports in a toast — what it changed in a few words, its whole
+report in a dialog from the toast (adr-20261110-housekeeping-runs-from-the-project-card, adr-20261125-the-page-opens-tasks-and-questions-over-the-board). **Refresh**, on Jig's `base-behind-origin` item and beside a
 line saying the clone last fetched more than a day ago, runs `jig refresh` and says what came of it in the page's
-words until **Dismiss**, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). Both are on the
+words in a toast, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). A result toast goes by itself after
+8 s, an error stays until closed; a toast closed is its report dismissed, and it goes with the view that holds it. Both are on the
 project's page too, beside its name, and **↻** above the projects reads every project again at once (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name). On Jig's staging
 flow a bell beside the project's name is lit while Jig's `staging-unowned` item lists the person's own commits on staging
 that the base does not have and no live task's branch holds, and dark with none (`bellOf` in `web/lib/staging.ts`);
 a press opens them on the card — subject, how long ago, short sha, Jig's newest 20 of the exact count
 (`web/components/StagingWork.vue`) — with **Mark as known**, which runs `jig staging ack --expect <n>` with the count
 shown, and the item leaves the card's list (adr-20261118-mark-as-known-carries-the-count-the-person-saw). A readable project's
-name on its card opens its board, and so does **Board** in the card's corner, beside a ⋯ menu that
-holds **Settings…** (feature-settings) and **Disconnect** (task `project-card-actions`): what a person does rarely sits a click further
-away (a colleague, 2026-10-30), and the Board button stays as the action people look for. The menu
-is not offered while the project's Jig upgrades. Every page's header
+name on its card opens its board, and so does **Board** in the card's corner, beside two icons,
+**Settings…** (feature-settings) and **Disconnect** (task `project-card-actions`), which asks nothing: the project's
+files stay and it connects again by its path. They sit beside Board, not in a menu, since the page's other actions are
+icons too (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The icons are not offered while the project's Jig upgrades. Every page's header
 holds a dropdown with search over the projects (`web/components/ProjectSwitcher.vue`, in
 `App.vue`) that opens a project's board; the list and the dropdown mark each project with its
-count of attention items, or *!* when it cannot be read (`web/components/ProjectMark.vue`). Beside Jig UI's version
+count of attention items, or *!* when it cannot be read, its reason on hover (`web/components/ProjectMark.vue`). Beside Jig UI's version
 it shows this machine's Jig and, when a newer one is released, that one marked with **Update…**, which asks and then
 runs the self-update the upgrade panel runs (`web/components/MachineJig.vue`, adr-20261118-the-header-shows-the-machines-jig).
 **Find projects** beside Connect looks for Jig projects in the folder typed, or the home folder, and
@@ -67,9 +68,9 @@ counting the projects read (`readProgress` in `web/lib/projects.ts`); later load
 workspace, as before.
 A project whose Jig is older than the machine's is marked with both versions
 (*0.34.0 → 0.35.0 on this machine*) and counted in a line above the projects; `web/lib/upgrade.ts`
-decides both. Its **Upgrade…** opens a panel on the card (`web/components/UpgradePanel.vue`): Jig's
-dry run — the reasons it would not start, or the steps by hand and **Upgrade** — then the run and its
-result, worded by `web/lib/upgrade.ts`, until **Dismiss**; beside it, a request to copy for the
+decides both. Its **Upgrade…** opens a dialog (`web/components/UpgradePanel.vue`, adr-20261125-the-page-opens-tasks-and-questions-over-the-board): Jig's
+dry run — the reasons it would not start, or the steps by hand and **Upgrade**; closing it is Cancel. The run and its
+result, worded by `web/lib/upgrade.ts`, stay on the card until **Dismiss**; beside it, a request to copy for the
 person's agent (adr-20261027-upgrading-a-project-runs-in-the-background).
 
 ## Why
@@ -133,7 +134,7 @@ version in the header and one count are quicker to scan than an item inside each
   `revision`, from the one read, so the close carries the revision of what the card showed
   (adr-20261022-writes-carry-the-revision-of-their-read). Rejected: reading the board at the press for a
   revision — a revision of a read the person never saw; a link to the board — the drawing asked for a button.
-  A refusal stays on the card until Dismiss, as Housekeeping's does. The item on a task's own page has no
+  A refusal is a toast that stays until closed, as Housekeeping's error does (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The item on a task's own page has no
   button.
 - From Jig 0.46.0 the items about a task's pull request (`pull-request-waiting`, `pull-request-was-open`) say it in
   words from the forge cache — CI, whether it merges, the review, as of when — and, off the staging flow, who merges

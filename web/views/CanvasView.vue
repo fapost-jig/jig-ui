@@ -1,11 +1,12 @@
 <script setup lang="ts">
+  import { provide } from 'vue';
+  import { INLINE_DIALOGS } from '@/lib/inline';
   // The maintainer's page of every component in every variant and state, light and dark side by
   // side. A component added to components/ or components/ui/ gets a section here.
   import { Copy } from '@lucide/vue';
   import { ref } from 'vue';
   import type { ArtifactKind, DocumentText, SourceDiff, TaskArtifact } from '@/api';
   import { type DocumentRead, type OpenDocument } from '@/lib/documents';
-  import ActionList from '@/components/ActionList.vue';
   import AttentionItem from '@/components/AttentionItem.vue';
   import BoardColumns from '@/components/BoardColumns.vue';
   import BoardFilter from '@/components/BoardFilter.vue';
@@ -16,7 +17,7 @@
   import ConnectForm from '@/components/ConnectForm.vue';
   import FoundProjects from '@/components/FoundProjects.vue';
   import DependsEditor from '@/components/DependsEditor.vue';
-  import FinishedList from '@/components/FinishedList.vue';
+  import FinishedRows from '@/components/FinishedRows.vue';
   import GateApproval from '@/components/GateApproval.vue';
   import KnowledgeView from '@/components/KnowledgeView.vue';
   import NewTaskForm from '@/components/NewTaskForm.vue';
@@ -43,7 +44,6 @@
   import SpecItemCard from '@/components/SpecItemCard.vue';
   import SpecItemMenu from '@/components/SpecItemMenu.vue';
   import SpecList from '@/components/SpecList.vue';
-  import TaskBrief from '@/components/TaskBrief.vue';
   import TaskCard from '@/components/TaskCard.vue';
   import TaskDocuments from '@/components/TaskDocuments.vue';
   import TaskFacts from '@/components/TaskFacts.vue';
@@ -67,7 +67,6 @@
   import UpgradePanel from '@/components/UpgradePanel.vue';
   import CanvasSection from './CanvasSection.vue';
   import {
-    actions,
     attention,
     board,
     columns,
@@ -118,6 +117,9 @@
   } from './canvas-samples';
 
   /** A sample task by its id. */
+
+  // Every question and report that opens as a dialog on the page draws in place here, beside its variants.
+  provide(INLINE_DIALOGS, true);
   const sample = (id: string) => tasks.find((t) => t.id === id)!;
 
   /** The board columns of the samples' live tasks, as the Specs view's cards say them. */
@@ -648,15 +650,27 @@
       note="each note and priority, the spec it was filed from; selected; with its queue menu; while its change is on its way; changed since a refused change; ready and closable, asking before it closes; asking before it prepares for prod, its review request; asking before the merge, where its pull request stands"
     >
       <div>
-        <TaskRow v-for="(task, i) in tasks" :key="task.id" :task="task" :selected="i === 2" />
-        <TaskRow :task="tasks[1]!" :selected="false" :cards="tasks" />
-        <TaskRow :task="tasks[0]!" :selected="false" :cards="tasks" busy />
-        <TaskRow :task="tasks[3]!" :selected="false" :cards="tasks" changed />
-        <TaskRow :task="tasks[7]!" :selected="false" :cards="tasks" confirming />
-        <TaskRow :task="sample('staging-signal')" :selected="false" :cards="tasks" promoting />
-        <TaskRow :task="sample('staging-review')" :selected="false" :cards="tasks" :reviewing="{ reviewers: reviewerReads[1]!.read }" />
-        <TaskRow :task="sample('merge-ready')" :selected="false" :cards="tasks" merging />
-        <TaskRow :task="sample('merge-held')" :selected="false" :cards="tasks" :pr-status="{ read: prStatusReads[1]!.read }" />
+        <TaskRow v-for="(task, i) in tasks" :key="task.id" project="jig-ui" :task="task" :selected="i === 2" />
+        <TaskRow project="jig-ui" :task="tasks[1]!" :selected="false" :cards="tasks" />
+        <TaskRow project="jig-ui" :task="tasks[0]!" :selected="false" :cards="tasks" busy />
+        <TaskRow project="jig-ui" :task="tasks[3]!" :selected="false" :cards="tasks" changed />
+        <TaskRow project="jig-ui" :task="tasks[7]!" :selected="false" :cards="tasks" confirming />
+        <TaskRow project="jig-ui" :task="sample('staging-signal')" :selected="false" :cards="tasks" promoting />
+        <TaskRow
+          project="jig-ui"
+          :task="sample('staging-review')"
+          :selected="false"
+          :cards="tasks"
+          :reviewing="{ reviewers: reviewerReads[1]!.read }"
+        />
+        <TaskRow project="jig-ui" :task="sample('merge-ready')" :selected="false" :cards="tasks" merging />
+        <TaskRow
+          project="jig-ui"
+          :task="sample('merge-held')"
+          :selected="false"
+          :cards="tasks"
+          :pr-status="{ read: prStatusReads[1]!.read }"
+        />
       </div>
     </CanvasSection>
 
@@ -721,15 +735,15 @@
     </CanvasSection>
 
     <CanvasSection
-      title="FinishedList"
+      title="FinishedRows"
       note="closed with its pull request merged; abandoned; archived without a goal — each with Jig's offers in its menu; a write under way; the read under way; none left; a read that failed, with Read again"
     >
       <div class="flex flex-col gap-3">
-        <FinishedList :read="{ state: 'ready', tasks: finished, revision: 1 }" class="border" />
-        <FinishedList :read="{ state: 'ready', tasks: finished, revision: 1 }" pending="pr-template" class="border" />
-        <FinishedList class="border" />
-        <FinishedList :read="{ state: 'ready', tasks: [], revision: 1 }" class="border" />
-        <FinishedList :read="{ id: 'jig-ui', state: 'unreadable', code: 'timeout' }" class="border" />
+        <FinishedRows :read="{ state: 'ready', tasks: finished, revision: 1 }" class="border" />
+        <FinishedRows :read="{ state: 'ready', tasks: finished, revision: 1 }" pending="pr-template" class="border" />
+        <FinishedRows class="border" />
+        <FinishedRows :read="{ state: 'ready', tasks: [], revision: 1 }" class="border" />
+        <FinishedRows :read="{ id: 'jig-ui', state: 'unreadable', code: 'timeout' }" class="border" />
       </div>
     </CanvasSection>
 
@@ -738,10 +752,6 @@
       note="everything a task can carry, in an epic and waiting for two; queued at the top; a task not started; on the staging flow, its pull request into staging apart from the promotion"
     >
       <TaskFacts v-for="d in details" :key="d.id" :details="d" class="border-b pb-3" />
-    </CanvasSection>
-
-    <CanvasSection title="TaskBrief" note="the facts, the link to the full page and the id to copy; no actions">
-      <TaskBrief project="jig-ui" :task="details[1]!.id" :details="details[1]" />
     </CanvasSection>
 
     <CanvasSection
@@ -807,22 +817,6 @@
         :queued="queuedDrop"
         :sending="sendingDrop"
       />
-    </CanvasSection>
-
-    <CanvasSection
-      title="ActionList"
-      note="Jig's offers, one unknown id; the page's own writes left out; start as the agent's request, and on a Jig before 0.46.0 as its command; none"
-    >
-      <ActionList :actions="actions" project="jig-ui" task="design-system" />
-      <ActionList :actions="actions" project="jig-ui" task="design-system" :runs="new Set(['approve-gate'])" writes />
-      <ActionList
-        :actions="[{ id: 'start', command: 'jig task start file-backlog-task' }]"
-        project="jig-ui"
-        task="file-backlog-task"
-        writes
-      />
-      <ActionList :actions="[{ id: 'start', command: 'jig task start file-backlog-task' }]" project="jig-ui" task="file-backlog-task" />
-      <ActionList :actions="[]" project="jig-ui" task="x" />
     </CanvasSection>
 
     <CanvasSection

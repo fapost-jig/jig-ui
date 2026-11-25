@@ -29,14 +29,16 @@
 <template>
   <GroupPanel class="md:max-h-[calc(100vh-8rem)]">
     <nav aria-label="Specs" class="flex min-h-0 flex-col gap-2 p-2">
-      <Input v-model="query" type="search" placeholder="Find a spec…" aria-label="Find a spec" />
+      <Input v-model="query" type="search" class="bg-card dark:bg-background" placeholder="Find a spec…" aria-label="Find a spec" />
       <p v-if="shown.length === 0" class="px-2 text-muted-foreground">No spec is called that.</p>
       <ul v-else class="flex min-h-0 flex-col overflow-y-auto">
         <li v-for="spec in shown" :key="spec.id" class="border-b border-border last:border-b-0">
           <button
             type="button"
             class="flex w-full flex-col gap-1.5 rounded-md px-2 py-2 text-left"
-            :class="spec.id === chosen ? 'bg-card shadow-xs ring-1 ring-border' : 'hover:bg-card/60'"
+            :class="
+              spec.id === chosen ? 'bg-card shadow-xs ring-1 ring-border dark:bg-foreground/12 dark:ring-foreground/25' : 'hover:bg-card/60'
+            "
             :aria-current="spec.id === chosen ? 'true' : undefined"
             @click="emit('choose', spec.id)"
           >

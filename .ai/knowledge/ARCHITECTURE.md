@@ -26,7 +26,8 @@ one line that brings its own (the install flow). Jig works exactly as before wit
 - `server/http/` — the Hono app on 127.0.0.1: security headers, then the access guard in
   `access.ts` (local-only `Host`/`Origin`, then the token swapped for a cookie;
   convention-access-guard) before every route, `GET /api/instance`, `POST /api/instance/stop` (the same shutdown as SIGTERM, after its 202), and the built page from
-  `dist/web`. The API's routes are chained in `apiRoutes()`, whose type `AppType` the page takes
+  `dist/web` — also at the router's paths (`/projects/<id>`, `/projects/<id>/tasks/<task>`, `/canvas`), after the guard
+  as `/` is, and 503 while a build has emptied it, never a missing asset (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The API's routes are chained in `apiRoutes()`, whose type `AppType` the page takes
   (adr-20261018-page-takes-api-types-through-hono-rpc). A route's refusal is
   `{ error: { code, message } }`, and so is what `onError` answers: Hono's own (a body that is no
   JSON) as `usage` with its status, anything unforeseen as `internal` with 500 and its message only
@@ -55,12 +56,12 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   `jig knowledge read` (from Jig 0.41.0, adr-20261109-knowledge-text-and-drop-from-jig-0-41), `jig refresh` (from Jig
   0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), `jig staging ack` (from Jig 0.46.0,
   adr-20261118-mark-as-known-carries-the-count-the-person-saw), a person's writes on a task `jig task gate
-  approved`, `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend` (from
+  approved|answered` (the answer from Jig 0.48.0, adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend` (from
   Jig 0.46.0, adr-20261118-a-person-writes-on-a-task-from-its-page), a person's steps on the staging flow `jig task
   land`, `jig task promote` and `jig task request-review`, with `jig pr reviewers` (from Jig 0.46.0,
   adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), a person's merge `jig task merge-pr`
   and the forge read `jig task pr-status` (from Jig 0.46.0, adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), and
-  `jig upgrade`, its dry run and its run (from Jig 0.34.0), and `jig self-update` (its text line), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
+  `jig upgrade`, its dry run and its run (from Jig 0.34.0), and `jig self-update` (its text line), `housekeepingSummary` (in `client.ts`, a few words on what Housekeeping changed, read from Jig's report so the page never reads it; adr-20261125-the-page-opens-tasks-and-questions-over-the-board), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
   fixtures in `server/jig/fixtures/` — Jig 0.29.0 for the reads it had, 0.31.0 for the queue,
   0.39.0 for a task's documents, 0.40.0 for the settings, a roadmap's edits and the knowledge, 0.41.0 for the
   knowledge's text, Drop and judged reads and for filing an item's new task in one write, 0.45.0 for a task
@@ -121,14 +122,17 @@ page and above the projects does any time) or
 - `server/open-browser.ts` — opens the browser through `open.html` in the config directory, so
   the token is never a process argument (adr-20261017-browser-opens-through-a-redirect-file).
 - `web/` — the Vue 3 page, built from shadcn-vue components on Tailwind (adr-20261018-page-built-from-shadcn-vue-with-router-and-canvas,
-  convention-vue). `router.ts` — vue-router in hash mode: `#/` the workspace, `#/projects/<id>`
+  convention-vue). `router.ts` — vue-router in history mode (adr-20261125-the-page-opens-tasks-and-questions-over-the-board; a link from before, `#/projects/<id>`, becomes its path when the page loads): `/` the workspace, `/projects/<id>`
   a board — its query the board's sort and filters (`sort`, `class`, `priority`, `q`), `spec`, the spec the Specs view shows, and `view`, a view to open
-  (`knowledge`, the workspace card's link, dropped from the address once shown), `#/projects/<id>/tasks/<task>` a task's details, `#/canvas` every component in every
-  state (loaded lazily, linked from nowhere), anything else `#/`. `App.vue` — the header's
+  (`knowledge`, the workspace card's link, dropped from the address once shown), `/projects/<id>/tasks/<task>` a task's page, `/canvas` every component in every
+  state (loaded lazily, linked from nowhere), anything else `/`. `App.vue` — the header's
   project dropdown and the theme switch over the current view. `views/` — one per address (and the canvas's
-  helpers), the only callers of `call()`, `client` and `onChange()` besides `App.vue`; `components/` — Jig UI's own, props in and events out;
-  `components/ui/` — shadcn-vue's, knowing nothing of Jig; `lib/` — what a card says, the colours
-  that mean something, the theme, and `lastWins` (a read that lands only if no later one started).
+  helpers), the only callers of `call()`, `client` and `onChange()` besides `App.vue`; `components/` — Jig UI's own, props in and events out — among them `TaskNote` (a card's status line), `PullChip`
+  (a pull request and its CI), `ReadingLine`, `AgentPrompts` (Ask your agent), `FinishedRows` and `PrStatusBody` (the
+  bodies of the finished-tasks and pull-request-status dialogs);
+  `components/ui/` — shadcn-vue's, knowing nothing of Jig, `sonner`'s `Toaster` (vue-sonner) among them; `lib/` — what a card says
+  (`pull.ts`: a card's pull request chip; `agent-prompts.ts`: what to ask the agent by where a task stands), the colours
+  that mean something, the theme, `inline.ts` (`INLINE_DIALOGS`, which the canvas provides so a dialog draws in place) and `lastWins` (a read that lands only if no later one started).
   `api.ts` — the typed `client` (Hono's `hc` over `AppType`), the response types derived from it,
   `call()` with the failures every view shares, the change stream each view re-reads on, and the reads and runs more
   than one view makes (`readTask`, `readAgain`, `runRefresh`, `runHousekeeping`), the last two handing the answer to
@@ -158,7 +162,7 @@ page and above the projects does any time) or
   the winner. Run in a git checkout, the command then asks the instance that serves — its own or
   the running one — to connect the folder (`POST /api/projects` with the token, so only that
   instance writes the registry), a worktree standing for its clone's main checkout, and opens the
-  board at `#/projects/<id>`; outside a Jig project it says nothing.
+  board at `/projects/<id>`; outside a Jig project it says nothing.
 - **Read and follow.** The page opens its change stream and reads once it is open; while it is
   open a change under a project's `.ai/`, debounced, or the minute's rescan makes the local adapter
   re-read through Jig, and only a read that differs — or a project newly connected — sends

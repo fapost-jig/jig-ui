@@ -15,6 +15,7 @@ import {
   fileNewItem,
   fileTask,
   housekeeping,
+  housekeepingSummary,
   JigRefusal,
   JigShapeError,
   jigVersion,
@@ -2056,6 +2057,12 @@ describe('writeTask', () => {
   it.each([
     ['approve-gate' as const, null, 'task-gate.json', ['task', 'gate', 'gated', 'approved', '--revision', '7', '--json']],
     [
+      'answer-gate' as const,
+      'Use a queue, not a poll.',
+      'task-gate.json',
+      ['task', 'gate', 'gated', 'answered', '--answer', 'Use a queue, not a poll.', '--revision', '7', '--json'],
+    ],
+    [
       'abandon' as const,
       'lives elsewhere now',
       'task-abandon.json',
@@ -2078,6 +2085,7 @@ describe('writeTask', () => {
   it.each([
     ['task-gate-stale.json', 'approve-gate' as const, 'stale-revision'],
     ['task-gate-no-gate.json', 'approve-gate' as const, 'no-gate'],
+    ['task-gate-stale.json', 'answer-gate' as const, 'stale-revision'],
     ['task-archive-already.json', 'archive' as const, 'already-archived'],
     ['task-unarchive-not-archived.json', 'unarchive' as const, 'not-archived'],
     ['spec-drop-already-closed.json', 'drop-item' as const, 'already-closed'],
@@ -2413,4 +2421,26 @@ describe('readMachineJig', () => {
       expect(await readMachineJig(process.platform, machine('machine-jig-shape', shape).env, root)).toBeNull();
     },
   );
+});
+
+describe('housekeepingSummary', () => {
+  it('says what Housekeeping changed and leaves out what it only told', () => {
+    expect(
+      housekeepingSummary([
+        'removed (6): moved to …, recoverable for 5 days',
+        '  a, b, c, d, e, f',
+        'worktree removed: release-notes-2026-11-25, verify-key-attached-option-values',
+        'in progress (1):',
+        '  pull request open: x',
+        'already in the archive (19):',
+        '  list them: jig task list --status archived',
+        'housekeeping: deleted branch task/a',
+        'housekeeping: deleted branch task/b',
+      ]),
+    ).toBe('removed 6 · 2 worktrees removed · 2 branches deleted');
+  });
+
+  it('has nothing to say when nothing changed', () => {
+    expect(housekeepingSummary(['in progress (1):', '  pull request open: x', 'dry run: nothing was changed'])).toBeNull();
+  });
 });

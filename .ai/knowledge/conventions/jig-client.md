@@ -109,7 +109,7 @@ stash applied) is not read. `pauseTask` (`jig task pause <id> --revision <n> --j
 `PAUSE_JIG_VERSION`) names the task by its bare id too and adds `already-paused`. Its success answer carries the revision before
 the write, so the caller reads again; a test pins each command's arguments and a refusal.
 `writeTask` runs a person's write on a task by the id of Jig's action that offers it — `approve-gate` (`task gate <id>
-approved`), `abandon` (with `--reason`), `archive`, `unarchive`, `drop-item` (`spec drop <id>`, a roadmap write with its
+approved`), `answer-gate` (`task gate <id> answered --answer <a line>`, Jig's own action from 0.48.0), `abandon` (with `--reason`), `archive`, `unarchive`, `drop-item` (`spec drop <id>`, a roadmap write with its
 longer timeout, whose note it answers without a path) — and `depend` / `undepend` change what a task waits for
 (`queue depend|undepend task:<id> --on <ref>`, a reason with the first); each from `WRITES_JIG_VERSION`, adding the
 codes `no-gate`, `autopilot-running`, `autopilot-stopped`, `already-archived`, `not-archived`, `wrong-status` and
