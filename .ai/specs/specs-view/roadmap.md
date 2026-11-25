@@ -25,7 +25,7 @@ release has both and Jig UI's adapter can read them. Filed in `fapost-jig/jig`.
 Goal: the head of the chosen spec shows what the spec is about. Done when: the description stands
 under the title and Spec and Roadmap open the documents, as `mockup.html` shows.
 
-- [ ] Description under the spec's title (after: Summary in `jig spec list --json` — the page has nothing to show before it)
+- [ ] `spec-words-on-page` — Description under the spec's title (after: Summary in `jig spec list --json` — the page has nothing to show before it)
 - [ ] Spec and Roadmap open the spec's documents (after: Text of a spec's documents — the same reason)
 
 ## Waves
