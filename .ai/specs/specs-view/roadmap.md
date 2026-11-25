@@ -17,7 +17,7 @@ Jig. Done when: twenty specs are found by search, read by title, and a complete 
 Goal: Jig gives a spec's summary and its documents' text through its contract. Done when: a Jig
 release has both and Jig UI's adapter can read them. Filed in `fapost-jig/jig`.
 
-- [ ] Summary in `jig spec list --json` — a short description of each spec, from the source Jig decides (see Open questions)
+- [x] Summary in `jig spec list --json` — a short description of each spec, from the source Jig decides (see Open questions)
 - [ ] Text of a spec's documents — a command that gives `spec.md` and `roadmap.md` as written, in JSON
 
 ## Phase 3 — The spec's words on the page
