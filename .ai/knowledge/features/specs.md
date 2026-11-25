@@ -15,7 +15,7 @@ paths:
   - server/jig/fixtures/spec-list-waiting.json
   - web/components/SpecBoard.vue
   - web/components/SpecItemCard.vue
-summary: "A project's specs from jig spec list as the Specs view: open epics in Jig's queue order with a menu to move and prioritise them, and from Jig 0.40.0 the roadmap edited on the card (add, move, file) on the spec's write branch; read with the board, no ref or path on the page"
+summary: "A project's specs from jig spec list as the Specs view: a searchable list beside the chosen spec, complete ones last with a close request; the epic menu; the roadmap edited on the card; from Jig 0.48.0 the summary and the spec's documents in a dialog"
 reviewed_at: 2026-11-25
 ---
 # Specs and epics
@@ -47,6 +47,15 @@ it (`jig spec close`) or, with an open epic, to finish the epic; a finished epic
 neither. Complete is judged on the roadmap the head shows (`shownRoadmap`), Jig's numbers. The epic menu
 steps over the order the list shows, so a queued complete epic shown last has no Up.
 
+From Jig 0.48.0 the head shows the spec's `summary` (the `Summary:` line of `spec.md`, from `jig spec
+list`) under its title, and **Spec** and **Roadmap** buttons (`canRead`) that read the document on
+demand — `GET /api/projects/:id/specs/:spec/documents/:kind` → `ProjectSource.specText` →
+`readSpecText` (`jig spec read <id> spec|roadmap --json`), Jig run only for a spec id it listed, an
+exception to "a page fetch runs no Jig" like a task's documents — and open it in a dialog
+(`web/components/DocumentDialog.vue`, the page's one reading surface), rendered as a task's documents
+are. The roadmap read there leaves out edits waiting on the spec's branch; the dialog says so
+(adr-20261125-a-specs-documents-are-shown-as-written).
+
 From Jig 0.40.0 (`editable`) a roadmap is edited on the Specs view: **Add item** under the lanes of
 a numbered phase, an item's ⋯ menu (`SpecItemMenu.vue`) moving it Up or Down among its lane's cards
 (`laneStep`) or To Phase N, and
@@ -76,7 +85,8 @@ the epic branch, so the page shows Jig's numbers and computes none.
 - **No ref and no path reach the page.** Only whether the epic's roadmap was read from a remote
   branch (`fetched`) goes on, not the ref name. Waiting edits carry branch names only (`branch`,
   `base`), as the epic does, and their pull request's address, linked only when it is `https://`;
-  not the commit.
+  not the commit. A spec's summary and its documents' text are the exception: shown as their authors
+  wrote them, paths included, as a task's documents are (adr-20261125-a-specs-documents-are-shown-as-written).
 - **The queue orders the epics, not Jig UI.** Jig's queue holds an epic (`epic:<spec-id>`) on its
   top level beside the tasks of no epic, on one scale of positions. The adapter puts the queued
   epics first by position, then the open epics not queued, then the specs with none, each in Jig's
@@ -143,3 +153,7 @@ Task `specs-list-beside-spec` (2026-11-25), Phase 1 of spec `specs-view`, decide
 that spec: the tabs gave way to a list beside the chosen spec, complete specs last with a request to
 close them, and the requests collapsed under one line — twenty specs made the tabs a wall of ids and the
 head's requests a column of lines (adr-20261125-the-specs-view-is-a-list-beside-the-chosen-spec).
+
+Task `spec-words-on-page` (2026-11-25), Phase 3 of spec `specs-view`: the summary and the documents
+through Jig 0.48.0, shown as written; the maintainer chose a dialog over an inline document for every
+document on the page (adr-20261125-a-specs-documents-are-shown-as-written).

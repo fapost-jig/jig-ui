@@ -1,4 +1,5 @@
-import type { ItemPlace, Spec, SpecItem } from '@/api';
+import type { ItemPlace, Spec, SpecDocument, SpecItem, SpecText } from '@/api';
+import type { DocumentRead } from './documents';
 import { columnAccent, doneFill } from './tones';
 
 /** A run of an item's words: plain, or `code` as the roadmap marks it. */
@@ -222,4 +223,44 @@ export function filingGoal(item: SpecItem): string {
     .join('')
     .trim()
     .slice(0, 500);
+}
+
+/** The documents a spec's head opens, in the order of its buttons: Jig's `spec read` kinds. */
+export const SPEC_DOCUMENTS: {
+  kind: SpecDocument;
+  label: string;
+}[] = [
+  { kind: 'spec', label: 'Spec' },
+  { kind: 'roadmap', label: 'Roadmap' },
+];
+
+/** A spec's short description as its head shows it: the words Jig gave, none for a spec without or with blank ones. */
+export const summaryOf = (spec: Spec): string | null => spec.summary?.trim() || null;
+
+/** One document of the chosen spec, being read or as read. */
+export type SpecDocumentRead = DocumentRead<SpecText>;
+
+/** The file each document is written in, as a spec's `missingFiles` names it. */
+const DOCUMENT_FILES: Record<SpecDocument, string> = { spec: 'spec.md', roadmap: 'roadmap.md' };
+
+/**
+ * The buttons a spec's head offers, in order: none for a document the spec lacks, and a roadmap whose epic's branch is
+ * nowhere says so instead of opening, as Jig refuses to read it.
+ */
+export function documentButtons(spec: Spec): {
+  kind: SpecDocument;
+  label: string;
+  blocked: string | null;
+}[] {
+  return SPEC_DOCUMENTS.filter((d) => !spec.missingFiles.includes(DOCUMENT_FILES[d.kind])).map((d) => ({
+    ...d,
+    blocked: d.kind === 'roadmap' && spec.epic?.missing ? "the epic's branch is nowhere" : null,
+  }));
+}
+
+/** What a spec's open document says beside its words: the roadmap Jig reads leaves out the edits waiting on the spec's branch. */
+export function documentNote(spec: Spec, kind: SpecDocument): string | null {
+  return kind === 'roadmap' && spec.waiting
+    ? `This is the roadmap without the edits waiting on ${spec.waiting.branch}; Jig leaves them out.`
+    : null;
 }

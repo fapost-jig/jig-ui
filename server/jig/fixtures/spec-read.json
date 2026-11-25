@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "revision": 1793273172,
+  "generated_at": "2026-11-25T14:28:37Z",
+  "data": {
+    "spec": "jig-ui",
+    "kind": "spec",
+    "path": ".ai/specs/jig-ui/spec.md",
+    "ref": null,
+    "bytes": 52,
+    "content": "# Jig UI\n\nSummary: a local control center for Jig.\n",
+    "lossy": false
+  }
+}

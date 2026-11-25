@@ -19,6 +19,7 @@ import {
   JigShapeError,
   KNOWLEDGE_JIG_VERSION,
   KNOWLEDGE_TEXT_JIG_VERSION,
+  SPEC_TEXT_JIG_VERSION,
   LAND_JIG_VERSION,
   landTask,
   mergePr,
@@ -39,6 +40,7 @@ import {
   readReviewers,
   readSettings,
   readSourceDiff,
+  readSpecText,
   readSpecs,
   readStatus,
   refresh as refreshClone,
@@ -370,6 +372,7 @@ async function readProject(project: Project): Promise<Read> {
       specs: ordered(specs.specs, queue.epics),
       revision: Math.min(revision, specs.revision),
       editable: supports(jigVersion, ROADMAP_JIG_VERSION),
+      canRead: supports(jigVersion, SPEC_TEXT_JIG_VERSION),
     },
     revision,
   };
@@ -1351,6 +1354,13 @@ export function localSource(
       const answer = await onDemand(id, KNOWLEDGE_TEXT_JIG_VERSION, async (root) =>
         // Only a document Jig itself listed as proposed reaches Jig's arguments.
         (await readKnowledge(root)).proposals.some((p) => p.id === docId) ? readKnowledgeText(root, docId) : null,
+      );
+      return answer?.state === 'ready' ? { state: 'ready', text: answer.read } : answer;
+    },
+    async specText(id, specId, kind) {
+      const answer = await onDemand(id, SPEC_TEXT_JIG_VERSION, async (root) =>
+        // Only a spec Jig itself lists reaches Jig's arguments.
+        (await readSpecs(root)).specs.some((s) => s.id === specId) ? readSpecText(root, specId, kind) : null,
       );
       return answer?.state === 'ready' ? { state: 'ready', text: answer.read } : answer;
     },

@@ -22,6 +22,7 @@ import type {
 import type { FinishedTask } from '@/lib/finished';
 import type { ClosingState, HousekeepingState, RefreshState } from '@/lib/projects';
 import { refreshReport } from '@/lib/refresh';
+import type { SpecDocumentRead } from '@/lib/specs';
 import type { OwnStaging } from '@/lib/staging';
 import type { PlanState, UpgradeRun } from '@/lib/upgrade';
 
@@ -515,6 +516,7 @@ export const specs: Spec[] = [
   {
     id: 'jig-ui',
     title: 'Jig UI — a local control center for Jig projects',
+    summary: 'A local web page over Jig: the board, the specs and the knowledge of a project, read through Jig and never from its files.',
     missingFiles: [],
     release: null,
     epic: null,
@@ -537,6 +539,7 @@ export const specs: Spec[] = [
   {
     id: 'billing',
     title: 'Billing in one place',
+    summary: null,
     missingFiles: [],
     release: 'minor',
     epic: { branch: 'epic/billing', state: 'open', checkedOut: false, missing: false, fetched: true },
@@ -548,6 +551,7 @@ export const specs: Spec[] = [
   {
     id: 'lost-epic',
     title: 'An epic whose branch is gone',
+    summary: null,
     missingFiles: [],
     release: 'major',
     epic: { branch: 'epic/lost', state: 'open', checkedOut: true, missing: true, fetched: false },
@@ -559,6 +563,7 @@ export const specs: Spec[] = [
   {
     id: 'half-written',
     title: null,
+    summary: null,
     missingFiles: ['spec.md', 'roadmap.md'],
     release: null,
     epic: null,
@@ -1249,3 +1254,20 @@ export const reviewerReads: {
   },
   { note: 'Jig did not answer', read: { id: 'jig-ui', state: 'unreadable', code: 'timeout' } },
 ];
+
+/** A spec's open documents as its head shows them: read, being read, gone, one Jig could not read, one with bytes dropped. */
+export const specDocuments: Record<string, SpecDocumentRead> = {
+  read: {
+    state: 'ready',
+    kind: 'spec',
+    bytes: 120,
+    content:
+      '# Jig UI\n\nSummary: a local web page over Jig.\n\n## What it must do\n\n- Show the board of a project.\n- Show each spec as `jig spec list` reads it.\n',
+    lossy: false,
+  },
+  reading: 'reading',
+  gone: 'not-found',
+  failed: 'failed',
+  'epic nowhere': { state: 'unreadable', code: 'epic-missing', id: 'jig-ui' },
+  lossy: { state: 'ready', kind: 'roadmap', bytes: 20, content: '# Roadmap\n\nUse tabs  here.\n', lossy: true },
+};

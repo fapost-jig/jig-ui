@@ -7,7 +7,7 @@ paths:
   - "server/source/**"
   - "server/board/**"
 summary: "MAY/MUST/MUST NOT for the ProjectSource port: ids not paths, typed data, no files or processes leak"
-reviewed_at: 2026-11-19
+reviewed_at: 2026-11-25
 ---
 # ProjectSource — how the server reaches a project
 
@@ -23,7 +23,8 @@ MUST:     name projects by id; return typed data, never Jig's raw output — but
           (adr-20261110-housekeeping-runs-from-the-project-card); report a refusal by
           Jig's failure code; keep the last good read when a read fails mid-write
 MUST NOT: expose a path, a file or a child process to its callers — but `scan`'s findings, below,
-          a task's documents as written (adr-20261030-a-task-document-is-shown-as-written), and
+          a task's documents as written (adr-20261030-a-task-document-is-shown-as-written), a spec's
+          summary and documents as written (adr-20261125-a-specs-documents-are-shown-as-written), and
           the knowledge's paths relative to the project, a linked file's diff, and a proposed
           document's text with the file a stub links (adr-20261106-knowledge-decisions-from-the-page,
           adr-20261109-knowledge-text-and-drop-from-jig-0-41);
@@ -57,7 +58,8 @@ read through Jig at each call and kept nowhere, so a failure stays its own answe
 only what Jig offered on each, in memory, for a write from that list), one live task in full (`task(id, taskId)`, with
 the revision of its board read and whether its Jig takes a person's writes), a task's documents (`artifacts(id, taskId)`, and one as it
 is written, `artifact(id, taskId, kind)`, read through Jig at each call), its specs
-(`specs(id)`), its settings (`settings(id)`, as `jig config keys` lists them with a revision of their own,
+(`specs(id)`, with `canRead`, and a spec's document as written, `specText(id, spec, kind)`, read through Jig at each
+call, for a spec Jig listed), its settings (`settings(id)`, as `jig config keys` lists them with a revision of their own,
 read through Jig at each call), `readAgain(id)` — the project read through Jig now, for a person's Read again — `scan(folder?)`, the
 Jig projects under a folder — the source's own home folder when none is given — by path — connect,
 disconnect, `subscribe` to changes, and the writes `move(id, taskId, place, revision)`,

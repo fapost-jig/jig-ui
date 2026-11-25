@@ -36,6 +36,7 @@
   import QueueMenu from '@/components/QueueMenu.vue';
   import FileItemDialog from '@/components/FileItemDialog.vue';
   import SpecBoard from '@/components/SpecBoard.vue';
+  import DocumentDialog from '@/components/DocumentDialog.vue';
   import SpecMark from '@/components/SpecMark.vue';
   import SpecItemCard from '@/components/SpecItemCard.vue';
   import SpecItemMenu from '@/components/SpecItemMenu.vue';
@@ -106,6 +107,7 @@
     runs,
     settingStates,
     specItems,
+    specDocuments,
     specs,
     tasks,
     trackerTasks,
@@ -167,6 +169,8 @@
   ];
 
   const filingOpen = ref<(typeof filingStates)[number]>();
+  /** The sample document open in a DocumentDialog, by its name. */
+  const documentOpen = ref<string>();
 
   /** The header's Jig with a newer release: its question, while the update runs, and after Jig refused it. */
   const jigStates = [
@@ -987,6 +991,35 @@
         </SpecBoard>
       </div>
     </CanvasSection>
+
+    <CanvasSection
+      title="SpecBoard, with its documents"
+      note="its description under the title (none for a spec without one) and the Spec and Roadmap buttons (Jig 0.48.0), each opening its document in a DocumentDialog; the states of the dialog are under DocumentDialog"
+    >
+      <div class="flex flex-col gap-10">
+        <SpecBoard :spec="specs[0]!" project="jig-ui" :columns="new Map()" can-read />
+        <SpecBoard :spec="specs[1]!" project="jig-ui" :columns="new Map()" can-read />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection
+      title="DocumentDialog"
+      note="open one: a document read, one being read, one Jig no longer has, one Jig could not read (Read again), one with bytes dropped"
+    >
+      <div class="flex flex-wrap gap-2">
+        <Button v-for="(read, name) in specDocuments" :key="name" variant="outline" size="xs" @click="documentOpen = name">{{
+          name
+        }}</Button>
+      </div>
+    </CanvasSection>
+    <DocumentDialog
+      v-if="documentOpen"
+      id="jig-ui"
+      :open="true"
+      title="Spec"
+      :read="specDocuments[documentOpen]!"
+      @update:open="documentOpen = undefined"
+    />
 
     <CanvasSection
       title="SpecBoard, editable"

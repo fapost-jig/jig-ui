@@ -38,6 +38,7 @@ import {
   readSettings,
   readSourceDiff,
   readSpecs,
+  readSpecText,
   readStatus,
   readTasks,
   refresh,
@@ -592,6 +593,17 @@ describe('readSpecs', () => {
     expect(half).toMatchObject({ title: null, missingFiles: ['spec.md', 'roadmap.md'], progress: null, phases: [] });
   });
 
+  it("reads a spec's short description, none from a Jig that gives none or for a spec without one", async () => {
+    const withSummary = changed('spec-list.json', (data) => {
+      data.specs[0].summary = 'A local control center for Jig projects.';
+      data.specs[1].summary = null;
+    });
+    const [ui, billing, half] = (await readSpecs(answering(`case-${cases++}`, withSummary))).specs;
+    expect(ui?.summary).toBe('A local control center for Jig projects.');
+    expect(billing?.summary).toBeNull();
+    expect(half?.summary).toBeNull();
+  });
+
   it('reads a project with no specs', async () => {
     expect(await readSpecs(answering(`case-${cases++}`, '{"schema":1,"revision":1,"generated_at":"x","data":{"specs":[]}}'))).toEqual({
       revision: 1,
@@ -1022,6 +1034,35 @@ describe('readKnowledgeText', () => {
       delete data.content;
     });
     await expect(readKnowledgeText(answering(`case-${cases++}`, json), 'x')).rejects.toBeInstanceOf(JigShapeError);
+  });
+});
+
+describe('readSpecText', () => {
+  it("reads a spec's document as written, without the path or ref Jig prints", async () => {
+    const dir = logging(`case-${cases++}`, 'spec-read.json');
+    const read = await readSpecText(dir, 'jig-ui', 'spec');
+    expect(read).toEqual({ kind: 'spec', bytes: 52, content: '# Jig UI\n\nSummary: a local control center for Jig.\n', lossy: false });
+    expect(args(dir)).toEqual(['spec', 'read', 'jig-ui', 'spec', '--json']);
+  });
+
+  it('says where bytes were dropped', async () => {
+    const json = changed('spec-read.json', (data) => {
+      data.lossy = true;
+    });
+    expect((await readSpecText(answering(`case-${cases++}`, json), 'jig-ui', 'spec')).lossy).toBe(true);
+  });
+
+  it('carries a spec Jig does not know as not-found', async () => {
+    await expect(readSpecText(answering(`case-${cases++}`, 'spec-read-not-found.json', 1), 'nosuch', 'roadmap')).rejects.toMatchObject({
+      code: 'not-found',
+    });
+  });
+
+  it('refuses a document without its content', async () => {
+    const json = changed('spec-read.json', (data) => {
+      delete data.content;
+    });
+    await expect(readSpecText(answering(`case-${cases++}`, json), 'jig-ui', 'spec')).rejects.toBeInstanceOf(JigShapeError);
   });
 });
 
