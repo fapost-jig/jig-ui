@@ -16,7 +16,7 @@ paths:
   - web/components/SpecBoard.vue
   - web/components/SpecItemCard.vue
 summary: "A project's specs from jig spec list as the Specs view: open epics in Jig's queue order with a menu to move and prioritise them, and from Jig 0.40.0 the roadmap edited on the card (add, move, file) on the spec's write branch; read with the board, no ref or path on the page"
-reviewed_at: 2026-11-18
+reviewed_at: 2026-11-25
 ---
 # Specs and epics
 
@@ -24,9 +24,12 @@ reviewed_at: 2026-11-18
 
 A connected project's specs as Jig's `jig spec list --json` reports them (`readSpecs` in
 `server/jig/client.ts`), served by `GET /api/projects/:id/specs` from `ProjectSource.specs(id)`, and
-shown as the third view of the project's page, Specs: one spec at a time — a tab for each when
-there are two or more, the choice kept in the address as `?spec=<id>` (`web/views/BoardView.vue`), which a board
-card's spec opens (feature-board) —
+shown as the third view of the project's page, Specs: a list of the specs on the left
+(`web/components/SpecList.vue`, searched by title and id; each row the full title, one badge for the epic
+and priority, the progress; complete specs last, marked ✓ and "close it" — `listed`, `complete`,
+`kind` in `web/lib/specs.ts`) and the chosen one on the right, the choice kept in the
+address as `?spec=<id>` (`web/views/BoardView.vue`), the list's first when it names none, which a board
+card's spec opens (feature-board; adr-20261125-the-specs-view-is-a-list-beside-the-chosen-spec) —
 as a roadmap board (`web/components/SpecBoard.vue`). Its head holds the progress, fog, epic (branch,
 open or finished, read as of the last fetch, branch missing) and release level; a step for each
 phase says ✓ or done/total, and the board opens on the first phase with an item not done
@@ -38,8 +41,11 @@ board, and its dependencies; a click shows the rest of its words (`itemTitle`, `
 with an open epic come first, in the order of Jig's queue, and an epic's ⋯ menu (`EpicMenu.vue`)
 moves it and sets its priority (`POST /api/projects/:id/queue/epic/move`, `/queue/epic/priority`).
 A spec with work for the person's agent offers the request to copy (`agentRequests` in
-`web/lib/specs.ts`): to file the tasks of the first phase with an item that has none, and to continue
-the spec while it has fog.
+`web/lib/specs.ts`), under "Ask your agent (N)" collapsed to one line: to file the tasks of the first
+phase with an item that has none, to continue the spec while it has fog, and for a complete spec to close
+it (`jig spec close`) or, with an open epic, to finish the epic; a finished epic still listed gets
+neither. Complete is judged on the roadmap the head shows (`shownRoadmap`), Jig's numbers. The epic menu
+steps over the order the list shows, so a queued complete epic shown last has no Up.
 
 From Jig 0.40.0 (`editable`) a roadmap is edited on the Specs view: **Add item** under the lanes of
 a numbered phase, an item's ⋯ menu (`SpecItemMenu.vue`) moving it Up or Down among its lane's cards
@@ -132,3 +138,8 @@ prototype's variant C (branch `prototype/specs-redesign`) over a quiet outline a
 details: the roadmap as a board, one spec at a time, Up and Down within a lane
 (adr-20261110-the-page-speaks-a-quiet-design-language). Rejected: several specs stacked, each with
 its own steps and lanes — a tall page again.
+
+Task `specs-list-beside-spec` (2026-11-25), Phase 1 of spec `specs-view`, decided by the maintainer in
+that spec: the tabs gave way to a list beside the chosen spec, complete specs last with a request to
+close them, and the requests collapsed under one line — twenty specs made the tabs a wall of ids and the
+head's requests a column of lines (adr-20261125-the-specs-view-is-a-list-beside-the-chosen-spec).

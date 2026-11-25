@@ -39,6 +39,7 @@
   import SpecMark from '@/components/SpecMark.vue';
   import SpecItemCard from '@/components/SpecItemCard.vue';
   import SpecItemMenu from '@/components/SpecItemMenu.vue';
+  import SpecList from '@/components/SpecList.vue';
   import TaskBrief from '@/components/TaskBrief.vue';
   import TaskCard from '@/components/TaskCard.vue';
   import TaskDocuments from '@/components/TaskDocuments.vue';
@@ -119,6 +120,21 @@
     ['design-system', { id: 'in-progress', title: 'In progress' }],
     ['specs-and-epics', { id: 'ready', title: 'Ready' }],
   ]);
+
+  /** A complete spec, as the list puts it last, and the one chosen in it. */
+  const completeSpec = {
+    ...specs[1]!,
+    id: 'closing',
+    title: 'A spec whose roadmap is done',
+    epic: null,
+    queue: null,
+    progress: { done: 4, total: 4, filed: 0, fog: 0 },
+  };
+
+  /** The same, its epic still open: its request is to finish the epic. */
+  const finishableSpec = { ...completeSpec, id: 'finishing', title: 'A spec whose epic can be finished', epic: specs[1]!.epic };
+
+  const chosenSpec = ref('jig-ui');
 
   const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link'] as const;
   const buttonSizes = ['xs', 'sm', 'default', 'lg'] as const;
@@ -229,10 +245,7 @@
       </ToggleGroup>
     </CanvasSection>
 
-    <CanvasSection
-      title="Tabs"
-      note="the Specs view's specs, one chosen, one with its priority; a press chooses another; twenty wrap onto more rows"
-    >
+    <CanvasSection title="Tabs" note="a row of tabs, one chosen, one with a badge; a press chooses another; twenty wrap onto more rows">
       <Tabs default-value="jig-ui">
         <TabsList aria-label="Specs">
           <TabsTrigger v-for="spec in specs" :key="spec.id" :value="spec.id">
@@ -305,6 +318,13 @@
           class="w-64"
         />
       </div>
+    </CanvasSection>
+
+    <CanvasSection
+      title="SpecList"
+      note="the Specs view's list: one chosen, an epic with its priority, a roadmap without progress, a complete spec last; type to search"
+    >
+      <SpecList :specs="[...specs, completeSpec]" :chosen="chosenSpec" class="w-60" @choose="(id) => (chosenSpec = id)" />
     </CanvasSection>
 
     <CanvasSection title="Progress" note="the first read of the projects: 1 of 3 landed">
@@ -950,11 +970,11 @@
 
     <CanvasSection
       title="SpecBoard"
-      note="no epic, opened on the first phase with work left; an open epic in the queue at P1, with its queue menu; a lost epic branch, not queued, with its change on its way; missing files"
+      note="no epic, opened on the first phase with work left; an open epic in the queue at P1, with its queue menu; a lost epic branch, not queued, with its change on its way; missing files; a complete roadmap, with no epic (ask to close it) and with an open one (ask to finish it), its request under the collapsed Ask your agent"
     >
       <div class="flex flex-col gap-10">
         <SpecBoard
-          v-for="spec in specs"
+          v-for="spec in [...specs, completeSpec, finishableSpec]"
           :key="spec.id"
           :spec="spec"
           project="jig-ui"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Spec } from '../api';
 import { epicStep } from './epics';
+import { listed } from './specs';
 
 const spec = (id: string, epic: 'open' | 'finished' | null, position: number | null = null): Spec => ({
   id,
@@ -42,5 +43,23 @@ describe('epicStep', () => {
 
   it('queues an epic going up at the bottom when none is queued', () => {
     expect(epicStep([spec('a', 'open'), spec('b', 'open')], 'b', -1)).toBe('bottom');
+  });
+});
+
+describe('epicStep on the order the list shows', () => {
+  it('steps past the neighbours shown, a complete epic having gone last', () => {
+    const done = { ...spec('b', 'open', 200), progress: { done: 2, total: 2, filed: 0, fog: 0 } };
+    const shown = listed([spec('a', 'open', 100), done, spec('c', 'open', 300)]);
+    expect(shown.map((s) => s.id)).toEqual(['a', 'c', 'b']);
+    expect(epicStep(shown, 'c', -1)).toEqual({ before: 'a' });
+    expect(epicStep(shown, 'c', 1)).toEqual({ after: 'b' });
+  });
+
+  it('offers no Up to a queued complete epic shown below one not queued, never a move onto itself', () => {
+    const done = { ...spec('b', 'open', 200), progress: { done: 2, total: 2, filed: 0, fog: 0 } };
+    const shown = listed([spec('a', 'open', 100), done, spec('c', 'open')]);
+    expect(shown.map((s) => s.id)).toEqual(['a', 'c', 'b']);
+    expect(epicStep(shown, 'b', -1)).toBeUndefined();
+    expect(epicStep(shown, 'c', -1)).toEqual({ before: 'a' });
   });
 });

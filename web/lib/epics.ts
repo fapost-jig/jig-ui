@@ -7,7 +7,8 @@ export const movable = (spec: Spec): boolean => spec.epic?.state === 'open';
  * One place up or down among the project's open epics, in the order the page shows them — the queued ones first — as
  * one `jig queue move`: before the epic above, or after the one below. An epic not queued that goes up joins the
  * queued ones at their end: after the last of them, or at the queue's bottom when none is queued. `undefined` at
- * either end, and down onto an epic not queued, which the queue cannot put anything below.
+ * either end, and down onto an epic not queued, which the queue cannot put anything below. A queued epic shown below
+ * one not queued — a complete epic, which the list puts last — has no Up either: the queue already holds it above.
  */
 export function epicStep(specs: Spec[], id: string, by: -1 | 1): Place | undefined {
   const epics = specs.filter(movable);
@@ -15,7 +16,7 @@ export function epicStep(specs: Spec[], id: string, by: -1 | 1): Place | undefin
   const next = at < 0 ? undefined : epics[at + by];
   if (!next) return undefined;
   if (next.queue) return by < 0 ? { before: next.id } : { after: next.id };
-  if (by > 0) return undefined;
+  if (by > 0 || epics[at]!.queue) return undefined;
   const last = epics.findLast((s) => s.queue !== null);
   return last ? { after: last.id } : 'bottom';
 }

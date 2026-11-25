@@ -15,7 +15,7 @@ paths:
   - web/lib/sift.ts
   - web/components/SpecMark.vue
 summary: Board columns from Jig's task state, first rule wins, shown Needs you first; Board and List views; why Needs you is read from state, not attention
-reviewed_at: 2026-11-20
+reviewed_at: 2026-11-25
 ---
 # Board
 
@@ -34,7 +34,7 @@ hyphens. A task filed from a spec names it under its card or row, from Jig 0.46.
 (`web/components/SpecMark.vue`): the spec's title, else its id, the phase, and *epic* when the task goes into the spec's
 epic — for a task nobody started, only while `jig spec list` says that epic is open, since Jig names a finished one too
 and cuts nothing from it (`readProject` in `server/source/local.ts`). A press on its text, not the space beside
-it, opens that spec on the Specs view as a press on Specs and its tab would, the sort and filters kept in the address;
+it, opens that spec on the Specs view as a press on Specs and a choice in its list would, the sort and filters kept in the address;
 a spec the project's spec list does not name (not in the checkout) is named with nothing to press, since the Specs
 view would show another (`specOpens` in `web/lib/sift.ts`). Finished
 tasks are not on the board: a toggle above it with their count opens the list of those Jig still
