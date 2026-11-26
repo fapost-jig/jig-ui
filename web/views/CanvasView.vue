@@ -1,13 +1,17 @@
 <script setup lang="ts">
   import { provide } from 'vue';
+  import { agentPrompts } from '@/lib/agent-prompts';
+  import { shownPull } from '@/lib/pull';
   import { reporter } from '@/lib/report';
+  import { waits } from '@/lib/waits';
   import { INLINE_DIALOGS } from '@/lib/inline';
   // The maintainer's page of every component in every variant and state, light and dark side by
   // side. A component added to components/ or components/ui/ gets a section here.
   import { Copy } from '@lucide/vue';
-  import { ref } from 'vue';
+  import { onUnmounted, ref } from 'vue';
   import type { ArtifactKind, DocumentText, SourceDiff, TaskArtifact } from '@/api';
   import { type DocumentRead, type OpenDocument } from '@/lib/documents';
+  import AgentPrompts from '@/components/AgentPrompts.vue';
   import AttentionItem from '@/components/AttentionItem.vue';
   import BoardColumns from '@/components/BoardColumns.vue';
   import BoardFilter from '@/components/BoardFilter.vue';
@@ -32,6 +36,10 @@
   import ProjectList from '@/components/ProjectList.vue';
   import ProjectMark from '@/components/ProjectMark.vue';
   import PrStatus from '@/components/PrStatus.vue';
+  import PrStatusBody from '@/components/PrStatusBody.vue';
+  import PullChip from '@/components/PullChip.vue';
+  import ReadingLine from '@/components/ReadingLine.vue';
+  import TaskNote from '@/components/TaskNote.vue';
   import MachineJig from '@/components/MachineJig.vue';
   import ProjectSwitcher from '@/components/ProjectSwitcher.vue';
   import ReviewRequest from '@/components/ReviewRequest.vue';
@@ -153,6 +161,54 @@
   /** The settings dialog's state open on the canvas: a dialog covers the page, so one at a time. */
   const settingsOpen = ref<(typeof settingStates)[number]>();
   const settingsReport = reporter('canvas-settings');
+
+  /** Each note a card can carry, with the task that has it; `waits` words it. */
+  const notes = tasks.flatMap((t) => {
+    const note = waits(t);
+    return note ? [{ id: t.id, note }] : [];
+  });
+
+  /** The pull request chips the samples show: one a task, by what its pull request stands at. */
+  const pulls = tasks.flatMap((t) => {
+    const pull = shownPull(t);
+    return pull ? [{ id: t.id, pull }] : [];
+  });
+
+  /** What a person may ask their agent, by where a task stands: at its gate, stopped on a question, ready, going on. */
+  const promptSets = [
+    { note: 'at its gate', prompts: agentPrompts({ ...details[0]!, gate: 'waiting', autopilot: null, status: 'active' }) },
+    { note: 'its autopilot stopped', prompts: agentPrompts({ ...details[0]!, gate: null, autopilot: 'stopped', status: 'active' }) },
+    {
+      note: 'ready, with the class to check',
+      prompts: agentPrompts({
+        ...details[0]!,
+        gate: null,
+        autopilot: null,
+        status: 'ready',
+        actions: [{ id: 'set-class', command: 'jig task set a class' }],
+      }),
+    },
+    { note: 'going on', prompts: agentPrompts({ ...details[0]!, gate: null, autopilot: null, status: 'active', actions: [] }) },
+  ];
+
+  /** The toasts the page raises, as `reporter` raises them: sample ones for the corner. */
+  const sampleToast = reporter('canvas-sample');
+  // The canvas's toasts go with it, as every view's do.
+  onUnmounted(() => {
+    sampleToast.clear();
+    settingsReport.clear();
+  });
+
+  const samples = [
+    { label: 'Went well', report: { kind: 'success', title: 'Archived design-system' } },
+    { label: 'Needs a look', report: { kind: 'warning', title: 'Merged, but CI is red', description: 'Look at the pull request.' } },
+    {
+      label: 'Went wrong',
+      report: { kind: 'error', title: 'Jig refused archiving design-system', description: 'The task is not finished.' },
+    },
+    { label: 'Running', report: { kind: 'loading', title: 'Running jig refresh in jig-ui…' } },
+  ] as const;
+
   function openSetting(state: (typeof settingStates)[number]): void {
     settingsOpen.value = state;
     if (state.notice) settingsReport.show({ kind: 'error', title: state.notice });
@@ -594,16 +650,13 @@
 
     <CanvasSection
       title="TaskCard"
-      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; open with details, while reading, unreadable; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one and when open; on the staging flow asking before it prepares for prod, and its review request while the forge is asked and with whom it offers; off it asking before the merge, where its pull request stands while the forge is asked and once it answered"
+      note="every note a card carries, a priority among them, the spec it was filed from (design-system), one going into its spec's epic (specs-and-epics); with its queue menu; while its change is on its way; changed since a refused change; ready and closable (✕) with its queue menu, asking before it closes, while its close is on its way; at the board's narrowest column, ids a tracker names — by their key with a goal, whole without one; on the staging flow asking before it prepares for prod, and its review request while the forge is asked and with whom it offers; off it asking before the merge, where its pull request stands while the forge is asked and once it answered"
     >
       <div class="grid grid-cols-2 gap-2 xl:grid-cols-3">
         <TaskCard v-for="task in tasks" :key="task.id" project="jig-ui" :task="task" :open="false" />
         <TaskCard project="jig-ui" :task="tasks[1]!" :open="false" :cards="tasks" />
         <TaskCard project="jig-ui" :task="tasks[0]!" :open="false" :cards="tasks" busy />
         <TaskCard project="jig-ui" :task="tasks[3]!" :open="false" :cards="tasks" changed />
-        <TaskCard project="jig-ui" :task="tasks[2]!" :open="true" :details="details[0]" />
-        <TaskCard project="jig-ui" :task="tasks[0]!" :open="true" />
-        <TaskCard project="jig-ui" :task="tasks[1]!" :open="true" details="unavailable" />
         <TaskCard project="jig-ui" :task="tasks[4]!" :open="false" :cards="tasks" />
         <TaskCard project="jig-ui" :task="tasks[7]!" :open="false" :cards="tasks" confirming />
         <TaskCard project="jig-ui" :task="tasks[6]!" :open="false" :cards="tasks" busy />
@@ -628,7 +681,6 @@
       </div>
       <div class="mt-2 grid w-[23rem] grid-cols-2 gap-2">
         <TaskCard v-for="task in trackerTasks" :key="task.id" project="jig-ui" :task="task" :open="false" :cards="trackerTasks" />
-        <TaskCard project="jig-ui" :task="trackerTasks[0]!" :open="true" />
       </div>
     </CanvasSection>
 
@@ -827,9 +879,46 @@
       />
     </CanvasSection>
 
+    <CanvasSection title="AgentPrompts" :note="promptSets.map((s) => s.note).join('; ')">
+      <AgentPrompts v-for="s in promptSets" :key="s.note" :prompts="s.prompts" />
+    </CanvasSection>
+
+    <CanvasSection title="PullChip" :note="`one a task: ${pulls.map((p) => p.id).join(', ')}`">
+      <div class="flex flex-wrap gap-2">
+        <PullChip v-for="p in pulls" :key="p.id" :pull="p.pull" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection title="ReadingLine" note="a read under way">
+      <ReadingLine>Reading the design…</ReadingLine>
+    </CanvasSection>
+
+    <CanvasSection
+      title="TaskNote"
+      note="every note `waits` words, by its icon and tone; a task it waits for opens its page, an epic is only named; with the pull request's link"
+    >
+      <TaskNote v-for="n in notes" :key="n.id" project="jig-ui" :note="n.note" link />
+    </CanvasSection>
+
+    <CanvasSection title="PrStatusBody" :note="prStatusReads.map((r) => r.note).join('; ')">
+      <div class="flex flex-col gap-2">
+        <PrStatusBody v-for="r in prStatusReads" :key="r.note" task="merge-held" :status="r.read" />
+      </div>
+    </CanvasSection>
+
+    <CanvasSection
+      title="Toaster"
+      note="toasts appear in the page's corner, not here; each button raises one through reporter, as a press does: what went well goes by itself after 8 s, a result that needs a look, an error and a running one stay until closed"
+    >
+      <div class="flex flex-wrap gap-2">
+        <Button v-for="t in samples" :key="t.label" variant="outline" size="xs" @click="sampleToast.show(t.report)">{{ t.label }}</Button>
+        <Button variant="ghost" size="xs" @click="sampleToast.clear()">Clear</Button>
+      </div>
+    </CanvasSection>
+
     <CanvasSection
       title="GateApproval"
-      note="the design as written, with Approve; a T4's spec and alternatives first; being read; one Jig could not read; approving; a refusal is a toast, as on the task's page"
+      note="the design as written, with Approve; where Jig takes an answer, with Send the answer, and while it is sent; a T4's spec and alternatives first; being read; one Jig could not read; approving; a refusal is a toast, as on the task's page"
     >
       <GateApproval :documents="[{ kind: 'design', content: openDocument.state === 'ready' ? openDocument.content : '' }]" :busy="false" />
       <GateApproval
@@ -840,6 +929,8 @@
         ]"
         :busy="false"
       />
+      <GateApproval :documents="[{ kind: 'design', content: '# Design\n\nThe shape.' }]" :busy="false" answerable />
+      <GateApproval :documents="[{ kind: 'design', content: '# Design' }]" busy answerable sending="answer" />
       <GateApproval :busy="false" />
       <GateApproval :documents="[{ kind: 'design', content: null }]" :busy="false" />
       <GateApproval :documents="[{ kind: 'design', content: '# Design' }]" busy />

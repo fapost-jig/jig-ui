@@ -38,6 +38,7 @@
   import { agentPrompts } from '@/lib/agent-prompts';
   import { ago } from '@/lib/ago';
   import { minute } from '@/lib/clock';
+  import { needsYou, timeline } from '@/lib/timeline';
   import { waits } from '@/lib/waits';
   import { dependCandidates, DOING, gateDocuments, pageWrites } from '@/lib/writes';
 
@@ -103,36 +104,8 @@
 
   const note = computed(() => (ready.value ? waits(ready.value) : undefined));
 
-  /** Something needs the person beside the gate: the autopilot's question, Jig's attention items, housekeeping's flags. */
-  const needsYou = computed(
-    () =>
-      !!ready.value &&
-      ((ready.value.autopilot === 'stopped' && !!ready.value.run?.stopReason) ||
-        ready.value.attention.length > 0 ||
-        ready.value.housekeepingFlags.length > 0),
-  );
-
-  /** What happened to the task, the latest first, from the times Jig keeps. */
-  const timeline = computed(() => {
-    const d = ready.value;
-    if (!d) return [];
-    const pr = d.promotion ?? d.pullRequest;
-    const events = [
-      d.run?.stopAt && { at: d.run.stopAt, text: 'The autopilot stopped with a question' },
-      d.run?.stageAt && d.run.stage && { at: d.run.stageAt, text: `Entered ${d.run.stage}` },
-      pr?.fetchedAt && { at: pr.fetchedAt, text: `Pull request heard by housekeeping${pr.state ? `: ${pr.state}` : ''}` },
-      d.createdAt && { at: d.createdAt, text: 'Filed' },
-    ].filter(
-      (
-        e,
-      ): e is {
-        at: string;
-        text: string;
-      } => !!e,
-    );
-
-    return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  });
+  const needs = computed(() => !!ready.value && needsYou(ready.value));
+  const events = computed(() => (ready.value ? timeline(ready.value) : []));
 
   /** The actions Jig offers that this page runs as buttons; the rest stay commands. */
   const runs = computed(() => (ready.value ? pageWrites(ready.value) : new Set<string>()));
@@ -358,7 +331,7 @@
           @read-again="readGate"
         />
 
-        <GroupPanel v-if="needsYou" :accent="columnAccent['needs-you']" aria-labelledby="needs-you">
+        <GroupPanel v-if="needs" :accent="columnAccent['needs-you']" aria-labelledby="needs-you">
           <template #head><h2 id="needs-you" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Needs you</h2></template>
           <div class="flex flex-col gap-3 px-4 pb-4">
             <div v-if="details.autopilot === 'stopped' && details.run?.stopReason" :class="toneRule.attention" role="note">
@@ -419,10 +392,10 @@
 
         <AgentPrompts :prompts="agentPrompts(details)" />
 
-        <GroupPanel v-if="timeline.length > 0" aria-labelledby="timeline">
+        <GroupPanel v-if="events.length > 0" aria-labelledby="timeline">
           <template #head><h2 id="timeline" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Timeline</h2></template>
           <ol class="mx-2 mb-2 flex flex-col gap-2 rounded-lg bg-card px-3 py-2.5 text-[13px] ring-1 ring-border">
-            <li v-for="(e, i) in timeline" :key="i" class="flex items-baseline gap-2.5">
+            <li v-for="(e, i) in events" :key="i" class="flex items-baseline gap-2.5">
               <span
                 class="size-2 shrink-0 translate-y-[-1px] rounded-full"
                 :class="i === 0 ? inProgressFill : 'bg-border'"

@@ -123,3 +123,18 @@ export function pullRequests(task: Pick<Task, 'pullRequest' | 'staging' | 'parke
 export function requested(task: Task, now = Date.now()): string | undefined {
   return task.pauseRequest ? `Pause requested ${ago(task.pauseRequest.requestedAt, now)}` : undefined;
 }
+
+/** A queue reference (`task:<id>`, `epic:<spec>`) as its kind and id; a reference that is not a task's is an epic's. */
+export function parseRef(ref: string): {
+  kind: 'task' | 'epic';
+  id: string;
+} {
+  const [kind, ...rest] = ref.split(':');
+  return { kind: kind === 'task' ? 'task' : 'epic', id: rest.join(':') };
+}
+
+/** What a card shows as its note: `waits`, unless all it says is the pull request the card's footer already shows. */
+export function cardNote(task: Omit<Task, 'resumesTo'>, footerShowsPull: boolean): ReturnType<typeof waits> {
+  const note = waits(task);
+  return note?.icon === 'pull' && footerShowsPull ? undefined : note;
+}

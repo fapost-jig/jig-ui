@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dependCandidates, gateDocuments, listedActions, pageWrites, refName, startRequest } from './writes';
+import { dependCandidates, gateDocuments, pageWrites, refName } from './writes';
 
 const action = (id: string) => ({ id, command: `jig ${id} a` });
 
@@ -22,25 +22,10 @@ describe('gateDocuments', () => {
   });
 });
 
-describe('startRequest and refName', () => {
-  it("words the agent's request and a dependency's target", () => {
-    expect(startRequest('a', 'shop')).toBe('Start task a in shop');
+describe('refName', () => {
+  it("words a dependency's target", () => {
     expect([refName('task:a'), refName('epic:x')]).toEqual(['a', 'epic x']);
-  });
-});
-
-describe('listedActions', () => {
-  const offered = ['start', 'approve-gate', 'pause'].map(action);
-
-  it('leaves out what the page runs, and asks the agent to start the task on a Jig that takes a person’s writes', () => {
-    expect(listedActions(offered, new Set(['approve-gate']), true, 'a', 'shop')).toEqual([
-      { id: 'start', command: 'Start task a in shop', asks: true },
-      { id: 'pause', command: 'jig pause a', asks: false },
-    ]);
-  });
-
-  it("shows Jig's own commands below 0.46.0", () => {
-    expect(listedActions(offered, new Set(), false, 'a', 'shop')).toEqual(offered.map((a) => ({ ...a, asks: false })));
+    expect([refName('release:x'), refName('foo')]).toEqual(['release:x', 'foo']);
   });
 });
 

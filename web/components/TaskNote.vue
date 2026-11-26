@@ -2,7 +2,7 @@
   import { Bot, CircleHelp, ExternalLink, GitPullRequest, Link2, Pause, ShieldCheck, Waypoints } from '@lucide/vue';
   import { type Component, computed } from 'vue';
   import { toneText } from '@/lib/tones';
-  import type { NoteIcon, waits } from '@/lib/waits';
+  import { type NoteIcon, parseRef, type waits } from '@/lib/waits';
 
   /**
    * What a task waits for, as `waits` words it, led by its icon in its tone: on a card and at the head of the task's
@@ -28,9 +28,7 @@
   /** The queue item the note says it waits for: a task opens its page; an epic is only named. */
   const waitsOn = computed(() => {
     const ref = props.note.ref;
-    if (!ref) return undefined;
-    const [kind, ...rest] = ref.split(':');
-    return { kind: kind === 'task' ? 'task' : 'epic', id: rest.join(':') };
+    return ref ? parseRef(ref) : undefined;
   });
 </script>
 

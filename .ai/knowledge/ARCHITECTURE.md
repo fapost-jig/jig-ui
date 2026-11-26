@@ -131,7 +131,8 @@ page and above the projects does any time) or
   (a pull request and its CI), `ReadingLine`, `AgentPrompts` (Ask your agent), `FinishedRows` and `PrStatusBody` (the
   bodies of the finished-tasks and pull-request-status dialogs);
   `components/ui/` — shadcn-vue's, knowing nothing of Jig, `sonner`'s `Toaster` (vue-sonner) among them; `lib/` — what a card says
-  (`pull.ts`: a card's pull request chip; `agent-prompts.ts`: what to ask the agent by where a task stands), the colours
+  (`pull.ts`: a card's pull request chip; `agent-prompts.ts`: what to ask the agent by where a task stands; `timeline.ts`: a task page's timeline and what needs
+  the person), the colours
   that mean something, the theme, `inline.ts` (`INLINE_DIALOGS`, which the canvas provides so a dialog draws in place) and `lastWins` (a read that lands only if no later one started).
   `api.ts` — the typed `client` (Hono's `hc` over `AppType`), the response types derived from it,
   `call()` with the failures every view shares, the change stream each view re-reads on, and the reads and runs more
