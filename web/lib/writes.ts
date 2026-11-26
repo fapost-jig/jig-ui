@@ -1,14 +1,15 @@
 import type { ArtifactKind, ReadyDetails } from '../api';
 
 /** The writes on a live task its page runs as buttons, by the id of Jig's action that offers them. */
-const LIVE_WRITES = ['approve-gate', 'abandon', 'archive'];
+const LIVE_WRITES = ['approve-gate', 'answer-gate', 'abandon', 'archive'];
 
 /** A person's write on a task the page runs: on a live task, or on a finished one from the list of them. */
-export type TaskWrite = 'approve-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
+export type TaskWrite = 'approve-gate' | 'answer-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
 
 /** What a write is called while it runs, as a refusal says it: "Jig refused archiving a". */
 export const DOING: Record<TaskWrite | 'depend' | 'undepend', string> = {
   'approve-gate': 'approving the design of',
+  'answer-gate': 'answering the design of',
   abandon: 'abandoning',
   archive: 'archiving',
   unarchive: 'bringing back',

@@ -316,6 +316,12 @@ export interface Task {
   started: boolean;
   gate: string | null;
   autopilot: string | null;
+  /** The stage an autopilot run on or stopped entered last (`review`, `implement`…); `null` without such a run. */
+  stage: string | null;
+  /** When Jig last wrote the task's state. */
+  updatedAt: string | null;
+  /** The queue items it depends on that are still open — a live task (`task:<id>`) or an open epic (`epic:<spec>`). */
+  waitsFor: string[];
   pullRequest: {
     url: string;
     state: string | null;
@@ -614,6 +620,8 @@ export type Written =
       note?: string;
       /** Jig's report as it printed it, a line each, without a path (housekeeping). */
       report?: string[];
+      /** What housekeeping changed, in a few words read from its report; `null` when it changed nothing. */
+      summary?: string | null;
       /** What a refresh did, without git's messages or a path. */
       refreshed?: Refreshed;
       /** What a person's landing on staging did. */
@@ -742,9 +750,9 @@ export interface ProjectSource {
   fileTask(id: string, taskId: string, goal: string): Promise<Written | undefined>;
   /**
    * A person's write on a task, as `move` writes, from Jig 0.46.0 (below it `unsupported`): Jig runs only when the last
-   * read offers it — the board's for a live task (`approve-gate`, `abandon`, `archive`), the last finished read for one
-   * that is not (`archive`, `unarchive`, `drop-item`) —, else `not-found`. `reason` goes with `abandon` only. For
-   * `approve-gate` the revision is the design's read: a design rewritten since is refused `stale-revision`.
+   * read offers it — the board's for a live task (`approve-gate`, `answer-gate`, `abandon`, `archive`), the last finished read for one
+   * that is not (`archive`, `unarchive`, `drop-item`) —, else `not-found`. `reason` goes with `abandon` (its reason) and `answer-gate` (the
+   * answer to the design, a line; Jig offers it from 0.48.0) only. For `approve-gate` and `answer-gate` the revision is the design's read: a design rewritten since is refused `stale-revision`.
    */
   act(id: string, taskId: string, write: TaskWrite, reason: string | null, revision: number): Promise<Written | undefined>;
   /**

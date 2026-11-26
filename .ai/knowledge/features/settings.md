@@ -7,14 +7,14 @@ paths:
   - web/components/SettingsDialog.vue
   - web/lib/settings.ts
   - "server/jig/fixtures/config-*.json"
-summary: "The settings dialog from a project card's menu: the project's Jig settings read-only, the person's own changed through jig config set|unset --local; why the token is only cleared and every change ends in a read"
-reviewed_at: 2026-11-06
+summary: "The settings dialog from an icon on a project's card: the project's Jig settings read-only, the person's own changed through jig config set|unset --local; why the token is only cleared and every change ends in a read"
+reviewed_at: 2026-11-25
 ---
 # Settings — a project's Jig settings in a dialog
 
 ## What
 
-**Settings…** in a ready project's ⋯ menu on its card (`web/components/ProjectCard.vue`) opens a
+**Settings…**, an icon on a ready project's card (`web/components/ProjectCard.vue`) opens a
 dialog (`web/components/SettingsDialog.vue`, held by `web/views/WorkspaceView.vue`) with every key
 `jig config keys --json` lists, in Jig's order, in two parts (`parts` in `web/lib/settings.ts`):
 

@@ -8,6 +8,31 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- A task's card on the board no longer expands. It shows the task's id with a copy icon, its spec as a chip (fuchsia when
+  the task goes into the spec's epic), the goal in up to four lines, which opens the task's page, one status line with an
+  icon, and a footer: coloured priority and class badges, the pull request as a chip with a dot for its CI, and when the
+  task last changed. **Open full details** is gone. ([The board](/projects#the-board))
+- In the list, a task is one line like a table row, and a click on it opens its page; the side pane is gone.
+  ([The board](/projects#the-board))
+- A task's page has two columns: the task, its design at its gate with **Approve the design** (and, from Jig 0.48.0,
+  **Send the answer** for a one-line answer), what needs you and its documents on the left; what Jig offers, the details,
+  **Ask your agent** with sentences to copy, and a timeline on the right. The list of Jig commands at the foot is gone.
+  ([Task details](/projects#task-details))
+- The page's addresses are paths now: `/projects/<id>` and `/projects/<id>/tasks/<task>`. Links that start with `#/` still
+  work. ([What the page shows](/projects#what-the-page-shows))
+- The questions before **Close**, **Prepare for prod** and **Merge**, **Status…** of a pull request, **New task** and the
+  upgrade's plan open as dialogs; finished tasks open in a dialog with a search field.
+- Long actions — **Refresh**, **Housekeeping**, and **Close**, **Merge** and **Land** from a project's card — show a
+  spinner on the button, and their progress, results and errors appear as toasts in the bottom-right corner: a result
+  closes by itself, an error stays until you close it. Housekeeping's toast says only what it changed, and **Report**
+  opens its whole report. The blocks that stayed until **Dismiss** are gone.
+  ([What the page shows](/projects#what-the-page-shows))
+- On a project's card on the home page, **Settings…** and **Disconnect** are icons beside **Board** in place of the ⋯ menu,
+  and **Disconnect** asks nothing. The `!` beside a project that cannot be read shows why on hover.
+- **Accept all (N)** on proposed knowledge, which asks first, and **Keep all (N)** on changed files, each sent to Jig as
+  one decision. ([Deciding knowledge](/projects#deciding-knowledge))
+- Reading states show a spinner; the chosen project or spec is clearly marked in the dark theme, and search fields look
+  like fields.
 - Every document the page shows opens in a dialog, as a spec's do: a task's documents on its details page, a proposed
   document's text and a changed file's diff on **Knowledge**. One opens at a time and closing it goes back to the page;
   where Jig could not read it, **Read again** tries once more. The design at a task's gate stays on the page above

@@ -41,6 +41,11 @@ lists it (`readKnowledge` in `server/jig/client.ts`: `jig knowledge proposed --j
   and unrecorded; from Jig 0.41.0 **Drop** (`jig knowledge reject`) on all three, which ends the
   link. Below 0.41.0 a missing one has no button.
 
+**Accept all** above the proposals and **Keep all** above the changed sources queue every document the page may decide now
+and send them as one `jig knowledge decide` write through the same queue (`decideAll` in `web/lib/decisions.ts`, adr-20261125-the-page-opens-tasks-and-questions-over-the-board).
+Accept all asks first, since agents read accepted knowledge from then on; Keep all changes no text and asks nothing. Drop
+and Reject have no "all".
+
 A press queues its document — "Accepted, queued" (Rejected, Kept, Dropped) with **Take back** — and
 whatever is queued goes as one write as soon as none runs; while it runs, "…, sending…"
 (`web/lib/decisions.ts`, adr-20261114-knowledge-decisions-are-queued-on-the-page). A write is `POST /api/projects/:id/knowledge/decide`
@@ -54,7 +59,7 @@ document stays listed — Jig lists it until `knowledge/decisions` lands — mar
 wait. Bytes Jig dropped as not UTF-8 are said, on a text and on a record whose file name may then be
 another file's. The workspace
 card's attention items `knowledge-proposed` and `sources-changed` link to the view
-(`#/projects/<id>?view=knowledge`; the board drops `view` from the address once shown).
+(`/projects/<id>?view=knowledge`; the board drops `view` from the address once shown).
 
 ## Why
 
@@ -89,5 +94,6 @@ Task `knowledge-decisions` (2026-11-06), decided with the maintainer at the desi
   through with its line. A Jig template's placeholders (`<Title of the linked source>`) show as
   written: `rendered()` escapes raw HTML; a relative link, which would lead to the page's own
   address, shows as its text.
-- **A view, not a dialog**; **one press per document**, not Accept all — see the ADR; the presses share a write
+- **A view, not a dialog**; **a press per document**, and from task `ui-improvements` (2026-11-25) Accept all and Keep all
+  besides (adr-20261125-the-page-opens-tasks-and-questions-over-the-board, amending adr-20261106-knowledge-decisions-from-the-page): all of them share one write
   (adr-20261114-knowledge-decisions-are-queued-on-the-page).

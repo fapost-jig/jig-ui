@@ -28,6 +28,16 @@ describe('createApp', () => {
     expect(await res.text()).toContain('id="app"');
   });
 
+  it.each(['/projects/jig-ui', '/projects/jig-ui/tasks/a-task', '/canvas'])('serves the page on its own address %s', async (path) => {
+    const res = await get(path, { host: HOST });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('id="app"');
+  });
+
+  it('answers a missing asset with 404, not the page', async () => {
+    expect((await get('/assets/missing.js', { host: HOST })).status).toBe(404);
+  });
+
   it('answers 503 when the page is not built', async () => {
     const bare = createApp({ port: PORT, token: TOKEN, source: localSource(join(webRoot, 'config')), webRoot: join(webRoot, 'missing') });
     expect((await bare.request('/', { headers: { host: HOST } })).status).toBe(503);
@@ -901,12 +911,19 @@ describe('/api/projects/:id/queue', () => {
     // A reason is an abandon's only: one sent with an archive is not passed on.
     await act({ task: 'a', action: 'archive', reason: 'ignored', revision: 3 });
     await act({ task: 'a', action: 'abandon', reason: 'lives elsewhere now', revision: 3 });
+    await act({ task: 'a', action: 'answer-gate', answer: 'Use a queue; keep it small.', revision: 3 });
+    // An answer is the answer's only: a reason with it is not passed on, and an answer with an archive is not either.
+    await act({ task: 'a', action: 'answer-gate', answer: 'x', reason: 'ignored', revision: 3 });
+    await act({ task: 'a', action: 'archive', answer: 'ignored', revision: 3 });
     await post(fake, '/api/projects/x/queue/depend', { task: 'a', on: 'epic:shop', reason: 'needs the cart', revision: 3 });
     await post(fake, '/api/projects/x/queue/undepend', { task: 'a', on: 'task:b', revision: 3 });
     expect(asked).toEqual([
       ['act', 'x', 'a', 'approve-gate', null, 3],
       ['act', 'x', 'a', 'archive', null, 3],
       ['act', 'x', 'a', 'abandon', 'lives elsewhere now', 3],
+      ['act', 'x', 'a', 'answer-gate', 'Use a queue; keep it small.', 3],
+      ['act', 'x', 'a', 'answer-gate', 'x', 3],
+      ['act', 'x', 'a', 'archive', null, 3],
       ['depend', 'x', 'a', 'epic:shop', 'needs the cart', 3],
       ['undepend', 'x', 'a', 'task:b', 3],
     ]);
@@ -916,6 +933,11 @@ describe('/api/projects/:id/queue', () => {
       ['tasks/act', { task: 'a', action: 'abandon', reason: 'a\ttab', revision: 3 }],
       ['tasks/act', { task: 'a', action: 'abandon', reason: 'x'.repeat(501), revision: 3 }],
       ['tasks/act', { task: 'a', action: 'abandon', reason: '  ', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'answer-gate', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'answer-gate', answer: ' \n ', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'answer-gate', answer: 'x'.repeat(2001), revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'answer-gate', answer: 'two\nlines', revision: 3 }],
+      ['tasks/act', { task: 'a', action: 'answer-gate', answer: 'a\ttab', revision: 3 }],
       ['tasks/act', { task: 'a', action: 'close', revision: 3 }],
       ['tasks/act', { task: 'a', action: 'archive' }],
       ['queue/depend', { task: 'a', on: 'task:b', revision: 3 }],
@@ -932,7 +954,7 @@ describe('/api/projects/:id/queue', () => {
         'usage',
       ]);
     }
-    expect(asked).toHaveLength(5);
+    expect(asked).toHaveLength(8);
     outcome = { state: 'written', note: 'agent.git is push: the pull request is yours' };
     expect(await (await act({ task: 'a', action: 'drop-item', revision: 3 })).json()).toEqual({
       written: true,
@@ -1680,9 +1702,11 @@ describe('POST /api/projects/:id/housekeeping', () => {
     target.request('/api/projects/x/housekeeping', { method: 'POST', headers: { host: HOST, ...headers } });
 
   it("answers Jig's report once it ran", async () => {
-    const res = await post(appOf({ state: 'written', report: ['removed (1): moved to …, recoverable for 7 days', '  a'] }));
+    const res = await post(
+      appOf({ state: 'written', report: ['removed (1): moved to …, recoverable for 7 days', '  a'], summary: 'removed 1' }),
+    );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ report: ['removed (1): moved to …, recoverable for 7 days', '  a'] });
+    expect(await res.json()).toEqual({ report: ['removed (1): moved to …, recoverable for 7 days', '  a'], summary: 'removed 1' });
   });
 
   it("words Jig's failure and carries its reasons", async () => {

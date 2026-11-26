@@ -1,8 +1,10 @@
 <script setup lang="ts">
+  import ReadingLine from '@/components/ReadingLine.vue';
   import { ArrowLeft } from '@lucide/vue';
   import { computed, onUnmounted, ref, watch } from 'vue';
   import { useRouter } from 'vue-router';
   import {
+    answerGate,
     type ArtifactKind,
     call,
     client,
@@ -15,21 +17,26 @@
     type TaskArtifacts,
     type TaskDetails,
   } from '@/api';
-  import ActionList from '@/components/ActionList.vue';
+  import AgentPrompts from '@/components/AgentPrompts.vue';
   import AttentionItem from '@/components/AttentionItem.vue';
   import CopyButton from '@/components/CopyButton.vue';
   import DependsEditor from '@/components/DependsEditor.vue';
   import GateApproval from '@/components/GateApproval.vue';
   import GroupPanel from '@/components/GroupPanel.vue';
+  import SpecMark from '@/components/SpecMark.vue';
   import StateLine from '@/components/StateLine.vue';
   import TaskDocuments from '@/components/TaskDocuments.vue';
   import TaskFacts from '@/components/TaskFacts.vue';
+  import TaskNote from '@/components/TaskNote.vue';
   import TaskWrites from '@/components/TaskWrites.vue';
   import { Badge } from '@/components/ui/badge';
   import { landed, type OpenDocument, opened } from '@/lib/documents';
   import { lastWins } from '@/lib/last-wins';
   import { reasonsOf, writeRefusal } from '@/lib/refusal';
-  import { columnAccent, toneRule } from '@/lib/tones';
+  import { columnAccent, idAccent, inProgressFill, toneRule } from '@/lib/tones';
+  import { agentPrompts } from '@/lib/agent-prompts';
+  import { ago } from '@/lib/ago';
+  import { minute } from '@/lib/clock';
   import { waits } from '@/lib/waits';
   import { dependCandidates, DOING, gateDocuments, pageWrites } from '@/lib/writes';
 
@@ -94,6 +101,37 @@
   }
 
   const note = computed(() => (ready.value ? waits(ready.value) : undefined));
+
+  /** Something needs the person beside the gate: the autopilot's question, Jig's attention items, housekeeping's flags. */
+  const needsYou = computed(
+    () =>
+      !!ready.value &&
+      ((ready.value.autopilot === 'stopped' && !!ready.value.run?.stopReason) ||
+        ready.value.attention.length > 0 ||
+        ready.value.housekeepingFlags.length > 0),
+  );
+
+  /** What happened to the task, the latest first, from the times Jig keeps. */
+  const timeline = computed(() => {
+    const d = ready.value;
+    if (!d) return [];
+    const pr = d.promotion ?? d.pullRequest;
+    const events = [
+      d.run?.stopAt && { at: d.run.stopAt, text: 'The autopilot stopped with a question' },
+      d.run?.stageAt && d.run.stage && { at: d.run.stageAt, text: `Entered ${d.run.stage}` },
+      pr?.fetchedAt && { at: pr.fetchedAt, text: `Pull request heard by housekeeping${pr.state ? `: ${pr.state}` : ''}` },
+      d.createdAt && { at: d.createdAt, text: 'Filed' },
+    ].filter(
+      (
+        e,
+      ): e is {
+        at: string;
+        text: string;
+      } => !!e,
+    );
+
+    return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  });
 
   /** The actions Jig offers that this page runs as buttons; the rest stay commands. */
   const runs = computed(() => (ready.value ? pageWrites(ready.value) : new Set<string>()));
@@ -185,6 +223,18 @@
     await Promise.all([load(), list(), readGate()]);
   }
 
+  /** The answer written at the gate, kept while it is sent and cleared once Jig took it. */
+  const gateAnswer = ref('');
+
+  /** Answers the design as shown instead of approving it, against the same reads an approval goes by. */
+  async function answerDesign(text: string): Promise<void> {
+    const revisions = gate.value?.map((d) => d.revision);
+    if (!revisions?.every((r) => r !== null)) return;
+    const done = await send('gate', DOING['answer-gate'], () => answerGate(props.project, props.task, text, Math.min(...revisions)));
+    if (done) gateAnswer.value = '';
+    await Promise.all([load(), list(), readGate()]);
+  }
+
   /** Gives the task up or archives it; once Jig has, it is no longer live, and the board shows it among the finished. */
   async function putAway(write: 'abandon' | 'archive', reason?: string): Promise<void> {
     const shown = ready.value;
@@ -258,98 +308,122 @@
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
+  <div class="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-6">
     <RouterLink
       :to="`/projects/${encodeURIComponent(project)}`"
       class="inline-flex items-center gap-1 self-start text-[13px] text-muted-foreground hover:text-foreground"
     >
-      <ArrowLeft class="size-3" />board of {{ project }}
+      <ArrowLeft class="size-3" />Board of {{ project }}
     </RouterLink>
-    <div class="flex items-center gap-3">
-      <h1 class="font-mono text-lg font-semibold break-all">{{ task }}</h1>
-      <CopyButton :text="task" label="copy id" />
-      <Badge v-if="ready?.class" variant="outline">{{ ready.class }}</Badge>
-    </div>
-    <p v-if="details === undefined" class="text-muted-foreground">Reading the task…</p>
+    <ReadingLine v-if="details === undefined">Reading the task…</ReadingLine>
     <p v-else-if="details === 'not-connected'" role="alert" class="text-destructive">No connected project is called {{ project }}.</p>
     <p v-else-if="details === 'not-found'" role="alert" class="text-destructive">
       {{ project }} has no live task called {{ task }}. A finished task is not shown.
     </p>
     <p v-else-if="details.state !== 'ready'"><StateLine :project="details" :reading="reading" @read-again="reread" /></p>
-    <template v-else>
-      <p v-if="details.goal" class="text-base">{{ details.goal }}</p>
-      <p v-if="note" :class="toneRule[note.tone]">{{ note.text }}</p>
-
-      <GateApproval
-        v-if="runs.has('approve-gate')"
-        :documents="gate"
-        :busy="busy === 'gate'"
-        :refusal="refused?.at === 'gate' ? refused.text : undefined"
-        @approve="approve"
-        @read-again="readGate"
-      />
-
-      <GroupPanel>
-        <TaskFacts :details="details" class="px-4 py-3">
-          <template v-if="details.writes" #waits>
-            <DependsEditor
-              v-model:adding="adding"
-              :task="task"
-              :depends-on="details.dependsOn"
-              :candidates="candidates"
-              :busy="busy === 'depends'"
-              :refusal="refused?.at === 'depends' ? refused.text : undefined"
-              @choose="choose"
-              @add="depend"
-              @remove="undepend"
-            />
-          </template>
-        </TaskFacts>
-      </GroupPanel>
-
-      <TaskDocuments
-        v-if="documents !== 'not-connected' && documents !== 'not-found'"
-        :task="task"
-        :documents="documents"
-        :open="open"
-        :reading="listing"
-        @open="openDocument"
-        @close="open = undefined"
-        @read-again="relist"
-      />
-
-      <GroupPanel v-if="details.attention.length > 0" :accent="columnAccent['needs-you']" aria-labelledby="needs-you">
-        <template #head><h2 id="needs-you" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Needs you</h2></template>
-        <div class="flex flex-col gap-3 px-4 pb-4">
-          <AttentionItem v-for="(item, i) in details.attention" :key="i" :item="item" />
+    <!-- The task on two thirds of the page, what is known of it on the third beside: stacked on a narrow screen. -->
+    <div v-else class="grid items-start gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div class="flex min-w-0 flex-col gap-5">
+        <div class="flex flex-col gap-2.5">
+          <div class="flex items-center gap-1">
+            <h1 class="font-mono text-xl font-semibold break-all" :class="idAccent">{{ task }}</h1>
+            <CopyButton :text="task" icon class="shrink-0 text-muted-foreground" />
+          </div>
+          <SpecMark v-if="details.spec" :spec="details.spec" />
+          <p v-if="details.goal" class="text-base leading-relaxed text-foreground/80">{{ details.goal }}</p>
+          <TaskNote v-if="note" :project="project" :note="note" link />
         </div>
-      </GroupPanel>
 
-      <GroupPanel v-if="details.housekeepingFlags.length > 0" aria-labelledby="flags">
-        <template #head><h2 id="flags" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Housekeeping flags</h2></template>
-        <ul class="flex flex-wrap gap-2 px-4 pb-4">
-          <li v-for="flag in details.housekeepingFlags" :key="flag">
-            <Badge variant="outline" class="bg-card">{{ flag }}</Badge>
-          </li>
-        </ul>
-      </GroupPanel>
+        <GateApproval
+          v-if="runs.has('approve-gate')"
+          v-model:answer="gateAnswer"
+          :answerable="runs.has('answer-gate')"
+          :documents="gate"
+          :busy="busy === 'gate'"
+          :refusal="refused?.at === 'gate' ? refused.text : undefined"
+          @approve="approve"
+          @answer="answerDesign"
+          @read-again="readGate"
+        />
 
-      <GroupPanel aria-labelledby="actions">
-        <template #head><h2 id="actions" class="px-4 pt-3 pb-2 text-[15px] font-semibold">What Jig offers now</h2></template>
-        <div class="flex flex-col gap-3 px-4 pb-4">
-          <TaskWrites
-            v-if="runs.has('abandon') || runs.has('archive')"
-            :task="task"
-            :offers="runs"
-            :busy="busy === 'task'"
-            :refusal="refused?.at === 'task' ? refused.text : undefined"
-            @abandon="(reason) => putAway('abandon', reason)"
-            @archive="putAway('archive')"
-          />
-          <ActionList :actions="details.actions" :project="project" :task="task" :runs="runs" :writes="details.writes" />
-          <p class="text-[13px] text-muted-foreground">Run a command in the project; this page follows what changes.</p>
-        </div>
-      </GroupPanel>
-    </template>
+        <GroupPanel v-if="needsYou" :accent="columnAccent['needs-you']" aria-labelledby="needs-you">
+          <template #head><h2 id="needs-you" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Needs you</h2></template>
+          <div class="flex flex-col gap-3 px-4 pb-4">
+            <div v-if="details.autopilot === 'stopped' && details.run?.stopReason" :class="toneRule.attention" role="note">
+              <p class="font-semibold">The autopilot asks</p>
+              <p class="text-foreground">{{ details.run.stopReason }}</p>
+            </div>
+            <AttentionItem v-for="(item, i) in details.attention" :key="i" :item="item" />
+            <ul v-if="details.housekeepingFlags.length > 0" class="flex flex-wrap items-center gap-2">
+              <li class="text-[13px] text-muted-foreground">Housekeeping flags</li>
+              <li v-for="flag in details.housekeepingFlags" :key="flag">
+                <Badge variant="outline" class="bg-card">{{ flag }}</Badge>
+              </li>
+            </ul>
+          </div>
+        </GroupPanel>
+
+        <TaskDocuments
+          v-if="documents !== 'not-connected' && documents !== 'not-found'"
+          :task="task"
+          :documents="documents"
+          :open="open"
+          :reading="listing"
+          @open="openDocument"
+          @close="open = undefined"
+          @read-again="relist"
+        />
+      </div>
+
+      <div class="flex min-w-0 flex-col gap-4">
+        <TaskWrites
+          v-if="runs.has('abandon') || runs.has('archive')"
+          :task="task"
+          :offers="runs"
+          :busy="busy === 'task'"
+          :refusal="refused?.at === 'task' ? refused.text : undefined"
+          @abandon="(reason) => putAway('abandon', reason)"
+          @archive="putAway('archive')"
+        />
+
+        <GroupPanel aria-labelledby="details">
+          <template #head><h2 id="details" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Details</h2></template>
+          <div class="mx-2 mb-2 rounded-lg bg-card px-3 py-2 ring-1 ring-border">
+            <TaskFacts :details="details" :stop="false">
+              <template v-if="details.writes" #waits>
+                <DependsEditor
+                  v-model:adding="adding"
+                  :task="task"
+                  :depends-on="details.dependsOn"
+                  :candidates="candidates"
+                  :busy="busy === 'depends'"
+                  :refusal="refused?.at === 'depends' ? refused.text : undefined"
+                  @choose="choose"
+                  @add="depend"
+                  @remove="undepend"
+                />
+              </template>
+            </TaskFacts>
+          </div>
+        </GroupPanel>
+
+        <AgentPrompts :prompts="agentPrompts(details)" />
+
+        <GroupPanel v-if="timeline.length > 0" aria-labelledby="timeline">
+          <template #head><h2 id="timeline" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Timeline</h2></template>
+          <ol class="mx-2 mb-2 flex flex-col gap-2 rounded-lg bg-card px-3 py-2.5 text-[13px] ring-1 ring-border">
+            <li v-for="(e, i) in timeline" :key="i" class="flex items-baseline gap-2.5">
+              <span
+                class="size-2 shrink-0 translate-y-[-1px] rounded-full"
+                :class="i === 0 ? inProgressFill : 'bg-border'"
+                aria-hidden="true"
+              />
+              <span class="flex-1">{{ e.text }}</span>
+              <span class="text-xs whitespace-nowrap text-muted-foreground" :title="e.at">{{ ago(e.at, minute.getTime()) || e.at }}</span>
+            </li>
+          </ol>
+        </GroupPanel>
+      </div>
+    </div>
   </div>
 </template>

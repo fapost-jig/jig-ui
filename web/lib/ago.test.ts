@@ -10,6 +10,9 @@ describe('ago', () => {
     ['2026-10-20T12:00:01Z', '47 h ago'],
     ['2026-10-20T12:00:00Z', '2 days ago'],
     ['not a time', ''],
+    ['2026-10-22', 'today'],
+    ['2026-10-21', 'yesterday'],
+    ['2026-10-19', '3 days ago'],
   ])('says %s as %s', (at, said) => {
     expect(ago(at, now)).toBe(said);
   });

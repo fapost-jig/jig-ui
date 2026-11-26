@@ -1,11 +1,15 @@
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 import BoardView from './views/BoardView.vue';
 import TaskView from './views/TaskView.vue';
 import WorkspaceView from './views/WorkspaceView.vue';
 
-/** The page's addresses; `#/projects/<id>` and `#/projects/<id>/tasks/<task>` are the ones links already point at. */
+// A link from before the page's addresses were paths (`/#/projects/<id>`), the command line's own included: the token
+// swap keeps its fragment, and the fragment becomes the path.
+if (location.hash.startsWith('#/')) history.replaceState(history.state, '', location.hash.slice(1));
+
+/** The page's addresses, as paths: `/projects/<id>` and `/projects/<id>/tasks/<task>`; the server answers each with the page. */
 export const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes: [
     { path: '/', component: WorkspaceView },
     { path: '/projects/:id', component: BoardView, props: true },

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-  import { BookCheck, Columns3, ExternalLink, Milestone, Plus, RotateCw, Rows3 } from '@lucide/vue';
+  import { toast } from 'vue-sonner';
+  import ReadingLine from '@/components/ReadingLine.vue';
+  import { BookCheck, Columns3, ExternalLink, Loader2, Milestone, Plus, RotateCw, Rows3 } from '@lucide/vue';
   import { computed, onUnmounted, type Ref, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
     type Board,
     call,
     client,
+    type Decision,
     type DocumentDecision,
     type DocumentText,
     type Edited,
@@ -44,8 +47,7 @@
   import SpecList from '@/components/SpecList.vue';
   import StateLine from '@/components/StateLine.vue';
   import { Button } from '@/components/ui/button';
-  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-  import { Toggle } from '@/components/ui/toggle';
+  import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
   import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
   import { conflict } from '@/lib/conflict';
   import { landed, type OpenDocument, opened, ownedBy } from '@/lib/documents';
@@ -482,7 +484,7 @@
 
   /**
    * A finished task's write from its menu, with the revision of the finished list it was chosen on; then the list and the
-   * board are read again — a task brought back is live again. Jig's note, or why it refused, goes to the notice.
+   * board are read again — a task brought back is live again. Jig's note, or why it refused, goes to a toast.
    */
   async function writeFinished(task: string, write: (typeof FINISHED_WRITES)[number]['write']): Promise<void> {
     const shown = finished.value;
@@ -495,9 +497,10 @@
 
     const body = res && (await res.json());
     await Promise.all([loadFinished(), load()]);
+    // The finished tasks are a dialog over the board: what Jig said goes in a toast, above it, not the board's notice.
     if (body && 'error' in body)
-      notice.value = { text: writeRefusal(body.error.code, reasonsOf(body.error), DOING[write], task), changed: [] };
-    else if (body && 'note' in body && body.note) notice.value = { text: body.note, changed: [] };
+      toast.error(writeRefusal(body.error.code, reasonsOf(body.error), DOING[write], task), { duration: Infinity });
+    else if (body && 'note' in body && body.note) toast.success(body.note);
     pending.value = undefined;
   }
 
@@ -857,19 +860,23 @@
 
 <template>
   <div class="flex h-full flex-col">
-    <Collapsible v-model:open="filing" class="shrink-0" @update:open="filingRefusal = undefined">
+    <div class="shrink-0">
       <div class="flex shrink-0 items-center gap-3 border-b px-4 py-2">
         <h1 class="text-[15px] font-semibold">{{ id }}</h1>
-        <Toggle v-if="finishedCount > 0" v-model="showFinished" variant="outline" size="sm">
+        <Button v-if="finishedCount > 0" variant="outline" size="sm" :aria-expanded="showFinished" @click="showFinished = true">
           {{ finishedCount }} finished {{ finishedCount === 1 ? 'task' : 'tasks' }}
-        </Toggle>
+        </Button>
         <template v-if="typeof board === 'object' && board.state === 'ready'">
-          <Button variant="outline" size="sm" :disabled="refresh?.state === 'running'" @click="refreshClone">{{
-            refresh?.state === 'running' ? 'Refreshing…' : 'Refresh'
-          }}</Button>
-          <Button variant="outline" size="sm" :disabled="housekeeping?.state === 'running'" @click="housekeep">{{
-            housekeeping?.state === 'running' ? 'Housekeeping…' : 'Housekeeping'
-          }}</Button>
+          <Button variant="outline" size="sm" :disabled="refresh?.state === 'running'" @click="refreshClone"
+            ><Loader2 v-if="refresh?.state === 'running'" class="animate-spin" />{{
+              refresh?.state === 'running' ? 'Refreshing…' : 'Refresh'
+            }}</Button
+          >
+          <Button variant="outline" size="sm" :disabled="housekeeping?.state === 'running'" @click="housekeep"
+            ><Loader2 v-if="housekeeping?.state === 'running'" class="animate-spin" />{{
+              housekeeping?.state === 'running' ? 'Housekeeping…' : 'Housekeeping'
+            }}</Button
+          >
         </template>
         <Button
           v-if="typeof board === 'object'"
@@ -912,30 +919,35 @@
             }}</span></ToggleGroupItem
           >
         </ToggleGroup>
-        <CollapsibleTrigger v-if="typeof board === 'object' && board.state === 'ready'" as-child>
-          <Button variant="outline" size="sm"><Plus />New task</Button>
-        </CollapsibleTrigger>
+        <Button v-if="typeof board === 'object' && board.state === 'ready'" variant="outline" size="sm" @click="filing = true"
+          ><Plus />New task</Button
+        >
       </div>
-      <CollapsibleContent class="border-b px-4 py-3">
-        <NewTaskForm :busy="filingBusy" :refusal="filingRefusal?.text" :taken="filingRefusal?.code === 'already-exists'" @file="file" />
-      </CollapsibleContent>
-    </Collapsible>
-
-    <div v-if="refresh || housekeeping" class="flex shrink-0 flex-col gap-2 border-b px-4 py-2">
-      <ChoreReports
-        :project="id"
-        :refresh="refresh"
-        :housekeeping="housekeeping"
-        @dismiss-refresh="refresh = undefined"
-        @dismiss-housekeeping="housekeeping = undefined"
-      />
     </div>
+    <!-- A new task is filed from a dialog; Jig's refusal stays in it, and it closes once Jig filed the task. -->
+    <Dialog v-model:open="filing" @update:open="filingRefusal = undefined">
+      <DialogContent class="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>New task</DialogTitle>
+          <DialogDescription class="sr-only">File a task in {{ id }}'s Backlog.</DialogDescription>
+        </DialogHeader>
+        <NewTaskForm :busy="filingBusy" :refusal="filingRefusal?.text" :taken="filingRefusal?.code === 'already-exists'" @file="file" />
+      </DialogContent>
+    </Dialog>
+
+    <ChoreReports
+      :project="id"
+      :refresh="refresh"
+      :housekeeping="housekeeping"
+      @dismiss-refresh="refresh = undefined"
+      @dismiss-housekeeping="housekeeping = undefined"
+    />
 
     <FinishedList
-      v-if="showFinished"
+      v-model:open="showFinished"
+      :count="finishedCount"
       :read="finished"
       :pending="pending"
-      class="max-h-48 shrink-0 overflow-y-auto border-b"
       @read-again="readFinishedAfresh"
       @write="writeFinished"
     />
@@ -966,7 +978,7 @@
       <button type="button" class="ml-auto underline underline-offset-2" @click="notice = undefined">dismiss</button>
     </p>
 
-    <p v-if="board === undefined" class="p-4 text-muted-foreground">Reading the board…</p>
+    <ReadingLine v-if="board === undefined" class="p-4">Reading the board…</ReadingLine>
     <p v-else-if="board === 'not-connected'" role="alert" class="p-4 text-destructive">No connected project is called {{ id }}.</p>
     <p v-else-if="board.state !== 'ready'" class="p-4"><StateLine :project="board" :reading="reading" @read-again="reread" /></p>
 
@@ -994,7 +1006,7 @@
     />
 
     <div v-else-if="view === 'specs'" class="min-h-0 flex-1 overflow-y-auto">
-      <p v-if="specs === undefined" class="p-4 text-muted-foreground">Reading the specs…</p>
+      <ReadingLine v-if="specs === undefined" class="p-4">Reading the specs…</ReadingLine>
       <p v-else-if="specs === 'not-connected'" role="alert" class="p-4 text-destructive">No connected project is called {{ id }}.</p>
       <p v-else-if="specs.state !== 'ready'" class="p-4"><StateLine :project="specs" :reading="reading" @read-again="reread" /></p>
       <p v-else-if="specs.specs.length === 0" class="p-4 text-muted-foreground">
@@ -1045,7 +1057,7 @@
     </div>
 
     <div v-else-if="view === 'knowledge'" class="min-h-0 flex-1 overflow-y-auto">
-      <p v-if="knowledge === undefined" class="p-4 text-muted-foreground">Reading the knowledge…</p>
+      <ReadingLine v-if="knowledge === undefined" class="p-4">Reading the knowledge…</ReadingLine>
       <p v-else-if="knowledge === 'not-connected'" role="alert" class="p-4 text-destructive">No connected project is called {{ id }}.</p>
       <p v-else-if="noneKnown" class="p-4 text-muted-foreground">{{ noneKnown }}</p>
       <KnowledgeView
@@ -1056,6 +1068,7 @@
         :queued="deciding.queued.value"
         :sending="deciding.sending.value"
         @decide="deciding.decide"
+        @decide-all="(docs: string[], decision: Decision) => deciding.decideAll(docs.map((doc) => ({ doc, decision })))"
         @take-back="deciding.takeBack"
         @toggle="toggleDiff"
         @toggle-text="toggleText"

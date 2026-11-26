@@ -6,6 +6,7 @@
   import { jigReadKey } from './lib/upgrade';
   import ProjectSwitcher from './components/ProjectSwitcher.vue';
   import ThemeToggle from './components/ThemeToggle.vue';
+  import { Toaster } from '@/components/ui/sonner';
   import { lastWins } from './lib/last-wins';
   import { byName } from './lib/projects';
   import { toneRule, toneText } from './lib/tones';
@@ -110,5 +111,7 @@
         <RouterView :key="route.path" />
       </main>
     </template>
+    <!-- What long actions say while they run and when they end, in the corner: an error stays until closed. -->
+    <Toaster position="bottom-right" rich-colors close-button />
   </div>
 </template>

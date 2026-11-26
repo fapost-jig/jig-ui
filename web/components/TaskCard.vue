@@ -1,21 +1,25 @@
 <script setup lang="ts">
-  import { ExternalLink, X } from '@lucide/vue';
+  import { X } from '@lucide/vue';
   import { computed } from 'vue';
   import type { Place, PrStatus as Status, ReadyDetails, Reviewers, Task } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
-  import { toneRule } from '@/lib/tones';
+  import { classAccent, idAccent, priorityAccent, toneRule } from '@/lib/tones';
   import { minute } from '@/lib/clock';
   import { cardKey } from '@/lib/task-key';
   import type { StagingStep } from '@/lib/staging';
   import { requested, waits } from '@/lib/waits';
+  import { ago } from '@/lib/ago';
+  import { shownPull } from '@/lib/pull';
   import WriteConfirm from './WriteConfirm.vue';
   import PrStatus from './PrStatus.vue';
   import QueueMenu from './QueueMenu.vue';
   import ReviewRequest from './ReviewRequest.vue';
   import SpecMark from './SpecMark.vue';
-  import TaskBrief from './TaskBrief.vue';
+  import CopyButton from './CopyButton.vue';
+  import PullChip from './PullChip.vue';
+  import TaskNote from './TaskNote.vue';
 
   const props = defineProps<{
     project: string;
@@ -62,61 +66,72 @@
   /** The question before merging its pull request is open, as the close's is. */
   const merging = defineModel<boolean>('merging', { default: false });
 
-  const note = computed(() => waits(props.task));
+  /** The note, unless all it says is the pull request the footer already shows. */
+  const note = computed(() => {
+    const n = waits(props.task);
+    return n?.icon === 'pull' && pull.value ? undefined : n;
+  });
+
   const request = computed(() => requested(props.task, minute.value.getTime()));
-  const key = computed(() => cardKey(props.task.id, props.task.goal, props.open));
+  const key = computed(() => cardKey(props.task.id, props.task.goal, false));
+  const updated = computed(() => (props.task.updatedAt ? ago(props.task.updatedAt, minute.value.getTime()) : ''));
+
+  const pull = computed(() => shownPull(props.task));
+
+  const taskPage = computed(() => `/projects/${encodeURIComponent(props.project)}/tasks/${encodeURIComponent(props.task.id)}`);
 </script>
 
 <template>
   <Card class="gap-2 px-3 py-3" :class="[open && 'ring-foreground', busy && 'opacity-60']">
-    <div class="flex items-start gap-1">
-      <button type="button" class="flex min-w-0 flex-1 flex-col gap-2 text-left" :aria-expanded="open" @click="$emit('toggle')">
-        <!-- The key, or the whole id broken at its hyphens, then the badges together: on one line where they fit. -->
-        <span class="flex w-full flex-wrap items-center gap-1">
-          <span v-if="key" class="mr-auto font-mono text-xs whitespace-nowrap text-muted-foreground" :title="task.id">
+    <!-- The head: what names the task and where it comes from, set apart from what it is for. -->
+    <div class="flex flex-col gap-1.5">
+      <div class="flex items-center gap-1">
+        <!-- The key, or the whole id broken at its hyphens, in the id's accent; copying it beside it. -->
+        <span class="flex min-w-0 flex-1 items-center gap-0.5">
+          <span v-if="key" class="font-mono text-xs font-medium whitespace-nowrap" :class="idAccent" :title="task.id">
             <span aria-hidden="true">{{ key }}</span
             ><span class="sr-only">{{ task.id }}</span>
           </span>
-          <span v-else class="mr-auto min-w-0 font-mono text-xs break-words" :class="task.goal ? 'text-muted-foreground' : 'font-medium'">
-            {{ task.id }}
-          </span>
-          <span v-if="task.priority !== null || task.class" class="flex gap-1">
-            <Badge v-if="task.priority !== null" variant="secondary" :title="`Priority ${task.priority}`">P{{ task.priority }}</Badge>
-            <Badge v-if="task.class" variant="outline">{{ task.class }}</Badge>
-          </span>
+          <span v-else class="min-w-0 font-mono text-xs font-medium break-words" :class="idAccent">{{ task.id }}</span>
+          <CopyButton :text="task.id" icon class="shrink-0 text-muted-foreground" />
         </span>
-        <span v-if="task.goal" class="font-medium" :class="!open && 'line-clamp-2'">{{ task.goal }}</span>
-      </button>
-      <QueueMenu
-        v-if="cards"
-        :task="task"
-        :cards="sorted ? undefined : cards"
-        :filtered="filtered"
-        :disabled="busy"
-        @move="(place) => $emit('move', place)"
-        @prioritise="(p) => $emit('prioritise', p)"
-        @pause="(ask) => $emit('pause', ask)"
-        @resume="$emit('resume')"
-        @land="$emit('staging', 'land')"
-        @review="$emit('staging', 'review')"
-        @promote="promoting = true"
-        @merge="merging = true"
-        @status="$emit('staging', 'status')"
-      />
-      <Button
-        v-if="task.closable"
-        variant="ghost"
-        size="icon-xs"
-        :disabled="busy"
-        :aria-label="`Close ${task.id} as done`"
-        :aria-expanded="confirming"
-        title="Close as done"
-        @click="confirming = !confirming"
-      >
-        <X />
-      </Button>
+        <QueueMenu
+          v-if="cards"
+          :task="task"
+          :cards="sorted ? undefined : cards"
+          :filtered="filtered"
+          :disabled="busy"
+          @move="(place) => $emit('move', place)"
+          @prioritise="(p) => $emit('prioritise', p)"
+          @pause="(ask) => $emit('pause', ask)"
+          @resume="$emit('resume')"
+          @land="$emit('staging', 'land')"
+          @review="$emit('staging', 'review')"
+          @promote="promoting = true"
+          @merge="merging = true"
+          @status="$emit('staging', 'status')"
+        />
+        <Button
+          v-if="task.closable"
+          variant="ghost"
+          size="icon-xs"
+          :disabled="busy"
+          :aria-label="`Close ${task.id} as done`"
+          :aria-expanded="confirming"
+          title="Close as done"
+          @click="confirming = !confirming"
+        >
+          <X />
+        </Button>
+      </div>
+      <SpecMark v-if="task.spec" :spec="task.spec" :openable="specOpens" @open="(spec) => $emit('openSpec', spec)" />
     </div>
-    <SpecMark v-if="task.spec" :spec="task.spec" :openable="specOpens" @open="(spec) => $emit('openSpec', spec)" />
+    <RouterLink v-if="task.goal" :to="taskPage" class="line-clamp-4 text-foreground/80 hover:text-foreground" :title="`Open ${task.id}`">
+      {{ task.goal }}
+    </RouterLink>
+    <RouterLink v-else :to="taskPage" class="w-fit text-[13px] text-muted-foreground underline underline-offset-2"
+      >Open the task</RouterLink
+    >
     <WriteConfirm
       v-if="task.closable && confirming && !busy"
       write="close"
@@ -158,18 +173,7 @@
     />
     <p v-if="busy" class="text-[13px] text-muted-foreground" role="status">sending to Jig…</p>
     <p v-if="changed" class="text-[13px]" :class="toneRule.attention">Changed while you acted</p>
-    <p v-if="note" class="text-[13px]" :class="toneRule[note.tone]">
-      {{ note.text }}
-      <a
-        v-if="note.url"
-        :href="note.url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-1 underline underline-offset-2"
-      >
-        open<ExternalLink class="size-3" />
-      </a>
-    </p>
+    <TaskNote v-if="note" :project="project" :note="note" :link="!pull" />
     <p v-if="request && !busy" class="text-[13px]" :class="toneRule.quiet">
       {{ request }}
       <button
@@ -181,6 +185,20 @@
         cancel
       </button>
     </p>
-    <TaskBrief v-if="open" :project="project" :task="task.id" :details="details" class="mt-1 border-t pt-2" />
+    <!-- The footer: priority, class, the pull request with its CI, and when Jig last wrote the task. -->
+    <div class="flex min-w-0 items-center gap-1.5 border-t pt-2">
+      <Badge
+        v-if="task.priority !== null"
+        class="border-transparent font-semibold"
+        :class="priorityAccent(task.priority)"
+        :title="`Priority ${task.priority}`"
+        >P{{ task.priority }}</Badge
+      >
+      <Badge v-if="task.class" class="border-transparent font-semibold" :class="classAccent(task.class)">{{ task.class }}</Badge>
+      <PullChip v-if="pull" :pull="pull" />
+      <span v-if="updated" class="ml-auto text-xs whitespace-nowrap text-muted-foreground" :title="task.updatedAt ?? undefined">{{
+        updated
+      }}</span>
+    </div>
   </Card>
 </template>

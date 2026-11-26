@@ -561,6 +561,54 @@ describe('localSource', () => {
     await source.disconnect('places');
   });
 
+  it('lists on a card only what a task still waits for: live tasks and open epics, each once', async () => {
+    const spec = (id: string, state: string) => ({
+      id,
+      title: null,
+      missing_files: [],
+      release: null,
+      epic: { branch: `epic/${id}`, state, checked_out: false, missing: false, ref: null },
+      progress: null,
+      phases: [],
+    });
+    const dep = (on: string) => ({ on, reason: 'Because' });
+    const item = (id: string, position: number, depends_on: unknown[]) => ({
+      ref: `task:${id}`,
+      kind: 'task',
+      id,
+      level: null,
+      position,
+      priority: null,
+      depends_on,
+    });
+    const dir = project('waits-for', '0.31.0', {
+      specs: { specs: [spec('open-epic', 'open'), spec('done-epic', 'finished')] },
+      queue: {
+        items: [
+          { ...item('open-epic', 5, []), ref: 'epic:open-epic', kind: 'epic' },
+          item('live', 10, []),
+          item('many', 20, [dep('task:live'), dep('task:finished'), dep('epic:done-epic'), dep('epic:open-epic'), dep('task:live')]),
+          item('met', 30, [dep('task:finished'), dep('epic:done-epic'), dep('task:unknown')]),
+        ],
+      },
+      tasks: {
+        tasks: [task('live', 'active'), task('many', 'active'), task('met', 'active'), task('finished', 'consolidated')],
+        hidden: 0,
+        housekeeping: null,
+      },
+    });
+    await source.connect(dir);
+    const read = await source.tasks('waits-for');
+    expect(read).toMatchObject({
+      tasks: [
+        { id: 'live', waitsFor: [] },
+        { id: 'many', waitsFor: ['task:live', 'epic:open-epic'] },
+        { id: 'met', waitsFor: [] },
+      ],
+    });
+    await source.disconnect('waits-for');
+  });
+
   it("orders the specs by their epics' places in the queue: queued, then open, then the rest, each in Jig's order", async () => {
     const row = (id: string, epic: string | null) => ({
       id,
@@ -704,12 +752,16 @@ describe('localSource', () => {
           started: true,
           gate: null,
           autopilot: null,
+          stage: null,
+          updatedAt: '2026-10-17',
+          waitsFor: [],
           pullRequest: null,
           priority: null,
           queue: null,
         },
         expect.objectContaining({
           id: 'b',
+          waitsFor: ['task:a'],
           pauseRequest: { requestedAt: '2026-10-22T09:01:58Z' },
           pauseRequestable: false,
           priority: 2,
@@ -740,8 +792,8 @@ describe('localSource', () => {
       stagingFlow: false,
       revision: 7,
       tasks: [
-        expect.objectContaining({ id: 'f', started: false, gate: null, autopilot: null }),
-        expect.objectContaining({ id: 'g', started: true, gate: 'waiting', autopilot: 'stopped' }),
+        expect.objectContaining({ id: 'f', started: false, gate: null, autopilot: null, stage: null, updatedAt: '2026-10-17' }),
+        expect.objectContaining({ id: 'g', started: true, gate: 'waiting', autopilot: 'stopped', stage: 'implement' }),
         expect.objectContaining({ id: 'h', pullRequest: { url: 'https://x/pull/1', state: 'merged', ci: null, fetchedAt: 'x' } }),
       ],
     });
@@ -988,6 +1040,7 @@ describe('localSource, writing the queue', () => {
     expect(await source.housekeeping('tidier')).toEqual({
       state: 'written',
       report: ['removed (1): moved to …, recoverable for 7 days', '  a'],
+      summary: 'removed 1',
     });
     const ran = since(dir, from);
     expect(ran.slice(ran.indexOf('housekeeping') + 1)).toEqual(expect.arrayContaining(['status --json', 'task list --json']));
@@ -1077,6 +1130,7 @@ describe('localSource, writing the queue', () => {
         '  merged but not consolidated, run jig-consolidate: a',
         'action needed: consolidate the tasks flagged needs-consolidation',
       ],
+      summary: 'needs you 1',
     });
   });
 
@@ -3270,9 +3324,11 @@ describe("localSource, a person's writes on a task", () => {
   const rows = [
     task('gated', 'active', false, {
       gate: { state: 'waiting', by: null },
-      actions: offered('gated', 'approve-gate', 'abandon', 'archive'),
+      actions: offered('gated', 'approve-gate', 'answer-gate', 'abandon', 'archive'),
     }),
     task('plain', 'active', false, { actions: offered('plain', 'pause') }),
+    // A Jig before 0.48.0 offers the approval and no answer.
+    task('approve-only', 'active', false, { gate: { state: 'waiting', by: null }, actions: offered('approve-only', 'approve-gate') }),
     task('dropped', 'abandoned', false, { actions: offered('dropped', 'archive', 'drop-item', 'reopen') }),
     task('put-away', 'archived', false, { actions: offered('put-away', 'unarchive') }),
   ];
@@ -3314,10 +3370,12 @@ describe("localSource, a person's writes on a task", () => {
     await source.connect(dir);
     expect(await source.task('writes-live', 'gated')).toMatchObject({ revision: 7, writes: true });
     expect(await source.act('writes-live', 'gated', 'approve-gate', null, 7)).toEqual({ state: 'written' });
+    expect(await source.act('writes-live', 'gated', 'answer-gate', 'Use a queue.', 7)).toEqual({ state: 'written' });
     expect(await source.act('writes-live', 'gated', 'abandon', 'lives elsewhere now', 7)).toEqual({ state: 'written' });
     expect(await source.act('writes-live', 'gated', 'archive', null, 7)).toEqual({ state: 'written' });
     expect(writes(dir)).toEqual([
       'task gate gated approved --revision 7 --json',
+      'task gate gated answered --answer Use a queue. --revision 7 --json',
       'task abandon gated --reason lives elsewhere now --revision 7 --json',
       'task archive gated --revision 7 --json',
     ]);
@@ -3327,6 +3385,8 @@ describe("localSource, a person's writes on a task", () => {
     const dir = project('writes-unoffered', '0.46.0', answers);
     await source.connect(dir);
     expect(await source.act('writes-unoffered', 'plain', 'approve-gate', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.act('writes-unoffered', 'plain', 'answer-gate', 'Why?', 7)).toEqual({ state: 'refused', code: 'not-found' });
+    expect(await source.act('writes-unoffered', 'approve-only', 'answer-gate', 'Why?', 7)).toEqual({ state: 'refused', code: 'not-found' });
     expect(await source.act('writes-unoffered', '--all', 'archive', null, 7)).toEqual({ state: 'refused', code: 'not-found' });
     // A finished task's offers are the ones its list last read, and it was not read yet.
     expect(await source.act('writes-unoffered', 'dropped', 'archive', null, 7)).toEqual({ state: 'refused', code: 'not-found' });

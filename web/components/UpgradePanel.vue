@@ -1,6 +1,9 @@
 <script setup lang="ts">
+  import ReadingLine from './ReadingLine.vue';
+  import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+  import { INLINE_DIALOGS } from '@/lib/inline';
   import { ExternalLink } from '@lucide/vue';
-  import { computed } from 'vue';
+  import { computed, inject } from 'vue';
   import { link } from '@/api';
   import { Button } from '@/components/ui/button';
   import { ago } from '@/lib/ago';
@@ -15,7 +18,7 @@
     plan: PlanState | undefined;
   }>();
 
-  defineEmits<{
+  const emit = defineEmits<{
     selfUpdate: [];
     upgrade: [];
     close: [];
@@ -24,6 +27,7 @@
 
   const result = computed(() => (props.run && props.run.state !== 'running' ? upgradeResult(props.run) : undefined));
   const request = computed(() => agentRequest(props.project));
+  const inline = inject(INLINE_DIALOGS, false);
 </script>
 
 <template>
@@ -62,56 +66,68 @@
       </template>
       <Button variant="ghost" size="xs" class="self-start" @click="$emit('dismiss')">Dismiss</Button>
     </div>
-
-    <div v-else-if="plan?.state === 'confirm-self-update'" :class="toneRule.attention" class="flex flex-col gap-2">
-      <p>
-        {{ plan.release }}. The project upgrades from the Jig installed on this machine, so that Jig is updated first:
-        <code>jig self-update</code> moves it to the newest release for every project on this machine. No project changes until its own
-        upgrade, which Jig plans next.
-      </p>
-      <div class="flex gap-2">
-        <Button size="xs" @click="$emit('selfUpdate')">Update Jig on this machine</Button>
-        <Button variant="ghost" size="xs" @click="$emit('close')">Cancel</Button>
-      </div>
-    </div>
-
-    <p v-else-if="plan?.state === 'self-updating'" class="text-muted-foreground">Updating Jig on this machine…</p>
-
-    <p v-else-if="plan?.state === 'reading'" class="text-muted-foreground">Asking Jig what the upgrade would do…</p>
-
-    <div v-else-if="plan?.state === 'refused'" :class="toneRule.bad" class="flex flex-col gap-1">
-      <p>{{ plan.message }}</p>
-      <ul v-if="plan.reasons?.length" class="list-disc pl-5 text-foreground">
-        <li v-for="(reason, i) in plan.reasons" :key="i">{{ reason }}</li>
-      </ul>
-      <Button variant="ghost" size="xs" class="self-start" @click="$emit('close')">Close</Button>
-    </div>
-
-    <div v-else-if="plan?.state === 'planned' && plan.plan.wouldStop.length" :class="toneRule.attention" class="flex flex-col gap-1">
-      <p>Jig would not start the upgrade here:</p>
-      <ul class="list-disc pl-5 text-foreground">
-        <li v-for="(reason, i) in plan.plan.wouldStop" :key="i">{{ reason }}</li>
-      </ul>
-      <Button variant="ghost" size="xs" class="self-start" @click="$emit('close')">Close</Button>
-    </div>
-
-    <div v-else-if="plan?.state === 'planned'" :class="toneRule.quiet" class="flex flex-col gap-2">
-      <p class="text-foreground">
-        Upgrade {{ plan.plan.from }} → {{ plan.plan.to }}. Jig works in the project's main checkout: it cuts a branch, commits, and pushes,
-        opens a pull request or merges as far as the project's agent.git allows.
-      </p>
-      <template v-if="plan.plan.manualSteps.length">
-        <p class="text-foreground">This release also asks for steps by hand:</p>
-        <ul class="list-disc pl-5 text-foreground">
-          <li v-for="(step, i) in plan.plan.manualSteps" :key="i">{{ step }}</li>
-        </ul>
-      </template>
-      <div class="flex gap-2">
-        <Button size="xs" @click="$emit('upgrade')">Upgrade</Button>
-        <Button variant="ghost" size="xs" @click="$emit('close')">Cancel</Button>
-      </div>
-      <p>{{ plan.plan.manualSteps.length ? 'Your agent can do the steps too; ask it instead:' : 'Or ask your agent:' }}</p>
-      <CopyCommand :command="request" />
-    </div>
   </section>
+  <!-- What the upgrade would do, and the question before it, in a dialog: closing it is Cancel. Its run stays on the card. -->
+  <component
+    :is="inline ? 'div' : Dialog"
+    v-if="plan && !(run?.state === 'running') && !result"
+    v-bind="inline ? {} : { open: true, 'onUpdate:open': (open: boolean) => !open && emit('close') }"
+  >
+    <component :is="inline ? 'div' : DialogContent" class="flex flex-col gap-3 text-[13px] sm:max-w-lg">
+      <DialogHeader v-if="!inline">
+        <DialogTitle>Upgrade Jig in {{ project }}</DialogTitle>
+        <DialogDescription class="sr-only">What the upgrade would do, before it starts.</DialogDescription>
+      </DialogHeader>
+      <div v-if="plan?.state === 'confirm-self-update'" :class="toneRule.attention" class="flex flex-col gap-2">
+        <p>
+          {{ plan.release }}. The project upgrades from the Jig installed on this machine, so that Jig is updated first:
+          <code>jig self-update</code> moves it to the newest release for every project on this machine. No project changes until its own
+          upgrade, which Jig plans next.
+        </p>
+        <div class="flex gap-2">
+          <Button size="xs" @click="$emit('selfUpdate')">Update Jig on this machine</Button>
+          <Button variant="ghost" size="xs" @click="$emit('close')">Cancel</Button>
+        </div>
+      </div>
+
+      <p v-else-if="plan?.state === 'self-updating'" class="text-muted-foreground">Updating Jig on this machine…</p>
+
+      <ReadingLine v-else-if="plan?.state === 'reading'">Asking Jig what the upgrade would do…</ReadingLine>
+
+      <div v-else-if="plan?.state === 'refused'" :class="toneRule.bad" class="flex flex-col gap-1">
+        <p>{{ plan.message }}</p>
+        <ul v-if="plan.reasons?.length" class="list-disc pl-5 text-foreground">
+          <li v-for="(reason, i) in plan.reasons" :key="i">{{ reason }}</li>
+        </ul>
+        <Button variant="ghost" size="xs" class="self-start" @click="$emit('close')">Close</Button>
+      </div>
+
+      <div v-else-if="plan?.state === 'planned' && plan.plan.wouldStop.length" :class="toneRule.attention" class="flex flex-col gap-1">
+        <p>Jig would not start the upgrade here:</p>
+        <ul class="list-disc pl-5 text-foreground">
+          <li v-for="(reason, i) in plan.plan.wouldStop" :key="i">{{ reason }}</li>
+        </ul>
+        <Button variant="ghost" size="xs" class="self-start" @click="$emit('close')">Close</Button>
+      </div>
+
+      <div v-else-if="plan?.state === 'planned'" :class="toneRule.quiet" class="flex flex-col gap-2">
+        <p class="text-foreground">
+          Upgrade {{ plan.plan.from }} → {{ plan.plan.to }}. Jig works in the project's main checkout: it cuts a branch, commits, and
+          pushes, opens a pull request or merges as far as the project's agent.git allows.
+        </p>
+        <template v-if="plan.plan.manualSteps.length">
+          <p class="text-foreground">This release also asks for steps by hand:</p>
+          <ul class="list-disc pl-5 text-foreground">
+            <li v-for="(step, i) in plan.plan.manualSteps" :key="i">{{ step }}</li>
+          </ul>
+        </template>
+        <div class="flex gap-2">
+          <Button size="xs" @click="$emit('upgrade')">Upgrade</Button>
+          <Button variant="ghost" size="xs" @click="$emit('close')">Cancel</Button>
+        </div>
+        <p>{{ plan.plan.manualSteps.length ? 'Your agent can do the steps too; ask it instead:' : 'Or ask your agent:' }}</p>
+        <CopyCommand :command="request" />
+      </div>
+    </component>
+  </component>
 </template>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
-  import { Bell, BellDot, Ellipsis, ExternalLink, Settings, Unplug } from '@lucide/vue';
+  import { computed, onUnmounted, ref, watch } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { toast } from 'vue-sonner';
+  import { Bell, BellDot, ExternalLink, Loader2, Settings, Unplug } from '@lucide/vue';
   import { link, type PrStatus, type Project } from '@/api';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
-  import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
   import { whoMerges } from '@/lib/pr-status';
   import { type ClosingState, closableTask, type HousekeepingState, type RefreshState } from '@/lib/projects';
   import { staleFetch } from '@/lib/refresh';
@@ -43,6 +44,7 @@
   }>();
 
   const board = computed(() => `/projects/${encodeURIComponent(props.project.id)}`);
+
   /** The item whose question is open: held by its kind and task, so a list that shifts under it never moves it to another. */
   const asking = ref<string>();
   const keyOf = (item: {
@@ -73,8 +75,8 @@
     () => needsUpgrade(props.project, props.release ?? null) && !props.project.upgrade && !props.plan && !props.held,
   );
 
-  defineEmits<{
-    /** Settings… in the ⋯ menu: the view opens the dialog and reads them. */
+  const emit = defineEmits<{
+    /** Settings…, an icon on the card: the view opens the dialog and reads them. */
     settings: [];
     disconnect: [];
     readAgain: [];
@@ -105,6 +107,34 @@
     ackStaging: [expect: number, shas: string[]];
     dismissAck: [];
   }>();
+
+  const router = useRouter();
+
+  /** What Jig did with a write from an item, as a toast: done goes by itself; refused stays until closed, and offers the Board where only it lands. */
+  watch(
+    () => props.closing,
+    (closing) => {
+      if (!closing || closing.state === 'running') return;
+      const id = `write:${props.project.id}:${closing.task}`;
+      const gone = () => emit('dismissClose');
+      if (closing.state === 'done') {
+        toast.success(closing.message, { id, duration: 8000, onDismiss: gone, onAutoClose: gone });
+        return;
+      }
+      toast.error(closing.message, {
+        id,
+        duration: Infinity,
+        onDismiss: gone,
+        action: closing.board ? { label: 'Land it from the Board', onClick: () => void router.push(board.value) } : undefined,
+      });
+    },
+    { immediate: true },
+  );
+
+  // A write's toast goes with its card: another project shown, or the workspace left.
+  onUnmounted(() => {
+    if (props.closing) toast.dismiss(`write:${props.project.id}:${props.closing.task}`);
+  });
 </script>
 
 <template>
@@ -142,18 +172,26 @@
           size="xs"
           :disabled="housekeeping?.state === 'running'"
           @click="$emit('housekeeping')"
-          >{{ housekeeping?.state === 'running' ? 'Housekeeping…' : 'Housekeeping' }}</Button
+          ><Loader2 v-if="housekeeping?.state === 'running'" class="animate-spin" />{{
+            housekeeping?.state === 'running' ? 'Housekeeping…' : 'Housekeeping'
+          }}</Button
         >
         <Button v-if="project.state === 'ready'" variant="outline" size="xs" as-child><RouterLink :to="board">Board</RouterLink></Button>
-        <DropdownMenu v-if="project.upgrade?.state !== 'running'">
-          <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="icon-xs" :aria-label="`More for ${project.id}`"><Ellipsis /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-36">
-            <DropdownMenuItem v-if="project.state === 'ready'" @select="$emit('settings')"><Settings />Settings…</DropdownMenuItem>
-            <DropdownMenuItem @select="$emit('disconnect')"><Unplug />Disconnect</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <!-- Beside the card's actions as icons, no menu. Disconnect asks nothing: the project's files stay, and it connects again by its path. -->
+        <template v-if="project.upgrade?.state !== 'running'">
+          <Button
+            v-if="project.state === 'ready'"
+            variant="ghost"
+            size="icon-xs"
+            :aria-label="`Settings of ${project.id}`"
+            title="Settings…"
+            @click="$emit('settings')"
+            ><Settings
+          /></Button>
+          <Button variant="ghost" size="icon-xs" :aria-label="`Disconnect ${project.id}`" title="Disconnect" @click="$emit('disconnect')"
+            ><Unplug
+          /></Button>
+        </template>
       </div>
     </div>
     <StagingWork
@@ -216,19 +254,6 @@
           />
         </li>
       </ul>
-      <div
-        v-if="closing && closing.state !== 'running'"
-        :class="closing.state === 'done' ? toneRule.good : toneRule.bad"
-        class="flex flex-col gap-1 text-[13px]"
-      >
-        <p>
-          {{ closing.message }}
-          <RouterLink v-if="closing.state === 'refused' && closing.board" :to="board" class="underline underline-offset-2">
-            Land it from the Board
-          </RouterLink>
-        </p>
-        <Button variant="ghost" size="xs" class="self-start" @click="$emit('dismissClose')">Dismiss</Button>
-      </div>
       <p v-if="project.housekeepingStale" class="text-[13px] text-muted-foreground">
         Pull request facts may be out of date until Housekeeping runs.
       </p>
@@ -241,7 +266,9 @@
           class="text-foreground"
           :disabled="refresh?.state === 'running'"
           @click="$emit('refresh')"
-          >{{ refresh?.state === 'running' ? 'Refreshing…' : 'Refresh' }}</Button
+          ><Loader2 v-if="refresh?.state === 'running'" class="animate-spin" />{{
+            refresh?.state === 'running' ? 'Refreshing…' : 'Refresh'
+          }}</Button
         >
       </p>
     </template>

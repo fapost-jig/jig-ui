@@ -38,6 +38,13 @@ export function useDecisions(send: (decisions: DocumentDecision[]) => Promise<bo
       queued.value.set(doc, decision);
       if (!running) void run();
     },
+    /** Several documents at once, one decision each, sent together as one write where Jig takes several. */
+    decideAll(decisions: DocumentDecision[]): void {
+      for (const { doc, decision } of decisions) {
+        if (!queued.value.has(doc) && !sending.value.has(doc)) queued.value.set(doc, decision);
+      }
+      if (!running && queued.value.size > 0) void run();
+    },
     takeBack(doc: string): void {
       queued.value.delete(doc);
     },

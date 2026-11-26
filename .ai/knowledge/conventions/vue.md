@@ -6,7 +6,7 @@ domains: []
 paths:
   - "web/**"
 summary: MAY/MUST/MUST NOT for web/ layers (views → components → components/ui), styling, lib decisions with tests, and the canvas
-reviewed_at: 2026-11-14
+reviewed_at: 2026-11-25
 ---
 # The page in Vue
 
@@ -46,7 +46,8 @@ MUST:     be the only callers of call(), client and onChange()
   headings in sentence case (adr-20261110-the-page-speaks-a-quiet-design-language).
 - A group of cards or a section of a page is a `GroupPanel`, its accent, if any, from `lib/tones.ts`;
   what it holds is `bg-card`. One without a border of its own, as the chosen project in the project list,
-  takes `ring-1 ring-border`: in dark `bg-card` is barely off the panel's tint. A component whose look
+  takes `ring-1 ring-border`: in dark `bg-card` is barely off the panel's tint. A chosen item on a panel in the dark theme
+  is `bg-foreground/12` with a stronger ring, for the same reason (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). A component whose look
   rests on its panel holds the panel itself, so the canvas shows it as the page does.
 - Variants go through class-variance-authority, as shadcn-vue's own do.
 - An interactive widget (a toggle, a disclosure, a menu) is a Reka UI primitive, for its keyboard
@@ -59,14 +60,19 @@ MUST:     be the only callers of call(), client and onChange()
   devDependencies if the CLI put anything under `dependencies`, and its bumps of packages already
   installed reverted. A component comes in `reka-lyra`'s shape: give it the theme's radius and the
   page's sizes, as the others have.
+- A question before a write, a report and a form open in a dialog, not in place on a card; closing a question is Cancel. A
+  component that opens one draws it in place when the canvas provides `INLINE_DIALOGS` (`lib/inline.ts`), beside its
+  variants (adr-20261125-the-page-opens-tasks-and-questions-over-the-board).
+- A long action reports in a toast (`vue-sonner`, shadcn-vue's Sonner, a devDependency): a result goes by itself, an error
+  stays until closed, and a toast goes with the view that holds it. Its colours, like every other, come from `lib/tones.ts`
+  only.
 - A preference of one browser goes to `localStorage` under a `jig-ui.` key, every read and write
   in try/catch; a refusal keeps the default.
 
 ## Example
 
-`TaskCard` takes a task, `open` and its details, and emits `toggle`; `BoardColumns` lays the cards
-out and passes `toggle` up; `BoardView` holds which card is open and reads the details through
-`readTask`. `waits()` in `lib/waits.ts` decides the card's note and tone, tested in
+`TaskCard` takes a task and links its page; `BoardColumns` lays the cards
+out; `TaskView` reads the details through `readTask`. `waits()` in `lib/waits.ts` decides the card's note and tone, tested in
 `lib/waits.test.ts`, held in a `computed`; `toneRule` paints it.
 
 ## Rationale

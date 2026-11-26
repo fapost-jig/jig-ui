@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { ExternalLink } from '@lucide/vue';
-  import { computed } from 'vue';
+  import { computed, ref } from 'vue';
   import { type Decision, type DocumentText, link, type ReadyKnowledge, type SourceDiff } from '@/api';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
@@ -44,6 +44,8 @@
 
   const emit = defineEmits<{
     decide: [doc: string, decision: Decision];
+    /** Accept all or Keep all: every document the page offers that decision for now, in one press. */
+    decideAll: [docs: string[], decision: Decision];
     toggle: [doc: string, open: boolean];
     toggleText: [doc: string, open: boolean];
     takeBack: [doc: string];
@@ -57,6 +59,19 @@
 
   /** Each proposal with why Jig cannot decide it as of the last fetch. */
   const proposals = computed(() => props.knowledge.proposals.map((p) => ({ p, blocked: undecidable(p) })));
+
+  /** The proposals Accept all takes: each one offering Accept now — nothing in the way, none decided or waiting. */
+  const acceptable = computed(() =>
+    proposals.value.filter(({ p, blocked }) => !p.waiting && !blocked && !landed(p) && !pending(p.id, 'proposal')).map(({ p }) => p.id),
+  );
+
+  /** The question before accepting them all is open. */
+  const acceptingAll = ref(false);
+
+  /** The changed sources Keep all takes: each one offering Keep now, none decided or waiting. */
+  const keepable = computed(() =>
+    sources.value.filter(({ s, actions }) => !s.waiting && actions.keep && !landed(s) && !pending(s.id, 'source')).map(({ s }) => s.id),
+  );
 
   /** The open document's text as shown — a Markdown file as HTML cleaned of anything that could run —, `undefined` while none is open. */
   const openText = computed(() => {
@@ -110,7 +125,28 @@
     </p>
 
     <GroupPanel v-if="knowledge.proposals.length > 0" aria-labelledby="proposed">
-      <template #head><h2 id="proposed" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Proposed</h2></template>
+      <template #head>
+        <div class="flex flex-wrap items-center gap-2 px-4 pt-3 pb-2">
+          <h2 id="proposed" class="text-[15px] font-semibold">Proposed</h2>
+          <template v-if="acceptable.length > 1">
+            <Button v-if="!acceptingAll" size="xs" class="ml-auto" @click="acceptingAll = true"
+              >Accept all ({{ acceptable.length }})</Button
+            >
+            <span v-else class="ml-auto flex flex-wrap items-center gap-2 text-[13px]" role="group" aria-label="Accept all">
+              Accept {{ acceptable.length }} documents? Agents read them from then on.
+              <Button
+                size="xs"
+                @click="
+                  acceptingAll = false;
+                  emit('decideAll', acceptable, 'accept');
+                "
+                >Accept all</Button
+              >
+              <Button variant="ghost" size="xs" @click="acceptingAll = false">Cancel</Button>
+            </span>
+          </template>
+        </div>
+      </template>
       <ul class="flex flex-col gap-2 px-2 pb-2">
         <li
           v-for="{ p, blocked } in proposals"
@@ -158,7 +194,15 @@
     </GroupPanel>
 
     <GroupPanel v-if="knowledge.sources.length > 0" aria-labelledby="changed">
-      <template #head><h2 id="changed" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Changed sources</h2></template>
+      <template #head>
+        <div class="flex flex-wrap items-center gap-2 px-4 pt-3 pb-2">
+          <h2 id="changed" class="text-[15px] font-semibold">Changed sources</h2>
+          <!-- Keeping a changed source changes no text and takes back nothing: no question before it. -->
+          <Button v-if="keepable.length > 1" size="xs" class="ml-auto" @click="emit('decideAll', keepable, 'reviewed')"
+            >Keep all ({{ keepable.length }})</Button
+          >
+        </div>
+      </template>
       <ul class="flex flex-col gap-2 px-2 pb-2">
         <li
           v-for="{ s, line, actions, blocked } in sources"

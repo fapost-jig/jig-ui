@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import ReadingLine from './ReadingLine.vue';
   import { ChevronRight } from '@lucide/vue';
   import { computed } from 'vue';
   import type { ArtifactKind, TaskArtifact, TaskArtifacts } from '@/api';
@@ -36,7 +37,7 @@
 <template>
   <GroupPanel aria-labelledby="documents">
     <template #head><h2 id="documents" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Documents</h2></template>
-    <p v-if="documents === undefined" class="px-4 pb-4 text-muted-foreground">Reading the documents…</p>
+    <ReadingLine v-if="documents === undefined" class="px-4 pb-4">Reading the documents…</ReadingLine>
     <p v-else-if="none" class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-4 text-muted-foreground">
       {{ none }}
       <Button v-if="documents.state === 'unreadable'" variant="outline" size="xs" :disabled="reading" @click="$emit('readAgain')">

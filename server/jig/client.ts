@@ -602,6 +602,7 @@ const ACTIONS = new Set([
   'request-pause',
   'cancel-pause-request',
   'approve-gate',
+  'answer-gate',
   'answer-stop',
   'set-class',
   'ship',
@@ -1175,10 +1176,11 @@ export type ItemPlace =
 const WriteNote = z.object({ write: z.object({ note: maybe }) });
 
 /** A person's write on a task from its page, by the id of Jig's action that offers it (`WRITES_JIG_VERSION`). */
-export type TaskWrite = 'approve-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
+export type TaskWrite = 'approve-gate' | 'answer-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
 
 const WRITE_COMMANDS: Record<TaskWrite, (task: string) => string[]> = {
   'approve-gate': (task) => ['task', 'gate', task, 'approved'],
+  'answer-gate': (task) => ['task', 'gate', task, 'answered'],
   abandon: (task) => ['task', 'abandon', task],
   archive: (task) => ['task', 'archive', task],
   unarchive: (task) => ['task', 'unarchive', task],
@@ -1186,7 +1188,8 @@ const WRITE_COMMANDS: Record<TaskWrite, (task: string) => string[]> = {
 };
 
 /**
- * A person's write on a task, against the revision of the read they saw: approve its design at the gate, give it up with
+ * A person's write on a task, against the revision of the read they saw: approve its design at the gate or answer it
+ * (`answer-gate`, `jig task gate <id> answered --answer <a line>`, Jig's own action from 0.48.0), give it up with
  * a reason, archive it or bring it back, or close the roadmap item that names an abandoned task (`jig spec drop`, a write
  * in Jig's own tree, 60 s like a roadmap edit). The task it answers is not read, the caller reads again; `drop-item`
  * answers Jig's note without a path. Refused as `stale-revision` — for the gate, a design rewritten since it was read —,
@@ -1197,11 +1200,13 @@ export async function writeTask(
   root: string,
   task: string,
   write: TaskWrite,
-  reason: string | null,
+  text: string | null,
   revision: number,
   platform: NodeJS.Platform = process.platform,
 ): Promise<string | null> {
-  const args = [...WRITE_COMMANDS[write](task), ...(reason === null ? [] : ['--reason', reason]), '--revision', String(revision)];
+  // The text is an abandon's reason or the answer to a design; no other write takes one.
+  const flag = write === 'answer-gate' ? '--answer' : '--reason';
+  const args = [...WRITE_COMMANDS[write](task), ...(text === null ? [] : [flag, text]), '--revision', String(revision)];
   const { data } = await readJson(root, args, platform, write === 'drop-item' ? ROADMAP_TIMEOUT_MS : TIMEOUT_MS);
   if (write !== 'drop-item') return null;
   const { note } = parsed(WriteNote, data).write;
@@ -1841,6 +1846,32 @@ export async function housekeeping(
       .filter((line) => line.trim() !== '')
       .map((line) => withoutPaths(line).replace(PROJECT_PATH, '…'));
   return [...lines(out.stderr), ...lines(out.stdout)];
+}
+
+/** The parts of Housekeeping's report that only tell what is there, changing nothing: left out of its summary. */
+const ONLY_TOLD = /^(in progress|filed, not started|already in the archive|kept, cannot tell|dry run)/;
+
+/**
+ * What Housekeeping changed, in a few words for the page, read from its report here — the one place that knows its words: each section that did something with its
+ * count (`removed 6`), and the branches and worktrees it deleted counted; `null` when it changed nothing. The whole
+ * report stays a press away.
+ */
+export function housekeepingSummary(report: string[]): string | null {
+  const parts: string[] = [];
+  let branches = 0;
+  let worktrees = 0;
+  for (const line of report) {
+    if (/^\s/.test(line) || line.trim() === '' || ONLY_TOLD.test(line)) continue;
+    if (/^housekeeping: deleted branch /.test(line)) branches += 1;
+    else if (/^worktree removed: /.test(line)) worktrees += line.slice('worktree removed: '.length).split(', ').length;
+    else {
+      const section = /^(.+?) \((\d+)\):/.exec(line);
+      if (section) parts.push(`${section[1]} ${section[2]}`);
+    }
+  }
+  if (worktrees) parts.push(`${worktrees} ${worktrees === 1 ? 'worktree' : 'worktrees'} removed`);
+  if (branches) parts.push(`${branches} ${branches === 1 ? 'branch' : 'branches'} deleted`);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /**

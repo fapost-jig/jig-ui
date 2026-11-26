@@ -19,6 +19,40 @@ function writes() {
 }
 
 describe('useDecisions', () => {
+  it('sends Accept all as one write, leaving out what is queued or on its way already', async () => {
+    const { sent, send, end } = writes();
+    const d = useDecisions(send, () => true);
+    d.decide('a', 'reject');
+    d.decideAll([
+      { doc: 'a', decision: 'accept' },
+      { doc: 'b', decision: 'accept' },
+      { doc: 'c', decision: 'accept' },
+    ]);
+    expect(sent).toEqual([[{ doc: 'a', decision: 'reject' }]]);
+    await end();
+    expect(sent[1]).toEqual([
+      { doc: 'b', decision: 'accept' },
+      { doc: 'c', decision: 'accept' },
+    ]);
+    await end();
+  });
+
+  it('sends Accept all at once as one write when nothing runs', async () => {
+    const { sent, send, end } = writes();
+    const d = useDecisions(send, () => true);
+    d.decideAll([
+      { doc: 'a', decision: 'accept' },
+      { doc: 'b', decision: 'accept' },
+    ]);
+    expect(sent).toEqual([
+      [
+        { doc: 'a', decision: 'accept' },
+        { doc: 'b', decision: 'accept' },
+      ],
+    ]);
+    await end();
+  });
+
   it('sends a press at once, and the presses made while it runs together, as the next write', async () => {
     const { sent, send, end } = writes();
     const d = useDecisions(send, () => true);

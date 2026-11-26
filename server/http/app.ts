@@ -104,9 +104,12 @@ const isValue = (v: unknown): v is string => typeof v === 'string' && v.length <
 /** A reason as Jig takes one with an abandon or a dependency: a line of text without a tab, at most 500 characters. */
 const isReason = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= 500 && !/[\r\n\t]/.test(v);
 
-/** A person's write on a task the page runs, by the id of Jig's action that offers it. */
+/** An answer to a task's design as Jig's `--answer` takes one: a line of text without a tab, never blank, at most 2000 characters. */
+const isAnswer = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= 2000 && !/[\r\n\t]/.test(v);
+
+/** A person's write on a task the page runs, by the id of Jig's action that offers it (`answer-gate` from Jig 0.48.0). */
 const isTaskWrite = (v: unknown): v is TaskWrite =>
-  v === 'approve-gate' || v === 'abandon' || v === 'archive' || v === 'unarchive' || v === 'drop-item';
+  v === 'approve-gate' || v === 'answer-gate' || v === 'abandon' || v === 'archive' || v === 'unarchive' || v === 'drop-item';
 
 /** An item of Jig's queue a task waits for: `task:<id>` or `epic:<spec>`, the id never a flag. */
 const isQueueRef = (v: unknown): v is string => typeof v === 'string' && /^(task|epic):[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(v);
@@ -148,18 +151,20 @@ function itemPlace(v: unknown): ItemPlace | undefined {
   return isId(after) ? { after } : isPhase(phase) ? { phase } : undefined;
 }
 
-/** The body of a person's write on a task: the task, the action of Jig's it runs, its reason — an abandon's only — and the revision; `undefined` where invalid. */
+/** The body of a person's write on a task: the task, the action of Jig's it runs, its reason — an abandon's only —, its answer — an `answer-gate`'s only — and the revision; `undefined` where invalid. */
 function writeAt(body: unknown): {
   task?: string;
   action?: TaskWrite;
   reason?: string;
+  answer?: string;
   revision?: number;
 } {
-  const [task, action, reason, revision] = ['task', 'action', 'reason', 'revision'].map((k) => field(body, k));
+  const [task, action, reason, answer, revision] = ['task', 'action', 'reason', 'answer', 'revision'].map((k) => field(body, k));
   return {
     task: isId(task) ? task : undefined,
     action: isTaskWrite(action) ? action : undefined,
     reason: isReason(reason) ? reason : undefined,
+    answer: isAnswer(answer) ? answer : undefined,
     revision: isRevision(revision) ? revision : undefined,
   };
 }
@@ -615,13 +620,25 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         return written(c, await source.close(c.req.param('id'), task, revision));
       })
 
-      // A person's write on a task: an abandon needs its reason, the rest none.
+      // A person's write on a task: an abandon needs its reason, an answer to the design its answer, the rest none.
       .post('/api/projects/:id/tasks/act', validator('json', writeAt), async (c) => {
-        const { task, action, reason, revision } = c.req.valid('json');
-        if (task === undefined || action === undefined || revision === undefined || (action === 'abandon' && reason === undefined)) {
-          return refuse(c, 422, 'usage', 'Give a task, the action, its reason for an abandon, and the revision it was read at.');
+        const { task, action, reason, answer, revision } = c.req.valid('json');
+        if (
+          task === undefined ||
+          action === undefined ||
+          revision === undefined ||
+          (action === 'abandon' && reason === undefined) ||
+          (action === 'answer-gate' && answer === undefined)
+        ) {
+          return refuse(
+            c,
+            422,
+            'usage',
+            'Give a task, the action, its reason for an abandon or its answer, and the revision it was read at.',
+          );
         }
-        return edited(c, await source.act(c.req.param('id'), task, action, action === 'abandon' ? (reason ?? null) : null, revision));
+        const text = action === 'abandon' ? reason : action === 'answer-gate' ? answer : undefined;
+        return edited(c, await source.act(c.req.param('id'), task, action, text ?? null, revision));
       })
 
       // A person's landing on staging, as Jig's `land` offers it; `withoutReview` lands one not approved, where the project
@@ -772,7 +789,7 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
       // Answered once Jig has tidied the project and it was read again: the card shows Jig's report.
       .post('/api/projects/:id/housekeeping', async (c) => {
         const w = await source.housekeeping(c.req.param('id'));
-        if (w?.state === 'written') return c.json({ report: w.report ?? [] }, 200);
+        if (w?.state === 'written') return c.json({ report: w.report ?? [], summary: w.summary ?? null }, 200);
         if (w?.state === 'refused' && w.code === 'timeout') {
           return refuse(c, 422, w.code, 'Jig did not finish within two minutes.');
         }
@@ -962,6 +979,15 @@ export function createApp({
 
   if (existsSync(join(webRoot, 'index.html'))) {
     app.use('/*', serveStatic({ root: webRoot }));
+    // The page's own addresses are paths (vue-router's history mode): each is answered with the page, which routes it.
+    // Only the router's paths: a missing asset stays a 404, never a page in its place.
+    // A rebuild empties the directory for a moment: the page is then not there, as when it was never built.
+    const page = (c: Context) =>
+      existsSync(join(webRoot, 'index.html'))
+        ? c.html(readFileSync(join(webRoot, 'index.html'), 'utf8'))
+        : c.text('The page is not built. Run npm run build.', 503);
+    app.get('/projects/*', page);
+    app.get('/canvas', page);
   } else {
     app.get('/', (c) => c.text('The page is not built. Run npm run build.', 503));
   }
