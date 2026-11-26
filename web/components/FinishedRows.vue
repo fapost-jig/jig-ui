@@ -61,8 +61,7 @@
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
-            <span class="truncate font-mono">{{ pr.text }}</span
-            ><ExternalLink class="size-3 shrink-0" />
+            <span class="truncate font-mono">{{ pr.text }}</span><ExternalLink class="size-3 shrink-0" />
           </a>
           <span v-else class="truncate font-mono text-xs text-muted-foreground">{{ pr.text }}</span>
         </template>

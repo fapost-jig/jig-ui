@@ -159,8 +159,7 @@
       <p v-if="finished" class="text-[13px]" :class="toneText.good">The roadmap is complete.</p>
       <p v-if="busy" class="text-[13px] text-muted-foreground" role="status">sending to Jig…</p>
       <p v-if="spec.waiting" class="text-[13px]" :class="toneText.attention">
-        Edits wait on <code class="text-xs">{{ spec.waiting.branch }}</code> for <code class="text-xs">{{ spec.waiting.base }}</code
-        >:
+        Edits wait on <code class="text-xs">{{ spec.waiting.branch }}</code> for <code class="text-xs">{{ spec.waiting.base }}</code>:
         <a
           v-if="link(spec.waiting.pr)"
           :href="link(spec.waiting.pr)"
@@ -169,8 +168,7 @@
           class="inline-flex items-center gap-1 underline underline-offset-2"
           >pull request<ExternalLink class="size-3"
         /></a>
-        <template v-else>{{ waitingState(spec.waiting) }}</template
-        >. The roadmap below is the one there.
+        <template v-else>{{ waitingState(spec.waiting) }}</template>. The roadmap below is the one there.
       </p>
       <p v-if="spec.missingFiles.length > 0" class="text-[13px]" :class="toneText.attention">
         Missing from the spec: {{ spec.missingFiles.join(', ') }}

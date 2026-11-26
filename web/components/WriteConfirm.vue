@@ -59,8 +59,7 @@
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle
-          >{{ asks.label }} <code class="font-mono text-sm font-normal">{{ task }}</code
-          >?</DialogTitle
+          >{{ asks.label }} <code class="font-mono text-sm font-normal">{{ task }}</code>?</DialogTitle
         >
         <DialogDescription class="text-[13px]">{{ asks.question(task) }}</DialogDescription>
       </DialogHeader>

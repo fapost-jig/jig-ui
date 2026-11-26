@@ -27,8 +27,7 @@
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle
-          >Where <code class="font-mono text-sm font-normal">{{ task }}</code
-          >'s pull request stands</DialogTitle
+          >Where <code class="font-mono text-sm font-normal">{{ task }}</code>'s pull request stands</DialogTitle
         >
         <DialogDescription class="sr-only">The forge's answer, read when you asked.</DialogDescription>
       </DialogHeader>

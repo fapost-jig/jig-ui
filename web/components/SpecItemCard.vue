@@ -56,8 +56,7 @@
           v-if="live"
           :to="`/projects/${encodeURIComponent(project)}/tasks/${encodeURIComponent(item.task)}`"
           class="font-mono text-foreground underline underline-offset-2"
-          >{{ item.task }}</RouterLink
-        ><span v-else class="font-mono">{{ item.task }}</span>
+          >{{ item.task }}</RouterLink><span v-else class="font-mono">{{ item.task }}</span>
       </template>
       <span v-if="standing.label">{{ standing.label }}</span>
       <span v-if="shown.after" class="max-w-full" :class="!open && 'truncate'" :title="plain(shown.after)"
