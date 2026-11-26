@@ -42,8 +42,8 @@ adr-20261029-close-a-ready-task-from-the-board) — and the housekeeping note. *
 of Board, runs `jig housekeeping` in the project and reports in a toast — what it changed in a few words, its whole
 report in a dialog from the toast (adr-20261110-housekeeping-runs-from-the-project-card, adr-20261125-the-page-opens-tasks-and-questions-over-the-board). **Refresh**, on Jig's `base-behind-origin` item and beside a
 line saying the clone last fetched more than a day ago, runs `jig refresh` and says what came of it in the page's
-words in a toast, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). A result toast goes by itself after
-8 s, an error stays until closed; a toast closed is its report dismissed, and it goes with the view that holds it. Both are on the
+words in a toast, only when pressed (adr-20261113-refresh-brings-the-clone-up-from-the-card). A result that went well goes by itself
+after 8 s; one that needs a look, or an error, stays until closed (adr-20261126-every-press-reports-in-a-toast); a toast closed is its report dismissed, and it goes with the view that holds it. Both are on the
 project's page too, beside its name, and **↻** above the projects reads every project again at once (adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name). On Jig's staging
 flow a bell beside the project's name is lit while Jig's `staging-unowned` item lists the person's own commits on staging
 that the base does not have and no live task's branch holds, and dark with none (`bellOf` in `web/lib/staging.ts`);

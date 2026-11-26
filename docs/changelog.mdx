@@ -8,13 +8,18 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+## 0.8.1 — 2026-11-26
+
 - Every action on the page reports what came of it the same way: a spinner on its button while it runs, then a toast in the
-  bottom-right corner — a result goes by itself after a few seconds, a refusal or an error stays until you close it. This
-  now holds for an upgrade's run and its result (with **Open pull request** and **Steps** on the toast) and **Check merge**,
-  **Upgrade all** and **Check all merges** (whose question is a dialog), **Mark as known**, **Connect** and **Find projects**,
-  the board's line for landing, preparing for prod, merging, requesting a review and for epic, roadmap and knowledge
-  changes, the refusals on a task's page, and the settings dialog's notices. The lines and **Dismiss** buttons they
-  showed in place are gone. ([What the page shows](/projects#what-the-page-shows))
+  bottom-right corner — a result that went well goes by itself after a few seconds; one that needs a look (a pull request
+  waiting for review, steps to do by hand, a refresh that could not bring the main branch up), a refusal or an error
+  stays until you close it. This now holds for **Refresh**, an upgrade's run and its result (with **Open pull request**
+  and **Steps** on the toast) and **Check merge**, **Upgrade all** and **Check all merges** (whose question is a dialog),
+  **Update Jig on this machine**, **Mark as known**, **Connect** and **Find projects**, the board's line for landing,
+  preparing for prod, merging, requesting a review and for epic, roadmap and knowledge changes, the refusals on a task's
+  page, and the settings dialog's notices. The lines and **Dismiss** buttons they showed in place are gone.
+  ([What the page shows](/projects#what-the-page-shows))
+- Jig UI's dependencies are up to date within their major versions, its server's `hono` and `@hono/node-server` among them.
 
 ## 0.8.0 — 2026-11-26
 

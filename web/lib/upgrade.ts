@@ -178,7 +178,14 @@ export function upgradeResult(run: Exclude<UpgradeRun, { state: 'running' }>): U
   const { outcome, git, manualSteps: steps } = run.upgrade;
   const to = run.upgrade.to ?? "this machine's Jig";
   const on = git?.branch ? `branch ${git.branch}` : "the project's branch";
-  const said = (text: string, tone: Tone, url: string | null = null): UpgradeResult => ({ text, tone, url, steps, reasons: [] });
+  // Steps the release asks for by hand need a look, however the upgrade itself ended: the result stays until closed.
+  const said = (text: string, tone: Tone, url: string | null = null): UpgradeResult => ({
+    text,
+    tone: steps.length > 0 && (tone === 'good' || tone === 'quiet') ? 'attention' : tone,
+    url,
+    steps,
+    reasons: [],
+  });
   switch (outcome) {
     case 'upgraded':
       if (git?.merged) return said(`Upgraded to ${to} and merged.`, 'good', git.pullRequest);
