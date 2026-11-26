@@ -8,6 +8,8 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+## 0.8.0 — 2026-11-26
+
 - A task's card on the board no longer expands. It shows the task's id with a copy icon, its spec as a chip (fuchsia when
   the task goes into the spec's epic), the goal in up to four lines, which opens the task's page, one status line with an
   icon, and a footer: coloured priority and class badges, the pull request as a chip with a dot for its CI, and when the
@@ -77,9 +79,8 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 - The page's header shows this machine's Jig and the newest Jig released beside Jig UI's version, and when the newest
   is newer, marks it with **Update…**, which runs `jig self-update` after asking. It reads `jig version --json` (Jig 0.46.0) from the `jig` on
   `PATH`; offline it shows the installed Jig only.
-- A board card no longer squeezes a long task id into a column of single letters beside its badges: an id that starts
-  with a tracker's key (`SRD-2598-…`) shows as the key while the card has a goal, and any other long id is broken at its
-  hyphens, the badges moving to the next line together when they do not fit.
+- A board card no longer squeezes a long task id into a column of single letters: an id that starts with a tracker's
+  key (`SRD-2598-…`) shows as the key while the card has a goal, and any other long id is broken at its hyphens.
 - With Jig 0.46.0 in the project, a task's page does what Jig offers a person there: **Approve the design** under the
   design as it was written, refused if anything changed since you read it; **Abandon…** with the reason the next agent
   reads, and **Archive**; and what the task waits for, **✕** to take a dependency away and **Add…** for another. The
