@@ -8,14 +8,13 @@
   import { Input } from '@/components/ui/input';
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
   import { control, noSettings, parts, shownValue, sourceLine } from '@/lib/settings';
-  import { toneText } from '@/lib/tones';
+  import { Loader2 } from '@lucide/vue';
 
-  /** A project's settings: `undefined` while they are read; `pending` names the key being written, `notice` what came of the last change. */
+  /** A project's settings: `undefined` while they are read; `pending` names the key being written; what came of the last change is a toast the view raises. */
   const props = defineProps<{
     project: string;
     settings?: Settings;
     pending?: string;
-    notice?: string;
     reading?: boolean;
   }>();
 
@@ -52,7 +51,6 @@
           project's are in <code>.ai/config.yaml</code>, shared through git: change them there.
         </DialogDescription>
       </DialogHeader>
-      <p v-if="notice" :class="[toneText.attention, 'sticky -top-4 z-10 bg-popover py-2']" role="status">{{ notice }}</p>
       <ReadingLine v-if="settings === undefined">Reading the settings…</ReadingLine>
       <p v-else-if="none" class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
         {{ none }}
@@ -101,7 +99,9 @@
                   <Button v-if="changed(s)" type="submit" variant="outline" size="xs" :disabled="busy">Save</Button>
                 </form>
                 <span v-else :id="`setting-${s.key}`">{{ shownValue(s) }}</span>
-                <span v-if="pending === s.key" class="text-[13px] text-muted-foreground">Saving…</span>
+                <span v-if="pending === s.key" class="inline-flex items-center gap-1 text-[13px] text-muted-foreground"
+                  ><Loader2 class="size-3 animate-spin" />Saving…</span
+                >
                 <Button
                   v-if="s.source === 'local'"
                   variant="ghost"

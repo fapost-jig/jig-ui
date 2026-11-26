@@ -2,16 +2,20 @@
   import ReadingLine from './ReadingLine.vue';
   import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
   import { INLINE_DIALOGS } from '@/lib/inline';
-  import { ExternalLink } from '@lucide/vue';
-  import { computed, inject } from 'vue';
+  import { computed, inject, onUnmounted, ref, watch } from 'vue';
   import { link } from '@/api';
   import { Button } from '@/components/ui/button';
-  import { ago } from '@/lib/ago';
-  import { minute } from '@/lib/clock';
+  import { kindOf, reporter } from '@/lib/report';
   import { toneRule } from '@/lib/tones';
   import { agentRequest, type PlanState, upgradeResult, type UpgradeRun } from '@/lib/upgrade';
   import CopyCommand from './CopyCommand.vue';
 
+  /**
+   * An upgrade's run on the project's card, as a toast in the page's corner: one while it runs, replaced by what came of
+   * it — gone by itself when it went well, staying until closed when it wants a look or went wrong. A toast closed is the
+   * result dismissed. The steps the release asks for by hand open in a dialog from the toast. Before a run, what the
+   * upgrade would do and the question before it are a dialog too.
+   */
   const props = defineProps<{
     project: string;
     run: UpgradeRun | null;
@@ -28,45 +32,78 @@
   const result = computed(() => (props.run && props.run.state !== 'running' ? upgradeResult(props.run) : undefined));
   const request = computed(() => agentRequest(props.project));
   const inline = inject(INLINE_DIALOGS, false);
+
+  /** The steps the release asks for by hand, open in their dialog. */
+  const stepsOpen = ref(false);
+  const steps = computed(() => result.value?.steps ?? []);
+  const pullRequest = computed(() => link(result.value?.url ?? null));
+  const showSteps = computed(() => (inline ? steps.value.length > 0 : stepsOpen.value && steps.value.length > 0));
+
+  const reporting = reporter(`upgrade:${props.project}`, () => emit('dismiss'));
+  // The toast belongs to the card: it goes with it, a run's spinner included, and that is not the person closing the result.
+  onUnmounted(reporting.clear);
+
+  // The run is read again on every change of the page; its toast is drawn again only when what it says changed.
+  let shown = '';
+  watch(
+    () => props.run,
+    (run) => {
+      const key = JSON.stringify(run ?? null);
+      if (key === shown) return;
+      shown = key;
+      stepsOpen.value = false;
+      if (!run) return reporting.clear();
+      if (run.state === 'running') {
+        return reporting.show({
+          kind: 'loading',
+          title: run.landing ? 'Checking the merge…' : `Upgrading to ${run.to}…`,
+          description: run.landing
+            ? "If it is merged, Jig checks the base branch out and brings it up to origin's."
+            : 'Where the project lets Jig merge, it waits for CI first.',
+        });
+      }
+      const r = upgradeResult(run);
+      const url = link(r.url);
+      reporting.show({
+        kind: kindOf(r.tone),
+        title: r.text,
+        description: r.reasons.map((reason) => `• ${reason}`).join('\n') || undefined,
+        descriptionClass: 'whitespace-pre-line',
+        // With steps by hand the pull request's link is in their dialog, beside them.
+        action: r.steps.length
+          ? { label: 'Steps', run: () => (stepsOpen.value = true) }
+          : url
+            ? { label: 'Open pull request', run: () => void window.open(url, '_blank', 'noopener') }
+            : undefined,
+      });
+    },
+    { immediate: true },
+  );
 </script>
 
 <template>
-  <section :aria-label="`Upgrade Jig in ${project}`" class="flex flex-col gap-2 text-[13px]">
-    <p v-if="run?.state === 'running' && run.landing" :class="toneRule.quiet">
-      Checking the merge… If it is merged, Jig checks the base branch out and brings it up to origin's.
-    </p>
-
-    <p v-else-if="run?.state === 'running'" :class="toneRule.quiet">
-      Upgrading to {{ run.to }}… started {{ ago(run.since, minute.getTime()) }}. Where the project lets Jig merge, it waits for CI first.
-    </p>
-
-    <div v-else-if="result" :class="toneRule[result.tone]" class="flex flex-col gap-1">
-      <p>
-        {{ result.text }}
-        <a
-          v-if="link(result.url)"
-          :href="link(result.url)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1 underline underline-offset-2"
-        >
-          Open pull request<ExternalLink class="size-3" />
-        </a>
-      </p>
-      <ul v-if="result.reasons.length" class="list-disc pl-5 text-foreground">
-        <li v-for="(reason, i) in result.reasons" :key="i">{{ reason }}</li>
+  <!-- The steps by hand and the request that asks an agent for them, in a dialog from the result's toast. -->
+  <component
+    :is="inline ? 'div' : Dialog"
+    v-if="showSteps"
+    v-bind="inline ? {} : { open: true, 'onUpdate:open': (open: boolean) => !open && (stepsOpen = false) }"
+  >
+    <component :is="inline ? 'div' : DialogContent" class="flex flex-col gap-3 text-[13px] sm:max-w-lg">
+      <DialogHeader v-if="!inline">
+        <DialogTitle>Steps for {{ project }}</DialogTitle>
+        <DialogDescription class="sr-only">The steps the release asks for by hand.</DialogDescription>
+      </DialogHeader>
+      <a v-if="pullRequest" :href="pullRequest" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">
+        Open pull request
+      </a>
+      <p class="text-foreground">Steps the release asks for by hand:</p>
+      <ul class="list-disc pl-5 text-foreground">
+        <li v-for="(step, i) in steps" :key="i">{{ step }}</li>
       </ul>
-      <template v-if="result.steps.length">
-        <p class="text-foreground">Steps the release asks for by hand:</p>
-        <ul class="list-disc pl-5 text-foreground">
-          <li v-for="(step, i) in result.steps" :key="i">{{ step }}</li>
-        </ul>
-        <p class="text-muted-foreground">Your agent can do them; ask it:</p>
-        <CopyCommand :command="request" />
-      </template>
-      <Button variant="ghost" size="xs" class="self-start" @click="$emit('dismiss')">Dismiss</Button>
-    </div>
-  </section>
+      <p class="text-muted-foreground">Your agent can do them; ask it:</p>
+      <CopyCommand :command="request" />
+    </component>
+  </component>
   <!-- What the upgrade would do, and the question before it, in a dialog: closing it is Cancel. Its run stays on the card. -->
   <component
     :is="inline ? 'div' : Dialog"

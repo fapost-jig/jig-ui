@@ -70,7 +70,7 @@ with their results and errors, "давай добавим кнопку прин�
   Refresh, Housekeeping and an item's close, merge or land turn a spinner on their button and say what runs, what came
   of it and what went wrong in a toast (`vue-sonner`, shadcn-vue's Sonner, a devDependency): a result goes by itself
   after 8 s, an error stays until closed; a toast closed is its report dismissed, and a toast goes with the view that
-  holds it. Housekeeping's toast says what it changed in a few words the server reads from Jig's report in
+  holds it. *(Amended by adr-20261126-every-press-reports-in-a-toast, 2026-11-26: every press reports so, through `web/lib/report.ts`, not only these; a result that needs a look stays like an error.)* Housekeeping's toast says what it changed in a few words the server reads from Jig's report in
   `server/jig/client.ts` (`housekeepingSummary`) — the page still shows the report and never reads it —; the whole
   report opens in a dialog from the toast. A finished task's write reports in a toast, above its dialog.
 - **Amends adr-20261106-knowledge-decisions-from-the-page and adr-20261114-knowledge-decisions-are-queued-on-the-page:**

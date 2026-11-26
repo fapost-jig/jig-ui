@@ -1,16 +1,15 @@
 <script setup lang="ts">
-  import { X } from '@lucide/vue';
+  import { Loader2, X } from '@lucide/vue';
   import { ref } from 'vue';
   import { Button } from '@/components/ui/button';
   import { Input } from '@/components/ui/input';
   import { Label } from '@/components/ui/label';
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
   import { refName } from '@/lib/writes';
-  import { toneRule } from '@/lib/tones';
 
   /**
    * What a live task waits for in Jig's queue, changed from its page: its own dependencies each with a remove, one its
-   * epic gives it shown but left to the epic, and Add… — another live task or an open epic, and the reason Jig asks for.
+   * epic gives it shown but left to the epic, and Add… — another live task or an open epic, and the reason Jig asks for. A refusal is a toast the view raises.
    */
   defineProps<{
     task: string;
@@ -22,7 +21,6 @@
     /** What it may wait for, as queue references; `undefined` until read for Add…. */
     candidates?: string[];
     busy: boolean;
-    refusal?: string;
   }>();
 
   const emit = defineEmits<{
@@ -86,11 +84,12 @@
         </div>
       </div>
       <div class="flex gap-2">
-        <Button type="submit" size="xs" :disabled="busy || !on || reason.trim() === ''">{{ busy ? 'Adding…' : 'Add' }}</Button>
+        <Button type="submit" size="xs" :disabled="busy || !on || reason.trim() === ''"
+          ><Loader2 v-if="busy" class="animate-spin" />{{ busy ? 'Adding…' : 'Add' }}</Button
+        >
         <Button type="button" variant="ghost" size="xs" :disabled="busy" @click="adding = false">Cancel</Button>
       </div>
     </form>
     <Button v-else variant="outline" size="xs" class="self-start" :disabled="busy" @click="start">Add…</Button>
-    <p v-if="refusal" role="alert" :class="toneRule.attention">{{ refusal }}</p>
   </div>
 </template>

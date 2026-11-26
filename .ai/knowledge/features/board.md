@@ -142,7 +142,7 @@ done, or moving.
   change was made on with the read the change itself started (`web/lib/conflict.ts`), marks each
   card that is new, in another column, moved within its own, or shows other facts — "Changed while
   you acted" — and says in one line above the board what became of the person's card and how many
-  others changed or left. The marks live as long as that line: dismiss, or the next change, clears
+  others changed or left. The marks live as long as that line, a toast (adr-20261126-every-press-reports-in-a-toast): closing it, or the next change, clears
   both. Jig's revision rises with every write in the clone, so "nothing on the board changed" is a
   common answer while agents work.
 - "New task" above the board opens a dialog that files a task with an id and a one-line goal (`jig task new <id>
@@ -185,7 +185,7 @@ done, or moving.
   id, closed, abandoned or archived, the goal, the pull request and the day Jig last changed the task, the
   latest first; a finished task has no details. Its ⋯ menu holds what Jig offers on it from 0.46.0 —
   **Bring back**, **Close its roadmap item**, **Archive** — sent with the revision of the list's read; the
-  notice says Jig's note or its refusal. A finished task's write reports in a toast above the dialog. The dialog starts closed on every
+  toast says Jig's note or its refusal. A finished task's write reports in a toast above the dialog. The dialog starts closed on every
   visit, and closes when the last finished task leaves; nothing remembers it. An empty read under
   a count above zero — housekeeping between the two reads — says Jig keeps none now.
 

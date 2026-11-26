@@ -63,8 +63,11 @@ MUST:     be the only callers of call(), client and onChange()
 - A question before a write, a report and a form open in a dialog, not in place on a card; closing a question is Cancel. A
   component that opens one draws it in place when the canvas provides `INLINE_DIALOGS` (`lib/inline.ts`), beside its
   variants (adr-20261125-the-page-opens-tasks-and-questions-over-the-board).
-- A long action reports in a toast (`vue-sonner`, shadcn-vue's Sonner, a devDependency): a result goes by itself, an error
-  stays until closed, and a toast goes with the view that holds it. Its colours, like every other, come from `lib/tones.ts`
+- Every press reports by a spinner on its button and a toast (`vue-sonner`, shadcn-vue's Sonner, a devDependency), raised only
+  through `lib/report.ts` (`reporter(key, onClosed?)`, `kindOf(tone)`), never by calling `toast` in a component: a result that
+  went well goes by itself after 8 s, an error and a result that needs a look (attention) stay until closed, and a toast goes
+  with the view that holds it (`clear` on unmount). A question before an action is a dialog; a refusal inside its own dialog
+  stays there (adr-20261126-every-press-reports-in-a-toast). Its colours, like every other, come from `lib/tones.ts`
   only.
 - A preference of one browser goes to `localStorage` under a `jig-ui.` key, every read and write
   in try/catch; a refusal keeps the default.
