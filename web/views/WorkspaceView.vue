@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import ReadingLine from '@/components/ReadingLine.vue';
-  import { RotateCw } from '@lucide/vue';
+  import { Loader2, RotateCw } from '@lucide/vue';
   import { computed, onUnmounted, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
@@ -22,6 +22,7 @@
   import ProjectCard from '@/components/ProjectCard.vue';
   import ProjectList from '@/components/ProjectList.vue';
   import SettingsDialog from '@/components/SettingsDialog.vue';
+  import UpgradeAllDialog from '@/components/UpgradeAllDialog.vue';
   import { Button } from '@/components/ui/button';
   import { Progress } from '@/components/ui/progress';
   import { lastWins } from '@/lib/last-wins';
@@ -42,7 +43,8 @@
   import { closeRefusal, mergeRefusal, reasonsOf, stagingRefusal } from '@/lib/refusal';
   import { withConnected } from '@/lib/scan';
   import { settingRefusal } from '@/lib/settings';
-  import { toneRule, toneText } from '@/lib/tones';
+  import { kindOf, reporter } from '@/lib/report';
+  import { toneText } from '@/lib/tones';
   import {
     landedLine,
     machineBusy,
@@ -66,7 +68,6 @@
   const shown = computed(() => chosen(projects.value ?? [], typeof route.query.project === 'string' ? route.query.project : undefined));
   const machine = ref<Machine>();
   const path = ref('');
-  const refusal = ref<string>();
   const busy = ref(false);
   /** Each card's open upgrade panel, by project id, until the upgrade starts or the panel closes. */
   const plans = ref<Record<string, PlanState>>({});
@@ -104,7 +105,6 @@
   const upgrades = computed(() => projects.value && upgradeLine(read.value));
   /** Upgrade all's confirmation is open. */
   const confirmingAll = ref(false);
-  const allRefusal = ref<string>();
   const release = computed(() => machine.value?.release ?? null);
   const allPlan = computed(() => upgradeAllPlan(read.value, release.value));
   /** No card starts an upgrade while a self-update or Upgrade all runs, nor before the machine is read. */
@@ -120,13 +120,48 @@
     () => !held.value && read.value.some((p) => mergeWaitOf(p) !== undefined && p.upgrade?.state !== 'running'),
   );
 
-  /** What the last Check all merges came to, until the next one. */
-  const landedAll = ref<string>();
+  /** Check all merges is under way. */
+  const landingAll = ref(false);
   // A confirmation or a refusal of Upgrade all belongs to the moment it was asked: a run from another tab ends both.
   watch(offerAll, (offered) => {
     if (!offered) confirmingAll.value = false;
-    else allRefusal.value = undefined;
+    else upgradeAllRefused.clear();
   });
+
+  // What came of each action is a toast, replaced by the next one of its kind and gone with the page.
+  const upgradingAll = reporter('upgrade-all', () => void dismissAll());
+  const upgradeAllRefused = reporter('upgrade-all:refused');
+  const landingAllReport = reporter('land-all');
+  const connectReport = reporter('connect');
+  const findReport = reporter('find');
+  const settingReport = reporter('settings');
+  const landReports = new Map<string, ReturnType<typeof reporter>>();
+  const landReport = (id: string) => {
+    let r = landReports.get(id);
+    if (!r) landReports.set(id, (r = reporter(`land:${id}`)));
+    return r;
+  };
+
+  // Upgrade all's run and end, and a self-update's, in one toast: while it runs, a spinner; ended, what it came to, and
+  // closing it dismisses the report. The page reads the machine again on every change; the toast is drawn when its words change.
+  let saidKey = '';
+  watch(
+    said,
+    (line) => {
+      const key = JSON.stringify(line ?? null);
+      if (key === saidKey) return;
+      saidKey = key;
+      if (!line) return upgradingAll.clear();
+      if (!line.ended) return upgradingAll.show({ kind: 'loading', title: line.text });
+      upgradingAll.show({
+        kind: kindOf(line.tone),
+        title: line.text,
+        description: line.reasons.map((r) => `• ${r}`).join('\n') || undefined,
+        descriptionClass: 'whitespace-pre-line',
+      });
+    },
+    { immediate: true },
+  );
 
   const load = lastWins(
     async () => (await (await call(() => client.api.workspace.$get()))?.json()) ?? undefined,
@@ -182,34 +217,30 @@
 
   async function connect(): Promise<void> {
     busy.value = true;
-    refusal.value = undefined;
+    connectReport.clear();
     const done = await connectPath(path.value);
     busy.value = false;
     if (!done) return;
-    if ('refused' in done) return void (refusal.value = done.refused);
+    if ('refused' in done) return void connectReport.show({ kind: 'error', title: done.refused });
     path.value = '';
     await show(done.id);
   }
 
-  /** What Find projects last found, until it is pressed again; the found project being connected, and why one was refused. */
+  /** What Find projects last found, until it is pressed again, and the found project being connected. */
   const found = ref<Found>();
   const finding = ref(false);
   const connecting = ref<string>();
-  const foundRefusal = ref<{
-    path: string;
-    message: string;
-  }>();
 
   async function find(folder: string): Promise<void> {
     finding.value = true;
-    refusal.value = undefined;
-    foundRefusal.value = undefined;
+    findReport.clear();
+    connectReport.clear();
     const res = await call(() => client.api.scan.$post({ json: { folder } }));
     finding.value = false;
     if (!res) return;
     if (res.status !== 200) {
       found.value = undefined;
-      refusal.value = (await res.json()).error.message;
+      findReport.show({ kind: 'error', title: (await res.json()).error.message });
       return;
     }
     found.value = await res.json();
@@ -217,11 +248,11 @@
 
   async function connectFound(target: string): Promise<void> {
     connecting.value = target;
-    foundRefusal.value = undefined;
+    connectReport.clear();
     const done = await connectPath(target);
     connecting.value = undefined;
     if (!done) return;
-    if ('refused' in done) return void (foundRefusal.value = { path: target, message: done.refused });
+    if ('refused' in done) return void connectReport.show({ kind: 'error', title: done.refused, description: target });
     if (found.value) found.value = withConnected(found.value, target);
     await show(done.id);
   }
@@ -249,11 +280,10 @@
     if (read.some(Boolean)) await load();
   }
 
-  /** The project whose settings dialog is open, its settings (`undefined` while read), the key being written and what came of the last change. */
+  /** The project whose settings dialog is open, its settings (`undefined` while read), the key being written and what came of the last change is a toast. */
   const settingsFor = ref<string>();
   const settings = ref<Settings>();
   const settingKey = ref<string>();
-  const settingNotice = ref<string>();
   const settingsReading = ref(false);
 
   const loadSettings = lastWins(
@@ -274,7 +304,7 @@
     settingsFor.value = id;
     settings.value = undefined;
     settingKey.value = undefined;
-    settingNotice.value = undefined;
+    settingReport.clear();
     void loadSettings();
   }
 
@@ -294,7 +324,7 @@
     const [id, shown] = [settingsFor.value, settings.value];
     if (id === undefined || shown?.state !== 'ready' || settingKey.value !== undefined) return;
     settingKey.value = key;
-    settingNotice.value = undefined;
+    settingReport.clear();
     const res = await call(() => send(id, shown.revision));
     const error = res && res.status !== 200 ? (await res.json()).error : undefined;
     await loadSettings();
@@ -302,8 +332,8 @@
     if (settingsFor.value !== id) return;
     settingKey.value = undefined;
     if (error?.code === 'stale-revision')
-      settingNotice.value = 'The settings changed since they were shown: here they are as they are now.';
-    else if (error) settingNotice.value = settingRefusal(error.code, reasonsOf(error), key);
+      settingReport.show({ kind: 'warning', title: 'The settings changed since they were shown: here they are as they are now.' });
+    else if (error) settingReport.show({ kind: 'error', title: settingRefusal(error.code, reasonsOf(error), key) });
   }
 
   const setSetting = (key: string, value: string) =>
@@ -345,29 +375,38 @@
   /** Starts Upgrade all; the page follows it through the workspace, as it follows each project's upgrade. */
   async function upgradeAll(): Promise<void> {
     confirmingAll.value = false;
-    allRefusal.value = undefined;
+    upgradeAllRefused.clear();
     plans.value = {}; // an open plan would offer an upgrade Upgrade all is about to run
     const res = await call(() => client.api['upgrade-all'].$post());
     if (!res) return;
-    if (res.status === 409) allRefusal.value = (await res.json()).error.message;
+    if (res.status === 409) upgradeAllRefused.show({ kind: 'error', title: (await res.json()).error.message });
     await load();
   }
 
+  /** The projects whose Check merge is being asked. */
+  const checking = ref(new Set<string>());
+
   /** Check merge on a card: Jig lands the upgrade if its pull request is merged; the card shows what came of it. */
   async function land(id: string): Promise<void> {
+    checking.value.add(id);
+    landReport(id).clear();
     const res = await call(() => upgradeApi.land.$post(param(id)));
-    if (res && res.status !== 200) plans.value[id] = { state: 'refused', message: (await res.json()).error.message };
+    if (res && res.status !== 200) landReport(id).show({ kind: 'error', title: (await res.json()).error.message });
     await load();
+    checking.value.delete(id);
   }
 
   /** Check all merges: every upgrade pull request in turn; each card shows its outcome, the line sums them up. */
   async function landAll(): Promise<void> {
-    landedAll.value = undefined;
+    landingAll.value = true;
+    landingAllReport.clear();
     const res = await call(() => client.api.upgrade['land-all'].$post());
-    if (!res) return;
+    if (!res) return void (landingAll.value = false);
     const body = await res.json();
-    landedAll.value = 'landed' in body ? landedLine(body.landed) : body.error.message;
+    if ('landed' in body) landingAllReport.show({ kind: 'success', title: landedLine(body.landed) });
+    else landingAllReport.show({ kind: 'error', title: body.error.message });
     await load();
+    landingAll.value = false;
   }
 
   async function dismissAll(): Promise<void> {
@@ -497,6 +536,12 @@
     if (await call(() => upgradeApi.$delete(param(id)))) await load();
   }
 
+  // The toasts belong to the page: they go with it.
+  onUnmounted(() => {
+    for (const r of [upgradingAll, upgradeAllRefused, landingAllReport, connectReport, findReport, settingReport, ...landReports.values()])
+      r.clear();
+  });
+
   onUnmounted(onChange(() => void (projects.value === undefined ? first() : load())));
 </script>
 
@@ -515,41 +560,23 @@
           @click="rereadAll"
           ><RotateCw :class="reading.size > 0 && 'animate-spin'"
         /></Button>
-        <Button v-if="offerLandAll" variant="outline" size="xs" @click="landAll">Check all merges</Button>
+        <Button v-if="offerLandAll || landingAll" variant="outline" size="xs" :disabled="landingAll" @click="landAll"
+          ><Loader2 v-if="landingAll" class="animate-spin" />{{ landingAll ? 'Checking…' : 'Check all merges' }}</Button
+        >
         <Button v-if="offerAll && !confirmingAll" variant="outline" size="xs" @click="confirmingAll = true">Upgrade all…</Button>
       </div>
     </div>
-    <p v-if="landedAll" :class="toneText.quiet" role="status">{{ landedAll }}</p>
     <p v-if="upgrades" :class="toneText.attention">{{ upgrades }}</p>
-    <section v-if="confirmingAll && offerAll" aria-label="Upgrade all" :class="toneRule.attention" class="flex flex-col gap-2">
-      <p v-if="allPlan.selfUpdate">
-        A newer Jig is out. Jig on this machine is updated first (<code>jig self-update</code>, for every project on this machine), then the
-        projects are upgraded one at a time:
-      </p>
-      <p v-else>The projects are upgraded one at a time:</p>
-      <ul class="list-disc pl-5 text-foreground">
-        <li v-for="id in allPlan.projects" :key="id">{{ id }}</li>
-      </ul>
-      <p>
-        In each Jig works in the project's main checkout: it cuts a branch, commits, pushes, and opens a pull request or merges as far as
-        the project's agent.git allows. A project Jig cannot read now is left alone.
-      </p>
-      <div class="flex gap-2">
-        <Button size="xs" @click="upgradeAll">{{ allPlan.selfUpdate ? 'Update Jig and upgrade all' : 'Upgrade all' }}</Button>
-        <Button variant="ghost" size="xs" @click="confirmingAll = false">Cancel</Button>
-      </div>
-    </section>
-    <p v-if="allRefusal" :class="toneRule.bad">{{ allRefusal }}</p>
-    <div v-if="said" :class="toneRule[said.tone]" class="flex flex-col gap-1" role="status">
-      <p>{{ said.text }}</p>
-      <ul v-if="said.reasons.length" class="list-disc pl-5 text-foreground">
-        <li v-for="(reason, i) in said.reasons" :key="i">{{ reason }}</li>
-      </ul>
-      <Button v-if="said.ended" variant="ghost" size="xs" class="self-start" @click="dismissAll">Dismiss</Button>
-    </div>
+    <UpgradeAllDialog
+      v-if="confirmingAll && offerAll"
+      :self-update="allPlan.selfUpdate"
+      :projects="allPlan.projects"
+      @upgrade="upgradeAll"
+      @close="confirmingAll = false"
+    />
     <div class="flex flex-col gap-4 border-b pb-5">
-      <ConnectForm v-model="path" :busy="busy" :finding="finding" :refusal="refusal" @connect="connect" @find="find" />
-      <FoundProjects v-if="found" :result="found" :connecting="connecting" :refusal="foundRefusal" @connect="connectFound" />
+      <ConnectForm v-model="path" :busy="busy" :finding="finding" @connect="connect" @find="find" />
+      <FoundProjects v-if="found" :result="found" :connecting="connecting" @connect="connectFound" />
     </div>
     <ReadingLine v-if="projects === undefined">Reading projects…</ReadingLine>
     <p v-else-if="projects.length === 0" class="text-muted-foreground">
@@ -569,6 +596,7 @@
         :project="shown"
         :plan="plans[shown.id]"
         :held="held"
+        :checking="checking.has(shown.id)"
         :release="release"
         :reading="reading.has(shown.id)"
         :housekeeping="housekept[shown.id]"
@@ -606,7 +634,6 @@
       :project="settingsFor"
       :settings="settings"
       :pending="settingKey"
-      :notice="settingNotice"
       :reading="settingsReading"
       @update:open="(open) => open || (settingsFor = undefined)"
       @set="setSetting"

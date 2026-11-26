@@ -9,6 +9,7 @@
   import { Toaster } from '@/components/ui/sonner';
   import { lastWins } from './lib/last-wins';
   import { byName } from './lib/projects';
+  import { reporter } from './lib/report';
   import { toneRule, toneText } from './lib/tones';
 
   const route = useRoute();
@@ -22,7 +23,9 @@
   let jigFor: string | undefined;
   const updating = ref(false);
   const updateOpen = ref(false);
-  const updateRefusal = ref<string[]>();
+  /** The update's toast: a spinner while it runs, Jig's reasons when it refused. */
+  const updateReport = reporter('self-update');
+  onUnmounted(updateReport.clear);
   const projects = ref<Project[]>([]);
   /** The project whose board or task is open; the workspace and the canvas have none. */
   const current = computed(() => (typeof route.params.id === 'string' ? route.params.id : undefined));
@@ -51,12 +54,13 @@
   /** `jig self-update`, as the upgrade panel runs it; once it is done every project is read again, and the header too. */
   async function updateJig(): Promise<void> {
     updating.value = true;
-    updateRefusal.value = undefined;
+    updateOpen.value = false;
+    updateReport.show({ kind: 'loading', title: 'Updating Jig on this machine…' });
     const res = await call(() => client.api['self-update'].$post());
     updating.value = false;
-    if (!res) return;
+    if (!res) return updateReport.clear();
     if (res.status === 200) {
-      updateOpen.value = false;
+      updateReport.clear();
       return void (await loadProjects());
     }
     const { error } = (await res.json()) as {
@@ -66,7 +70,12 @@
       };
     };
 
-    updateRefusal.value = error.reasons?.length ? error.reasons : [error.message];
+    updateReport.show({
+      kind: 'error',
+      title: 'Jig could not be updated',
+      description: (error.reasons?.length ? error.reasons : [error.message]).map((r) => `• ${r}`).join('\n'),
+      descriptionClass: 'whitespace-pre-line',
+    });
   }
 
   onMounted(async () => {
@@ -98,7 +107,7 @@
         class="shrink-0"
         @pick="(id) => router.push(`/projects/${encodeURIComponent(id)}`)"
       >
-        <MachineJig v-model:open="updateOpen" :jig="jig" :busy="updating" :refusal="updateRefusal" @update="updateJig" />
+        <MachineJig v-model:open="updateOpen" :jig="jig" :busy="updating" @update="updateJig" />
         <ThemeToggle />
       </ProjectSwitcher>
       <p v-if="newer" class="shrink-0 border-b px-4 py-2 text-[13px]" :class="toneText.attention">

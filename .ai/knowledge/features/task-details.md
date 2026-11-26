@@ -60,7 +60,7 @@ answer** under it (`web/components/GateApproval.vue`, `answer-gate` from Jig 0.4
 adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), **Abandon…** with its reason and **Archive** sit in the page's writes (`web/components/TaskWrites.vue`), and "Waits for" takes a dependency away or adds one
 (`web/components/DependsEditor.vue`). No other offered action is listed as a command: what has no button is asked of the agent in words (**Ask your
 agent**), `start` included, and an answer or approval waits in the task's state until an agent resumes it — the gate's
-panel says so. Each write carries the revision of the read it was made on — the approval, the oldest
+panel says so. A refusal of any of these writes is a toast (adr-20261126-every-press-reports-in-a-toast). Each write carries the revision of the read it was made on — the approval, the oldest
 of the design documents' reads — and the page reads the task again after it, or goes back to the board once the task
 is no longer live.
 

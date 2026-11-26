@@ -122,8 +122,8 @@ Jig.
 When Jig says a newer release is out and this machine's Jig is not on it yet, **Upgrade…** first
 asks to update this machine's Jig: **Update Jig on this machine** runs `jig self-update`, which
 moves the Jig installed here — the one every project upgrades from — to the newest release. It
-changes no project. Then the card goes on as below. If it fails, the card says why: a framework
-checkout with uncommitted changes, or a remote it cannot reach.
+changes no project. The question is a dialog; once you confirm, a toast says *Updating Jig on this machine…*, and Jig's reasons, if it fails, stay in a toast until you close it — a framework checkout with uncommitted changes, or a remote it cannot
+reach. Then the card goes on as below.
 
 **Upgrade…** on a marked project asks Jig what the upgrade would do — `jig upgrade --dry-run`,
 which changes nothing — and shows it in a dialog:
@@ -137,15 +137,17 @@ which changes nothing — and shows it in a dialog:
 
 **Upgrade** runs `jig upgrade` in the project's main checkout, as you would in a terminal: Jig cuts
 a branch, places its files, commits, and then goes as far as the project's `agent.git` lets it —
-push, a pull request, a merge after CI. The card says *Upgrading…* meanwhile, in every browser tab and
+push, a pull request, a merge after CI. A toast in the bottom-right corner says *Upgrading…* meanwhile, in every browser tab and
 after a reload. Until it ends Jig UI neither reads the project nor changes it: a change from the
-board is refused. Then the card says what came of
-it: merged, a pull request waiting for review with its link, pushed, committed, staged, nothing
-to do, or why Jig stopped. It stays until you choose **Dismiss** or upgrade again, and until Jig
-UI stops: it is not kept anywhere.
+board is refused. Then the toast says what came of
+it: merged, a pull request waiting for review (its **Open pull request** button opens it), pushed, committed, staged, nothing
+to do, or why Jig stopped. A result that went well closes by itself after a few seconds; one that went
+wrong, or that needs a look, stays until you close it, and closing it is the result dismissed. Where the
+release asks for steps by hand, **Steps** on the toast opens them in a dialog, with the request that asks your
+agent to do them. The result is kept only until Jig UI stops.
 
 - With `agent.git: none` Jig stages the upgrade and leaves the main checkout on its branch; the
-  card says how to commit it there.
+  toast says how to commit it there.
 - A push or a pull request is made by Jig with your git and `gh` credentials, as in a terminal;
   on macOS the Keychain may ask first.
 - Stopping Jig UI while an upgrade runs stops the upgrade too — Ctrl+C in its terminal,
@@ -157,10 +159,11 @@ UI stops: it is not kept anywhere.
 **Upgrade all…** above the projects lists every project with an upgrade to make, and whether this
 machine's Jig is updated first. Confirmed, it runs `jig self-update` when a project says a release
 is out, then `jig upgrade` in each project in turn, one at a time, the order they were connected —
-without the dry run each card shows. Each card says *Upgrading…* and then what its upgrade came
-to, as above; the line above the projects names the project being upgraded and, at the end, which
-were upgraded and which were left alone: up to date, or not readable just then. If `jig self-update`
-fails, no project is upgraded and the line says why.
+without the dry run each card shows; the question before it is a dialog, and **Cancel** closes it. Each card
+says *Upgrading…* and then what its upgrade came to, as above; a toast names the project being upgraded and, at the
+end, which were upgraded and which were left alone: up to date, or not readable just then. Closing that toast
+dismisses the report. If `jig self-update` fails, no project is upgraded and the toast says why; a refusal to start,
+because another run is under way, is a toast that stays until you close it.
 
 While Upgrade all or a self-update runs, no card offers **Upgrade…**; and **Upgrade all…** is
 offered only while no project is being upgraded.
@@ -174,14 +177,15 @@ its pull request to be merged*, with the pull request's link — and offers **Ch
 **Upgrade…**, after a restart of Jig UI too: Jig remembers the pull request from its last
 `jig housekeeping`.
 
-**Check merge** runs `jig upgrade --land` in the project's main checkout. While the pull request is
-open it says *Not merged yet* and changes nothing. Once merged, Jig checks the base branch out,
+**Check merge** runs `jig upgrade --land` in the project's main checkout, with a spinner on the button and a
+toast, *Checking the merge…*, while it runs. While the pull request is
+open the toast says *Not merged yet* and changes nothing. Once merged, Jig checks the base branch out,
 brings it up to origin's by fast-forward and deletes the upgrade's branch, and the card shows the
 new Jig. Uncommitted changes, another branch checked out, or a base that cannot be fast-forwarded
 stop it with Jig's reasons; Jig never stashes and never forces.
 
 **Check all merges** above the projects does the same for every project with such an upgrade, one
-at a time, and says which were brought up to date and which still wait. After **Upgrade all**, each
+at a time, and a toast says which were brought up to date and which still wait. After **Upgrade all**, each
 project is either upgraded or waits for its pull request, and its card offers **Check merge**.
 
 A project on an older Jig shows the pull request as the run left it, until Jig UI stops; run
@@ -240,11 +244,11 @@ holds what Jig offers on it:
 - **Bring back** an archived task, as it was before it was archived (`jig task unarchive`).
 - **Close its roadmap item**, for an abandoned task of a spec whose item in the roadmap is still open
   (`jig spec drop`): Jig closes the item on the spec's branch, as far as your `agent.git` lets it go,
-  and the line above the board says how far that was.
+  and a toast says how far that was.
 - **Archive** a closed or abandoned task (`jig task archive`).
 
-Each is checked against the list as you saw it; when the project changed since, Jig refuses, and the
-line above the board says so. A closed task that never had a branch, or whose branch housekeeping never
+Each is checked against the list as you saw it; when the project changed since, Jig refuses, and a toast
+says so. A closed task that never had a branch, or whose branch housekeeping never
 sees merged, stays. The history of finished work is the project's merged pull requests.
 
 **Board / List** switches between the columns side by side and a list: the same columns as groups of
@@ -312,15 +316,15 @@ If anything was written in the project between the moment the board was read and
 an agent working, a `jig` command in a terminal — Jig refuses the change, so nothing written
 meanwhile is overwritten. The page reads the board again and shows the conflict:
 
-- the line above the board says what became of your card — *beta is now in Ready*, *beta moved in
-  Backlog*, *beta is no longer on the board* — and how many other cards changed;
+- a toast says what became of your card — *beta is now in Ready*, *beta moved in
+  Backlog*, *beta is no longer on the board* — and how many other cards changed; it stays until you close it;
 - each card that changed while you acted says *Changed while you acted* (*changed* in the list):
   new, in another column, moved within its own, or with other facts, such as its priority. The
   marks show what changed up to Jig's refusal; the board itself keeps following the project.
 
-Jig counts every write in the project, so the line may say *nothing on the board changed*: an agent
+Jig counts every write in the project, so the toast may say *nothing on the board changed*: an agent
 wrote elsewhere, a document or a stage. Make the change again on the board as it is now;
-**dismiss**, or your next change, clears the marks.
+closing the toast, or your next change, clears the marks.
 
 ## Pausing a task
 
@@ -347,9 +351,9 @@ drop is offered on.
 
 A task paused with `jig task pause --stash` kept its changes in a stash, and resuming applies the
 stash again — as `jig task resume` in a terminal does, in the project's main checkout. Jig does
-that only when the checkout is on the task's branch; otherwise the line above the board says to run
+that only when the checkout is on the task's branch; otherwise a toast says to run
 `jig task resume <id>` there. When the stash does not apply cleanly, the task stays paused and the
-line says to resolve the conflicts in the checkout first. A pause Jig UI asked for never stashes.
+toast says to resolve the conflicts in the checkout first. A pause Jig UI asked for never stashes.
 
 Resuming from the board needs Jig 0.35.0 or later in the project. With an older Jig the card says
 how to resume it — run `jig task resume <id>` in the project — and **Resume** is off.
@@ -374,7 +378,7 @@ shows as a toast in Jig's words that stays until you close it.
 
 Jig decides whether the task may close, not Jig UI. It closes a task only once its knowledge
 decision is recorded and its pull request has merged, and it asks the forge about the merge as it
-closes. When it refuses — the pull request is still open, say — the line above the board says why
+closes. When it refuses — the pull request is still open, say — a toast that stays until you close it says why
 in Jig's words, and the card stays.
 
 The ✕ is shown on a ready task whose knowledge decision is recorded and whose pull request is not
@@ -390,9 +394,9 @@ With Jig 0.46.0 in the project, a card whose pull request Jig offers to merge ha
 asks first, since only a revert on the forge takes a merge back; **Merge** then merges the pull request into its base as
 you (`jig task merge-pr <id> --by human`), checked against the board you saw. Jig asks the forge once and merges nothing
 while the pull request is a draft, conflicts with its base, waits for an approval, or has a check that failed or still
-runs: the line above the board says why, whom the review waits for in Jig's words, with **Status…** beside it. Once it
-merged, Jig closes the task in the same write when its knowledge decision is recorded, and the line says so, linking to
-the pull request; otherwise it says the close waits for that decision.
+runs: a toast says why, whom the review waits for in Jig's words, with **Status…** as its button. Once it
+merged, Jig closes the task in the same write when its knowledge decision is recorded, and the toast says so, with an
+**Open pull request** button; otherwise it says the close waits for that decision.
 
 Jig holds **Merge…** back while what it last heard from the forge says a check failed or runs, or the pull request
 conflicts; while an autopilot run is on the task; and while your agent's `jig task ship` waits for CI to merge it
@@ -457,8 +461,8 @@ offers them:
 
 - **Land on staging**, on a card in Review, or a drag of the card onto **On staging**, merges its pull request into the
   staging branch (`jig task land <id> --by human`). Jig asks the forge first: while the review is not approved it lands
-  nothing — a dragged card stays in Review —, and the line above the board says whom it waits for, with **Land without
-  review** beside it — the same landing, which
+  nothing — a dragged card stays in Review —, and a toast says whom it waits for, with **Land without
+  review** as its button — the same landing, which
   Jig notes on the pull request. Where the project asks for an approval (`git.staging_review: require`) only an
   approval lands it. A pull request that conflicts with staging is your agent's to land: it resolves the conflict.
 - **Request review…**, on a card in Review, asks the forge whom it offers — those who reviewed pull requests into
@@ -468,12 +472,12 @@ offers them:
 - **Status…**, on a card in Review that cannot be landed — the review waits, changes were asked —, says where its pull
   request stands on the forge ([Merging a task's pull request](#merging-a-tasks-pull-request)).
 - **Prepare for prod…**, on a card in On staging, asks first, then pushes the task's branch and opens its promotion,
-  the pull request into the main branch (`jig task promote <id> --by human`). The line above the board links to it and
+  the pull request into the main branch (`jig task promote <id> --by human`). A toast, with an **Open pull request** button,
   says who merges it: you, or the forge itself once its checks pass where the project merges promotions itself. The
   card moves to Ready with *Promotion opened*.
 
-Each carries the revision of the board you saw, as every change from the board does, and a refusal is said above the
-board, in Jig's words where only Jig knows why. Each reaches the forge with your git credentials, so the macOS
+Each carries the revision of the board you saw, as every change from the board does, and what Jig did, or why it refused, is said in a toast
+(a result goes by itself, a refusal stays), in Jig's words where only Jig knows why. Each reaches the forge with your git credentials, so the macOS
 keychain may ask. Below Jig 0.46.0 they stay with your agent, or your CI.
 
 A task on the staging flow has no ✕ until its work is in the main branch. Landing on staging does not
@@ -496,7 +500,7 @@ the commits the list shows and, when Jig counts more than its newest 20, the old
 left since the page read the project, the mark is refused, and the list shows what is there now.
 A commit fetched from a terminal lights the bell when the page next reads the project; **Refresh** and
 **Housekeeping** read it again after their fetch. On a Jig before 0.46.0 the card shows Jig's item about staging work
-as it says it, with no bell. When Jig refuses the mark for another reason, the list says why.
+as it says it, with no bell. A spinner shows on **Mark as known** while it runs. When Jig refuses the mark for another reason, a toast that stays until you close it says why.
 
 ## Specs
 
@@ -564,8 +568,7 @@ With Jig 0.40.0 or later in the project, a spec's roadmap is edited on the Specs
 Jig UI runs Jig's `jig spec item add`, `move` or `file` with the revision of the specs you saw, as
 for the epics. Jig commits each edit on the
 spec's branch, `spec/<spec-id>` — or the open epic — in a tree of its own, never in your checkout,
-and takes it as far as `agent.git` lets it: committed, pushed, a pull request. The line above the
-specs after an edit is Jig's note on the next step, such as *agent.git is commit: pushing
+and takes it as far as `agent.git` lets it: committed, pushed, a pull request. The toast after an edit is Jig's note on the next step, such as *agent.git is commit: pushing
 spec/shop is yours*.
 
 While edits wait on that branch, the spec says so — with a link to the pull request, or *pushed,
@@ -642,7 +645,7 @@ write with `jig knowledge accept`, `reject` or `reviewed`, one after another. Ea
 revision of the knowledge you saw. Jig commits the decisions on the branch `knowledge/decisions` in a
 tree of its own, never in your checkout, and takes them as far as `agent.git` lets it, as for
 [roadmap edits](#editing-a-roadmap). A decided document stays in the list, marked *Accepted, waiting*, *Rejected, waiting*, *Kept,
-waiting* or *Dropped, waiting*, until that branch's pull request is merged; a line above the lists
+waiting* or *Dropped, waiting*, until that branch's pull request is merged; a toast
 says where the decisions wait.
 
 On Jig 0.45.0, a document that origin's default branch already decided says *Decided on origin
@@ -657,7 +660,7 @@ waiting were started — decide it once they have landed. Jig fetches before it 
 sent after the push goes through; one sent too early is refused with Jig's reason.
 
 When Jig refuses, it writes none of the decisions it was sent: every decision queued is given back,
-with its buttons, and a line above the lists says why, naming the document Jig stopped at and how
+with its buttons, and a toast says why, naming the document Jig stopped at and how
 many decisions are back. Jig refuses when:
 
 - `agent.git` is `none` (Jig's default) in your clone: choose a level in the project's **Settings**.
@@ -669,7 +672,7 @@ many decisions are back. Jig refuses when:
 - the project changed since you saw the knowledge: it is read again; decide again on it as it is now.
 
 A Jig newer than this Jig UI may answer in a form it does not read. Then Jig may have written the
-decisions it was sent, so the line says that, not that Jig wrote none, and asks you to update Jig UI:
+decisions it was sent, so the toast says that, not that Jig wrote none, and asks you to update Jig UI:
 the knowledge read after it shows what Jig wrote, and what it did not is back for you to decide.
 
 ## Task details
@@ -716,7 +719,7 @@ them:
   one its epic gives it stays. **Add…** makes it wait for another live task or an open epic, with the
   reason Jig asks for (`jig queue depend`).
 When Jig refuses — somebody did it first, the project changed since you read it, its autopilot run is on —
-the line under the button says why. With an older Jig the page shows only the commands.
+a toast that stays until you close it says why. With an older Jig the page shows only the commands.
 
 <Note>
 A Jig UI that an agent started — from a Claude Code session, say — may be refused every approval as
@@ -796,8 +799,8 @@ now runs on another port: run
   not changed: change that file and commit it, so everyone on the project gets the change.
 
 Jig checks each change itself, against the settings you saw. A value it refuses is not written, and
-the dialog says why in Jig's words. A setting changed since the dialog read them — in a terminal, by
-an agent — is not overwritten: the dialog reads them again and says so.
+a toast says why in Jig's words. A setting changed since the dialog read them — in a terminal, by
+an agent — is not overwritten: the dialog reads them again and a toast says so.
 
 The Telegram token is never shown, only whether it is set. **Clear** removes it; set it with
 `jig notify setup` in a terminal in the project — Jig never takes it on a command line.

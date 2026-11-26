@@ -70,8 +70,9 @@ A project whose Jig is older than the machine's is marked with both versions
 (*0.34.0 → 0.35.0 on this machine*) and counted in a line above the projects; `web/lib/upgrade.ts`
 decides both. Its **Upgrade…** opens a dialog (`web/components/UpgradePanel.vue`, adr-20261125-the-page-opens-tasks-and-questions-over-the-board): Jig's
 dry run — the reasons it would not start, or the steps by hand and **Upgrade**; closing it is Cancel. The run and its
-result, worded by `web/lib/upgrade.ts`, stay on the card until **Dismiss**; beside it, a request to copy for the
-person's agent (adr-20261027-upgrading-a-project-runs-in-the-background).
+result, worded by `web/lib/upgrade.ts`, are a toast that stays when the run needs a look, until closed, which is the Dismiss; its **Steps** open a
+dialog with the steps by hand and a request to copy for the person's agent (adr-20261027-upgrading-a-project-runs-in-the-background,
+adr-20261126-every-press-reports-in-a-toast).
 
 ## Why
 

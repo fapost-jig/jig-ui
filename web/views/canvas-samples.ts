@@ -721,6 +721,7 @@ export const settingStates: {
   label: string;
   settings?: Settings;
   pending?: string;
+  /** What came of the last change: a toast, which the canvas raises when the state is opened. */
   notice?: string;
 }[] = [
   { label: 'ready', settings: readSettings },

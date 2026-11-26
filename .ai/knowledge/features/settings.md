@@ -56,10 +56,10 @@ Each key carries Jig's description and where its value comes from (`sourceLine`)
 - **A list is shown, not edited:** no key of the person's own takes one in Jig 0.40.0.
 - **Every change ends in a new read.** Refused, stale or written, the dialog reads the settings
   again and shows what is now true; a stale revision is said ("The settings changed since they were
-  shown…"), never retried. A field's unsaved text is dropped with that read; the notice quotes the
+  shown…"), never retried. A field's unsaved text is dropped with that read; the notice, a toast, quotes the
   refused value.
-- The notice stays at the dialog's top edge while it scrolls: a change is made deep in a long list,
-  and a notice at the top of the content went unseen (browser check, task `settings-dialog`).
+- The notice is a toast, not a line in the dialog: a change is made deep in a long list, and a notice at the top of the
+  content went unseen (browser check, task `settings-dialog`; adr-20261126-every-press-reports-in-a-toast).
 - A key with no value reads `not set`, never `none`: `none` is one of `agent.git`'s levels.
 - A choice with no value is given `null`, never `undefined`: given `undefined`, Reka's Select keeps
   a value of its own and went on showing a pick Jig had refused (review of task `settings-dialog`).

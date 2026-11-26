@@ -1,7 +1,6 @@
 <script setup lang="ts">
   import { computed, onUnmounted, ref, watch } from 'vue';
   import { useRouter } from 'vue-router';
-  import { toast } from 'vue-sonner';
   import { Bell, BellDot, ExternalLink, Loader2, Settings, Unplug } from '@lucide/vue';
   import { link, type PrStatus, type Project } from '@/api';
   import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@
   import { whoMerges } from '@/lib/pr-status';
   import { type ClosingState, closableTask, type HousekeepingState, type RefreshState } from '@/lib/projects';
   import { staleFetch } from '@/lib/refresh';
+  import { reporter } from '@/lib/report';
   import { type AckState, bellOf, listed } from '@/lib/staging';
   import { toneRule, toneText } from '@/lib/tones';
   import { mergeWaitOf, needsUpgrade, type PlanState, upgradeMark } from '@/lib/upgrade';
@@ -20,6 +20,8 @@
 
   const props = defineProps<{
     project: Project;
+    /** Check merge is being asked, before the run shows on the card. */
+    checking?: boolean;
     /** The upgrade panel before a run, when it is open. */
     plan?: PlanState;
     /** A self-update or Upgrade all is under way: no upgrade starts from the card meanwhile. */
@@ -111,30 +113,24 @@
   const router = useRouter();
 
   /** What Jig did with a write from an item, as a toast: done goes by itself; refused stays until closed, and offers the Board where only it lands. */
+  const writing = reporter(`write:${props.project.id}`, () => emit('dismissClose'));
   watch(
     () => props.closing,
     (closing) => {
-      if (!closing || closing.state === 'running') return;
-      const id = `write:${props.project.id}:${closing.task}`;
-      const gone = () => emit('dismissClose');
-      if (closing.state === 'done') {
-        toast.success(closing.message, { id, duration: 8000, onDismiss: gone, onAutoClose: gone });
-        return;
-      }
-      toast.error(closing.message, {
-        id,
-        duration: Infinity,
-        onDismiss: gone,
-        action: closing.board ? { label: 'Land it from the Board', onClick: () => void router.push(board.value) } : undefined,
+      if (!closing) return writing.clear();
+      if (closing.state === 'running') return;
+      if (closing.state === 'done') return writing.show({ kind: 'success', title: closing.message });
+      writing.show({
+        kind: 'error',
+        title: closing.message,
+        action: closing.board ? { label: 'Land it from the Board', run: () => void router.push(board.value) } : undefined,
       });
     },
     { immediate: true },
   );
 
   // A write's toast goes with its card: another project shown, or the workspace left.
-  onUnmounted(() => {
-    if (props.closing) toast.dismiss(`write:${props.project.id}:${props.closing.task}`);
-  });
+  onUnmounted(writing.clear);
 </script>
 
 <template>
@@ -216,7 +212,9 @@
       >
         Open pull request<ExternalLink class="size-3" />
       </a>
-      <Button v-if="checkable" variant="outline" size="xs" @click="$emit('land')">Check merge</Button>
+      <Button v-if="checkable || checking" variant="outline" size="xs" :disabled="checking" @click="$emit('land')"
+        ><Loader2 v-if="checking" class="animate-spin" />{{ checking ? 'Checking…' : 'Check merge' }}</Button
+      >
     </div>
     <UpgradePanel
       v-if="project.upgrade || plan"

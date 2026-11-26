@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { Loader2 } from '@lucide/vue';
   import { computed } from 'vue';
   import type { MachineJig } from '@/api';
   import { Button } from '@/components/ui/button';
@@ -14,10 +15,8 @@
    */
   const props = defineProps<{
     jig: MachineJig;
-    /** The update is on its way. */
+    /** The update is on its way: its toast says so, and the question closes. Why it failed is a toast the page raises. */
     busy: boolean;
-    /** Why the last update failed, in Jig's words. */
-    refusal?: string[];
   }>();
 
   const open = defineModel<boolean>('open', { required: true });
@@ -34,7 +33,9 @@
     <span title="The Jig installed on this machine">jig {{ jig.installed }}</span>
     <template v-if="newer">
       <span :class="toneText.attention" :title="`Jig ${newer} is released`">{{ newer }} out</span>
-      <Button v-if="jig.updatable" variant="ghost" size="xs" class="font-sans" @click="open = true">Update…</Button>
+      <Button v-if="jig.updatable" variant="ghost" size="xs" class="font-sans" :disabled="busy" @click="open = true"
+        ><Loader2 v-if="busy" class="animate-spin" />{{ busy ? 'Updating…' : 'Update…' }}</Button
+      >
     </template>
     <span v-else-if="jig.latest" title="The newest Jig released">· newest {{ jig.latest }}</span>
   </span>
@@ -47,16 +48,9 @@
           machine upgrades from. No project changes until its own upgrade, which its card then offers.
         </DialogDescription>
       </DialogHeader>
-      <p v-if="busy" role="status" class="text-[13px] text-muted-foreground">Updating Jig on this machine…</p>
-      <div v-else-if="refusal" role="alert" class="text-[13px]" :class="toneText.bad">
-        <p>Jig could not be updated:</p>
-        <ul class="list-disc pl-5">
-          <li v-for="reason in refusal" :key="reason">{{ reason }}</li>
-        </ul>
-      </div>
       <div class="flex justify-end gap-2">
         <Button variant="outline" @click="open = false">Cancel</Button>
-        <Button :disabled="busy" @click="emit('update')">Update Jig on this machine</Button>
+        <Button @click="emit('update')">Update Jig on this machine</Button>
       </div>
     </DialogContent>
   </Dialog>

@@ -57,7 +57,7 @@ task `person-writes`. The design was approved at its gate on 2026-11-18.
   roadmap item** (`drop-item`), **Archive** — sent with the revision of that list's read
   (`web/components/FinishedList.vue`). From Jig 0.46.0 the list holds the archived tasks too (`readFinishedTasks` reads
   `--status archived` as a third run) and the board's count includes them, since the page can bring them back.
-  A drop's note (how far `agent.git` let it go) is the board's notice.
+  A drop's note (how far `agent.git` let it go) is the board's notice. *(Amended by adr-20261126-every-press-reports-in-a-toast, 2026-11-26: the board's notice and the task page's refusals are toasts, no longer worded where the write was made.)*
 - **What a task waits for** is changed in its facts: ✕ beside a dependency of its own, none beside one its epic gives
   it, and **Add…** for another live task or an open epic with the reason Jig asks for
   (`web/components/DependsEditor.vue`), with the revision of the task's board read (`GET …/tasks/:task` now serves it).

@@ -36,7 +36,7 @@ scripts in the project. Decided with the maintainer at the design gate, 2026-10-
   `jig upgrade` writes no Jig state. Every tab and a reload see it; a second run of the same
   project is refused `409 running`.
 - **The result stays until Dismiss** (`DELETE /api/projects/:id/upgrade`) or the next run. A
-  restart of Jig UI forgets it; Jig's item stays.
+  restart of Jig UI forgets it; Jig's item stays. *(Amended by adr-20261126-every-press-reports-in-a-toast, 2026-11-26: the run and its result are a toast; closing it is the Dismiss, and an attention result stays until closed.)*
 - **Jig UI runs no other Jig in the project while it runs** — no read, from the watcher, the
   minute's rescan or a new subscription, and no write: a write is refused `upgrading`, and the run
   starts once a write already under way has ended. A read in the middle could fail or run a

@@ -33,6 +33,7 @@
   import { landed, type OpenDocument, opened } from '@/lib/documents';
   import { lastWins } from '@/lib/last-wins';
   import { reasonsOf, writeRefusal } from '@/lib/refusal';
+  import { reporter } from '@/lib/report';
   import { columnAccent, idAccent, inProgressFill, toneRule } from '@/lib/tones';
   import { agentPrompts } from '@/lib/agent-prompts';
   import { ago } from '@/lib/ago';
@@ -178,14 +179,21 @@
     () => void readGate(),
   );
 
-  /** The part of the page whose write is under way, and the refusal of the last write, where it was made. */
+  /** The part of the page whose write is under way. */
   const busy = ref<'gate' | 'task' | 'depends'>();
-  const refused = ref<{
-    at: 'gate' | 'task' | 'depends';
-    text: string;
-  }>();
+  /** Which press of the gate is on its way. */
+  const gateSending = ref<'approve' | 'answer'>();
 
-  /** Sends one write and says whether Jig made it; a refusal is worded where the write was made. */
+  /** The toast of a part's refusal: one each, replaced by the next write there, and gone with the page. */
+  const refusals = {
+    gate: reporter(`refusal:${props.project}:${props.task}:gate`),
+    task: reporter(`refusal:${props.project}:${props.task}:task`),
+    depends: reporter(`refusal:${props.project}:${props.task}:depends`),
+  };
+
+  onUnmounted(() => Object.values(refusals).forEach((r) => r.clear()));
+
+  /** Sends one write and says whether Jig made it; a refusal is a toast that stays until closed. */
   async function send(
     at: 'gate' | 'task' | 'depends',
     doing: string,
@@ -195,7 +203,7 @@
     }>,
   ): Promise<boolean> {
     busy.value = at;
-    refused.value = undefined;
+    refusals[at].clear();
     const res = await call(request);
     const body =
       res &&
@@ -207,7 +215,9 @@
       });
 
     busy.value = undefined;
-    if (body?.error) refused.value = { at, text: writeRefusal(body.error.code, reasonsOf(body.error), doing, props.task) };
+    if (body?.error) {
+      refusals[at].show({ kind: 'error', title: writeRefusal(body.error.code, reasonsOf(body.error), doing, props.task) });
+    }
     return body?.written === true;
   }
 
@@ -216,6 +226,7 @@
     const revisions = gate.value?.map((d) => d.revision);
     if (!revisions?.every((r) => r !== null)) return;
     const revision = Math.min(...revisions);
+    gateSending.value = 'approve';
     await send('gate', DOING['approve-gate'], () =>
       client.api.projects[':id'].tasks.act.$post({ param: param.value, json: { task: props.task, action: 'approve-gate', revision } }),
     );
@@ -230,6 +241,7 @@
   async function answerDesign(text: string): Promise<void> {
     const revisions = gate.value?.map((d) => d.revision);
     if (!revisions?.every((r) => r !== null)) return;
+    gateSending.value = 'answer';
     const done = await send('gate', DOING['answer-gate'], () => answerGate(props.project, props.task, text, Math.min(...revisions)));
     if (done) gateAnswer.value = '';
     await Promise.all([load(), list(), readGate()]);
@@ -340,7 +352,7 @@
           :answerable="runs.has('answer-gate')"
           :documents="gate"
           :busy="busy === 'gate'"
-          :refusal="refused?.at === 'gate' ? refused.text : undefined"
+          :sending="gateSending"
           @approve="approve"
           @answer="answerDesign"
           @read-again="readGate"
@@ -381,7 +393,6 @@
           :task="task"
           :offers="runs"
           :busy="busy === 'task'"
-          :refusal="refused?.at === 'task' ? refused.text : undefined"
           @abandon="(reason) => putAway('abandon', reason)"
           @archive="putAway('archive')"
         />
@@ -397,7 +408,6 @@
                   :depends-on="details.dependsOn"
                   :candidates="candidates"
                   :busy="busy === 'depends'"
-                  :refusal="refused?.at === 'depends' ? refused.text : undefined"
                   @choose="choose"
                   @add="depend"
                   @remove="undepend"

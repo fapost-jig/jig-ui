@@ -1,8 +1,8 @@
 <script setup lang="ts">
   import { onUnmounted, ref, watch } from 'vue';
-  import { toast } from 'vue-sonner';
   import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
   import type { HousekeepingState, RefreshState } from '@/lib/projects';
+  import { kindOf, reporter } from '@/lib/report';
 
   /**
    * What came of Refresh and Housekeeping in a project, on its card and its page, as toasts in the page's corner: one
@@ -21,48 +21,39 @@
     dismissHousekeeping: [];
   }>();
 
+  const refreshing = reporter(`refresh:${props.project}`, () => emit('dismissRefresh'));
+  const housekeeping_ = reporter(`housekeeping:${props.project}`, () => emit('dismissHousekeeping'));
+
   // The toasts belong to the view that holds the reports: they go with it, a run's spinner included — the report of a
   // run that ends after the view went is not shown.
   onUnmounted(() => {
-    toast.dismiss(`refresh:${props.project}`);
-    toast.dismiss(`housekeeping:${props.project}`);
+    refreshing.clear();
+    housekeeping_.clear();
   });
 
   /** Housekeeping's whole report, open in its dialog. */
   const report = ref<string[]>();
 
-  /** How long a report that went well stays, in ms; one that went wrong stays until closed. */
-  const SHOWN_MS = 8000;
-
   watch(
     () => props.refresh,
     (refresh) => {
-      const id = `refresh:${props.project}`;
-      if (!refresh) return void toast.dismiss(id);
+      if (!refresh) return refreshing.clear();
       if (refresh.state === 'running') {
-        toast.loading(`Running jig refresh in ${props.project}…`, {
-          id,
+        return refreshing.show({
+          kind: 'loading',
+          title: `Running jig refresh in ${props.project}…`,
           description: 'It fetches origin; a dialog for your git credentials may wait for you.',
         });
-
-        return;
       }
-      const gone = () => emit('dismissRefresh');
       if (refresh.state === 'refused') {
-        toast.error(`Refresh of ${props.project} did not run`, { id, description: refresh.message, duration: Infinity, onDismiss: gone });
-        return;
+        return refreshing.show({ kind: 'error', title: `Refresh of ${props.project} did not run`, description: refresh.message });
       }
-      const shown = {
-        id,
+      refreshing.show({
+        kind: kindOf(refresh.tone),
+        title: `Refresh of ${props.project}`,
         description: refresh.lines.join('\n'),
         descriptionClass: 'whitespace-pre-line',
-        onDismiss: gone,
-        onAutoClose: gone,
-      };
-
-      if (refresh.tone === 'bad') toast.error(`Refresh of ${props.project}`, { ...shown, duration: Infinity });
-      else if (refresh.tone === 'attention') toast.warning(`Refresh of ${props.project}`, { ...shown, duration: SHOWN_MS });
-      else toast.success(`Refresh of ${props.project}`, { ...shown, duration: SHOWN_MS });
+      });
     },
     { immediate: true },
   );
@@ -70,36 +61,28 @@
   watch(
     () => props.housekeeping,
     (housekeeping) => {
-      const id = `housekeeping:${props.project}`;
-      if (!housekeeping) return void toast.dismiss(id);
+      if (!housekeeping) return housekeeping_.clear();
       if (housekeeping.state === 'running') {
-        toast.loading(`Running jig housekeeping in ${props.project}…`, {
-          id,
+        return housekeeping_.show({
+          kind: 'loading',
+          title: `Running jig housekeeping in ${props.project}…`,
           description: 'It fetches and asks the forge; a dialog for your git credentials may wait for you.',
         });
-
-        return;
       }
-      const gone = () => emit('dismissHousekeeping');
       if (housekeeping.state === 'done') {
         const lines = housekeeping.report;
-        toast.success(`Housekeeping in ${props.project} is done`, {
-          id,
+        return housekeeping_.show({
+          kind: 'success',
+          title: `Housekeeping in ${props.project} is done`,
           description: housekeeping.summary ?? 'Nothing to change.',
-          duration: SHOWN_MS,
-          onDismiss: gone,
-          onAutoClose: gone,
-          action: lines.length > 0 ? { label: 'Report', onClick: () => (report.value = lines) } : undefined,
+          action: lines.length > 0 ? { label: 'Report', run: () => (report.value = lines) } : undefined,
         });
-
-        return;
       }
-      toast.error(`Housekeeping in ${props.project} did not run`, {
-        id,
+      housekeeping_.show({
+        kind: 'error',
+        title: `Housekeeping in ${props.project} did not run`,
         description: [housekeeping.message, ...housekeeping.reasons.map((r) => `• ${r}`)].join('\n'),
         descriptionClass: 'whitespace-pre-line',
-        duration: Infinity,
-        onDismiss: gone,
       });
     },
     { immediate: true },

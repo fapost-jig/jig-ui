@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { provide } from 'vue';
+  import { reporter } from '@/lib/report';
   import { INLINE_DIALOGS } from '@/lib/inline';
   // The maintainer's page of every component in every variant and state, light and dark side by
   // side. A component added to components/ or components/ui/ gets a section here.
@@ -64,6 +65,7 @@
   import { specsOf } from '@/lib/sift';
   import { itemStanding } from '@/lib/specs';
   import { columnAccent, laneAccent, toneRule, toneText } from '@/lib/tones';
+  import UpgradeAllDialog from '@/components/UpgradeAllDialog.vue';
   import UpgradePanel from '@/components/UpgradePanel.vue';
   import CanvasSection from './CanvasSection.vue';
   import {
@@ -150,6 +152,13 @@
   const tones = ['attention', 'good', 'bad', 'quiet'] as const;
   /** The settings dialog's state open on the canvas: a dialog covers the page, so one at a time. */
   const settingsOpen = ref<(typeof settingStates)[number]>();
+  const settingsReport = reporter('canvas-settings');
+  function openSetting(state: (typeof settingStates)[number]): void {
+    settingsOpen.value = state;
+    if (state.notice) settingsReport.show({ kind: 'error', title: state.notice });
+    else settingsReport.clear();
+  }
+
   /** The File task… dialog's state open on the canvas. */
   const filingStates = [
     { label: 'a new task', busy: false },
@@ -401,7 +410,7 @@
 
     <CanvasSection
       title="StagingWork"
-      note="opened from the bell beside a project's name: the person's own commits on staging, all of them; Jig's newest 20 of 34; Mark as known under way; refused, the list changed since the read; refused with Jig's reasons"
+      note="opened from the bell beside a project's name: the person's own commits on staging, all of them; Jig's newest 20 of 34; Mark as known under way; refused, the list changed since the read, and refused with Jig's reasons — each a toast that stays until closed"
     >
       <StagingWork project="parcel-desk" :staging="ownStaging" />
       <StagingWork project="parcel-desk" :staging="manyOnStaging" />
@@ -412,7 +421,7 @@
         :ack="{ state: 'refused', message: 'Your work on staging changed since the card was read: look at the list again.', reasons: [] }"
       />
       <StagingWork
-        project="parcel-desk"
+        project="parcel-desk-2"
         :staging="ownStaging"
         :ack="{
           state: 'refused',
@@ -424,10 +433,18 @@
 
     <CanvasSection
       title="UpgradePanel"
-      note="on a card: reading the dry run; the plan, with steps by hand; a stop; a refusal; under way; merged, with steps by hand, staged, nothing to do; not started; failed"
+      note="on a card: reading the dry run; the plan, with steps by hand; a stop; a refusal; then each run as its toast — under way with a spinner; merged, with its Open pull request action; with steps by hand, whose Steps action opens them in a dialog (drawn in place here); staged, nothing to do; not started; failed, which stays until closed"
     >
       <UpgradePanel v-for="(plan, i) in plans" :key="`plan-${i}`" project="legacy-shop" :run="null" :plan="plan" />
-      <UpgradePanel v-for="(run, i) in runs" :key="`run-${i}`" project="legacy-shop" :run="run" :plan="undefined" />
+      <UpgradePanel v-for="(run, i) in runs" :key="`run-${i}`" :project="`legacy-shop-${i}`" :run="run" :plan="undefined" />
+    </CanvasSection>
+
+    <CanvasSection
+      title="UpgradeAllDialog"
+      note="the question before Upgrade all, drawn in place (a dialog on the page): with this machine's Jig updated first, and without; its run and end are toasts"
+    >
+      <UpgradeAllDialog :self-update="true" :projects="['legacy-shop', 'parcel-desk']" />
+      <UpgradeAllDialog :self-update="false" :projects="['legacy-shop']" />
     </CanvasSection>
 
     <CanvasSection
@@ -460,20 +477,15 @@
       />
     </CanvasSection>
 
-    <CanvasSection title="ConnectForm" note="idle, busy, finding, refused">
+    <CanvasSection title="ConnectForm" note="idle, busy, finding; a refusal is a toast">
       <ConnectForm :busy="false" />
       <ConnectForm :busy="true" model-value="/Users/me/project" />
       <ConnectForm :busy="false" :finding="true" model-value="~/code" />
-      <ConnectForm
-        :busy="false"
-        model-value="/Users/me/project/.claude/worktrees/x"
-        refusal="That is a worktree. Connect the main checkout instead."
-      />
     </CanvasSection>
 
     <CanvasSection
       title="FoundProjects"
-      note="found, one connecting; one refused; nothing to connect, folders skipped, stopped at the limit"
+      note="found, one connecting; a refusal is a toast; nothing to connect, folders skipped, stopped at the limit"
     >
       <FoundProjects
         :result="{ folder: '~', found: [{ path: '~/code/api' }, { path: '~/work/api' }], connected: 1, skipped: [], stopped: false }"
@@ -486,10 +498,6 @@
           connected: 0,
           skipped: [],
           stopped: false,
-        }"
-        :refusal="{
-          path: '~/code/a-really-long-folder-name/with/a-project-deep-inside',
-          message: 'There is no Jig in this repository. Run jig init in it first.',
         }"
       />
       <FoundProjects :result="{ folder: '~', found: [], connected: 2, skipped: ['Desktop', 'Documents', 'Downloads'], stopped: true }" />
@@ -626,7 +634,7 @@
 
     <CanvasSection
       title="ChoreReports"
-      note="Refresh and Housekeeping on a project's page and card: under way, what came of each, and why one did not run, each with Dismiss"
+      note="Refresh and Housekeeping on a project's page and card, as toasts: under way, what came of each, and why one did not run; closing a toast dismisses its report"
     >
       <div class="flex w-[28rem] flex-col gap-3">
         <ChoreReports v-for="(run, i) in refreshRuns" :key="`refresh-${i}`" project="jig-ui" :refresh="run" />
@@ -821,7 +829,7 @@
 
     <CanvasSection
       title="GateApproval"
-      note="the design as written, with Approve; a T4's spec and alternatives first; being read; one Jig could not read; approving; refused"
+      note="the design as written, with Approve; a T4's spec and alternatives first; being read; one Jig could not read; approving; a refusal is a toast, as on the task's page"
     >
       <GateApproval :documents="[{ kind: 'design', content: openDocument.state === 'ready' ? openDocument.content : '' }]" :busy="false" />
       <GateApproval
@@ -835,21 +843,21 @@
       <GateApproval :busy="false" />
       <GateApproval :documents="[{ kind: 'design', content: null }]" :busy="false" />
       <GateApproval :documents="[{ kind: 'design', content: '# Design' }]" busy />
-      <GateApproval
-        :documents="[{ kind: 'design', content: '# Design' }]"
-        :busy="false"
-        refusal="The project changed while you were approving the design of design-system. Look at it again as it is now."
-      />
     </CanvasSection>
 
-    <CanvasSection title="TaskWrites" note="abandon and archive offered; abandon only; archiving; refused">
+    <CanvasSection
+      title="TaskWrites"
+      note="abandon and archive offered; abandon only; archiving; a refusal is a toast, as on the task's page"
+    >
       <TaskWrites task="design-system" :offers="new Set(['abandon', 'archive'])" :busy="false" />
       <TaskWrites task="design-system" :offers="new Set(['abandon'])" :busy="false" />
       <TaskWrites task="design-system" :offers="new Set(['archive'])" busy />
-      <TaskWrites task="design-system" :offers="new Set(['abandon'])" :busy="false" refusal="Somebody archived design-system first." />
     </CanvasSection>
 
-    <CanvasSection title="DependsEditor" note="its own dependency with a remove, one through its epic without; none; busy; refused">
+    <CanvasSection
+      title="DependsEditor"
+      note="its own dependency with a remove, one through its epic without; none; busy; a refusal is a toast, as on the task's page"
+    >
       <DependsEditor
         task="pause-request"
         :depends-on="details[0]!.dependsOn"
@@ -858,12 +866,6 @@
       />
       <DependsEditor task="registry-schema" :depends-on="[]" :busy="false" />
       <DependsEditor task="pause-request" :depends-on="details[0]!.dependsOn" busy />
-      <DependsEditor
-        task="pause-request"
-        :depends-on="[]"
-        :busy="false"
-        refusal="Jig refused adding a dependency to pause-request: the dependency would close a cycle."
-      />
     </CanvasSection>
 
     <CanvasSection title="CopyButton" note="copy; copy id">
@@ -922,10 +924,10 @@
 
     <CanvasSection
       title="SettingsDialog"
-      note="open one: the person's keys of each kind and the project's; saving; a refusal; reading; an old Jig; unreadable"
+      note="open one: the person's keys of each kind and the project's; saving; a refusal, which raises its toast; reading; an old Jig; unreadable"
     >
       <div class="flex flex-wrap gap-2">
-        <Button v-for="state in settingStates" :key="state.label" variant="outline" size="xs" @click="settingsOpen = state">{{
+        <Button v-for="state in settingStates" :key="state.label" variant="outline" size="xs" @click="openSetting(state)">{{
           state.label
         }}</Button>
       </div>
@@ -936,7 +938,6 @@
       project="jig-ui"
       :settings="settingsOpen.settings"
       :pending="settingsOpen.pending"
-      :notice="settingsOpen.notice"
       @update:open="settingsOpen = undefined"
     />
 

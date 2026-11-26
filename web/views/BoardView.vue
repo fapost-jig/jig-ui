@@ -1,7 +1,7 @@
 <script setup lang="ts">
-  import { toast } from 'vue-sonner';
+  import { kindOf, reporter } from '@/lib/report';
   import ReadingLine from '@/components/ReadingLine.vue';
-  import { BookCheck, Columns3, ExternalLink, Loader2, Milestone, Plus, RotateCw, Rows3 } from '@lucide/vue';
+  import { BookCheck, Columns3, Loader2, Milestone, Plus, RotateCw, Rows3 } from '@lucide/vue';
   import { computed, onUnmounted, type Ref, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
@@ -275,19 +275,51 @@
   /**
    * The task whose change is on its way to Jig, and what the last change came to when Jig refused it — with the cards
    * that changed since it was made, when the refusal was a stale revision — or, for a step on the staging flow, what Jig
-   * did, with its pull request's link, and one press that follows from it. Dismissing it, or the next change, clears both.
+   * did, with its pull request's link, and one press that follows from it. What came of a change is a toast: a success
+   * goes by itself, a refusal stays until closed; the next change, or closing the toast, clears the cards it marked.
    */
   const pending = ref<string>();
   interface Notice {
     text: string;
-    changed: string[];
     url?: string;
     action?: {
       label: string;
       run: () => void;
     };
   }
-  const notice = ref<Notice>();
+
+  /** The cards that changed since a change was made, marked until the toast is closed or the next change. */
+  const changed = ref<string[]>([]);
+  /** What came of the last change: a toast, closed by the person or by itself it clears the cards it marked. */
+  const noticed = reporter('board-notice', () => (changed.value = []));
+
+  /** Clears what the last change said: its toast and the cards it marked. */
+  function unsay(): void {
+    changed.value = [];
+    noticed.clear();
+  }
+
+  /** What came of a change, as the board's one toast: its pull request or its follow-up press as the toast's action. */
+  function tell(notice: Notice, tone: 'good' | 'attention' | 'bad', seen: string[] = []): void {
+    changed.value = seen;
+    const url = notice.url;
+    noticed.show({
+      kind: kindOf(tone),
+      title: notice.text,
+      action: notice.action
+        ? { label: notice.action.label, run: () => notice.action?.run() }
+        : url
+          ? { label: 'Open pull request', run: () => void window.open(url, '_blank', 'noopener') }
+          : undefined,
+    });
+  }
+
+  // The toast belongs to the board: it goes with it, or with the project shown.
+  watch(() => props.id, unsay);
+  onUnmounted(noticed.clear);
+  /** What came of a write on a finished task, above its dialog. */
+  const finishedReport = reporter('finished-write');
+  onUnmounted(finishedReport.clear);
 
   /**
    * Sends one change with the revision of the board it was made on, then reads the board again whatever came of it:
@@ -298,12 +330,12 @@
     task: string,
     doing: string,
     send: (revision: number) => Promise<Written | Staged>,
-    explain?: (code: string, reasons: string[]) => string | Omit<Notice, 'changed'> | undefined,
+    explain?: (code: string, reasons: string[]) => string | Notice | undefined,
   ) {
     const shown = board.value;
     if (typeof shown !== 'object' || shown.state !== 'ready' || pending.value !== undefined) return undefined;
     pending.value = task;
-    notice.value = undefined;
+    unsay();
     const res = await call(() => send(shown.revision));
     const body = res && (await res.json());
     const error = body && 'error' in body ? body.error : undefined;
@@ -312,13 +344,16 @@
     const read = await load();
     if (code === 'stale-revision') {
       const seen = typeof read === 'object' && read.state === 'ready' ? conflict(shown.columns, read.columns, task) : undefined;
-      notice.value = {
-        text: `The project changed while you were ${doing} ${task}${seen ? ` — ${seen.said}` : ''}. Try again on the board as it is now.`,
-        changed: seen?.changed ?? [],
-      };
+      tell(
+        {
+          text: `The project changed while you were ${doing} ${task}${seen ? ` — ${seen.said}` : ''}. Try again on the board as it is now.`,
+        },
+        'attention',
+        seen?.changed ?? [],
+      );
     } else if (error !== undefined) {
       const explained = explain?.(error.code, reasonsOf(error)) ?? refusal(error.code, doing, task);
-      notice.value = typeof explained === 'string' ? { text: explained, changed: [] } : { ...explained, changed: [] };
+      tell(typeof explained === 'string' ? { text: explained } : explained, 'bad');
     }
     pending.value = undefined;
     return error === undefined ? body : undefined;
@@ -351,7 +386,7 @@
 
   /**
    * Lands a task's pull request on staging as the person. Jig refuses one not approved, naming whom it waits for; the
-   * notice then offers to land it without review — the same write, which Jig says so on the pull request.
+   * toast then offers to land it without review — the same write, which Jig says so on the pull request.
    */
   async function land(task: string, withoutReview = false): Promise<void> {
     const body = await write(
@@ -364,10 +399,10 @@
       }),
     );
 
-    if (body && 'landed' in body) notice.value = { text: landedLine(task, body.landed), changed: [] };
+    if (body && 'landed' in body) tell({ text: landedLine(task, body.landed) }, 'good');
   }
 
-  /** Prepares a task tested on staging for prod, once asked on its card: the notice links its pull request into the base. */
+  /** Prepares a task tested on staging for prod, once asked on its card: the toast links its pull request into the base. */
   async function promote(task: string): Promise<void> {
     const body = await write(
       task,
@@ -377,13 +412,13 @@
     );
 
     if (body && 'promoted' in body) {
-      notice.value = { text: promotedLine(task, body.promoted), changed: [], url: link(body.promoted.pullRequest) };
+      tell({ text: promotedLine(task, body.promoted), url: link(body.promoted.pullRequest) }, 'good');
     }
   }
 
   /**
-   * Merges a task's pull request into its base, once asked on its card: the notice says whether the task closed with it.
-   * Where Jig refused and the pull request is still open, the notice offers where it stands.
+   * Merges a task's pull request into its base, once asked on its card: the toast says whether the task closed with it.
+   * Where Jig refused and the pull request is still open, the toast offers where it stands.
    */
   async function merge(task: string): Promise<void> {
     const body = await write(
@@ -396,7 +431,7 @@
       }),
     );
 
-    if (body && 'merged' in body) notice.value = { text: mergedLine(task, body.merged), changed: [], url: link(body.merged.pullRequest) };
+    if (body && 'merged' in body) tell({ text: mergedLine(task, body.merged), url: link(body.merged.pullRequest) }, 'good');
   }
 
   /** The card whose pull request's status is open, one at a time, and the forge's answer once read. */
@@ -467,7 +502,7 @@
     );
 
     reviewing.value = undefined;
-    if (body && 'requested' in body) notice.value = { text: requestedLine(task, body.requested), changed: [] };
+    if (body && 'requested' in body) tell({ text: requestedLine(task, body.requested) }, 'good');
   }
 
   /** A step a card's menu took on its pull request. */
@@ -490,17 +525,17 @@
     const shown = finished.value;
     if (shown?.state !== 'ready' || pending.value !== undefined) return;
     pending.value = task;
-    notice.value = undefined;
+    unsay();
     const res = await call(() =>
       client.api.projects[':id'].tasks.act.$post({ param, json: { task, action: write, revision: shown.revision } }),
     );
 
     const body = res && (await res.json());
     await Promise.all([loadFinished(), load()]);
-    // The finished tasks are a dialog over the board: what Jig said goes in a toast, above it, not the board's notice.
+    // The finished tasks are a dialog over the board: what Jig said goes in a toast, above it, not the board's one.
     if (body && 'error' in body)
-      toast.error(writeRefusal(body.error.code, reasonsOf(body.error), DOING[write], task), { duration: Infinity });
-    else if (body && 'note' in body && body.note) toast.success(body.note);
+      finishedReport.show({ kind: 'error', title: writeRefusal(body.error.code, reasonsOf(body.error), DOING[write], task) });
+    else if (body && 'note' in body && body.note) finishedReport.show({ kind: 'success', title: body.note });
     pending.value = undefined;
   }
 
@@ -549,7 +584,7 @@
     chooseSpec(spec);
   }
 
-  /** The spec whose epic's or roadmap's change is on its way to Jig; the notice says what Jig refused, as for a task. */
+  /** The spec whose epic's or roadmap's change is on its way to Jig; the toast says what Jig refused, as for a task. */
   const pendingSpec = ref<string>();
 
   /** Sends one change of an epic with the revision of the specs it was made on, then reads them again. */
@@ -557,16 +592,13 @@
     const shown = specs.value;
     if (typeof shown !== 'object' || shown.state !== 'ready' || pendingSpec.value !== undefined) return;
     pendingSpec.value = epic;
-    notice.value = undefined;
+    unsay();
     const res = await call(() => send(shown.revision));
     const code = res && res.status !== 200 ? (await res.json()).error.code : undefined;
     await loadSpecs();
     if (code === 'stale-revision') {
-      notice.value = {
-        text: `The project changed while you were ${doing} epic ${epic}. Try again on the specs as they are now.`,
-        changed: [],
-      };
-    } else if (code !== undefined) notice.value = { text: refusal(code, doing, `epic ${epic}`), changed: [] };
+      tell({ text: `The project changed while you were ${doing} epic ${epic}. Try again on the specs as they are now.` }, 'attention');
+    } else if (code !== undefined) tell({ text: refusal(code, doing, `epic ${epic}`) }, 'bad');
     pendingSpec.value = undefined;
   }
 
@@ -600,7 +632,7 @@
     const shown = specs.value;
     if (typeof shown !== 'object' || shown.state !== 'ready' || pendingSpec.value !== undefined) return undefined;
     pendingSpec.value = spec;
-    notice.value = undefined;
+    unsay();
     const res = await call(() => send(shown.revision));
     const body = res && (await res.json());
     await Promise.all([loadSpecs(), load()]);
@@ -628,7 +660,7 @@
     taken: boolean;
   };
 
-  /** An edit made on the card: what came of it goes to the notice. */
+  /** An edit made on the card: what came of it goes to the toast. */
   async function edit(
     spec: string,
     doing: string,
@@ -636,7 +668,8 @@
     explain?: (refused: Refused) => string | undefined,
   ) {
     const outcome = await editRoadmap(spec, doing, send, explain);
-    if (outcome?.text) notice.value = { text: outcome.text, changed: [] };
+    if (outcome?.text)
+      tell({ text: outcome.text }, outcome.code === undefined ? 'good' : outcome.code === 'stale-revision' ? 'attention' : 'bad');
   }
 
   const addItem = (spec: string, phase: number, text: string) =>
@@ -680,7 +713,7 @@
     if (!outcome || filingItem.value !== shown) return;
     if (outcome.code === undefined) {
       filingItem.value = undefined;
-      if (outcome.text) notice.value = { text: outcome.text, changed: [] };
+      if (outcome.text) tell({ text: outcome.text }, 'good');
     } else shown.refusal = { text: outcome.text ?? '', taken: outcome.taken === true };
   }
 
@@ -807,13 +840,13 @@
 
   /**
    * Sends decisions as one write with the revision of the knowledge shown — the read after the previous write —, then
-   * reads the knowledge again whatever came of it; Jig's note, or why it refused, goes to the notice. Answers whether
+   * reads the knowledge again whatever came of it; Jig's note, or why it refused, goes to the toast. Answers whether
    * Jig wrote them: a project no longer ready writes nothing, and the knowledge read again shows its state.
    */
   async function send(decisions: DocumentDecision[]): Promise<boolean> {
     const shown = knowledge.value;
     if (typeof shown !== 'object' || shown.state !== 'ready') return false;
-    notice.value = undefined;
+    unsay();
     const res = await call(() =>
       client.api.projects[':id'].knowledge.decide.$post({ param, json: { decisions, revision: shown.revision } }),
     );
@@ -825,7 +858,7 @@
     if (read !== undefined && newer(read, knowledge.value)) showKnowledge(read);
     if (!body) return false;
     if ('written' in body) {
-      if (body.note) notice.value = { text: body.note, changed: [] };
+      if (body.note) tell({ text: body.note }, 'good');
       return true;
     }
     if (!('error' in body)) return false;
@@ -833,7 +866,7 @@
     const reasons = reasonsOf(body.error);
     const doc = 'doc' in body.error && typeof body.error.doc === 'string' ? body.error.doc : null;
     // Given back: this write's decisions and every one queued behind it.
-    notice.value = { text: knowledgeRefusal(code, reasons, doc, decisions.length + deciding.queued.value.size), changed: [] };
+    tell({ text: knowledgeRefusal(code, reasons, doc, decisions.length + deciding.queued.value.size) }, 'bad');
     return false;
   }
 
@@ -961,23 +994,6 @@
       class="shrink-0"
     />
 
-    <p v-if="notice" role="status" class="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-[13px]" :class="toneText.attention">
-      {{ notice.text }}
-      <a
-        v-if="notice.url"
-        :href="notice.url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex shrink-0 items-center gap-1 underline underline-offset-2"
-      >
-        open<ExternalLink class="size-3" />
-      </a>
-      <Button v-if="notice.action" variant="outline" size="xs" class="shrink-0 text-foreground" @click="notice.action.run()">
-        {{ notice.action.label }}
-      </Button>
-      <button type="button" class="ml-auto underline underline-offset-2" @click="notice = undefined">dismiss</button>
-    </p>
-
     <ReadingLine v-if="board === undefined" class="p-4">Reading the board…</ReadingLine>
     <p v-else-if="board === 'not-connected'" role="alert" class="p-4 text-destructive">No connected project is called {{ id }}.</p>
     <p v-else-if="board.state !== 'ready'" class="p-4"><StateLine :project="board" :reading="reading" @read-again="reread" /></p>
@@ -991,7 +1007,7 @@
       :selected="selected"
       :details="details"
       :pending="pending"
-      :changed="notice?.changed"
+      :changed="changed"
       :specs="specIds"
       :reviewing="reviewing"
       :pr-status="prStatus"
@@ -1084,7 +1100,7 @@
       :selected="selected"
       :details="details"
       :pending="pending"
-      :changed="notice?.changed"
+      :changed="changed"
       :specs="specIds"
       :reviewing="reviewing"
       :pr-status="prStatus"
