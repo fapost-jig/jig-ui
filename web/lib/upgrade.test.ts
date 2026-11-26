@@ -148,6 +148,11 @@ describe('upgradeResult', () => {
     expect(upgradeResult(run)).toMatchObject({ text, tone, url });
   });
 
+  it('asks for a look when a merged upgrade leaves steps by hand, and not without them', () => {
+    expect(upgradeResult(done('upgraded', { git: { ...git, merged: true }, manualSteps: ['Restart your agent.'] })).tone).toBe('attention');
+    expect(upgradeResult(done('upgraded', { git: { ...git, merged: true }, manualSteps: [] })).tone).toBe('good');
+  });
+
   it('carries the steps the release asks for by hand', () => {
     expect(upgradeResult(done('upgraded', { git, manualSteps: ['Restart your agent.'] })).steps).toEqual(['Restart your agent.']);
   });
