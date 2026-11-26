@@ -89,8 +89,7 @@
         <!-- The key, or the whole id broken at its hyphens, in the id's accent; copying it beside it. -->
         <span class="flex min-w-0 flex-1 items-center gap-0.5">
           <span v-if="key" class="font-mono text-xs font-medium whitespace-nowrap" :class="idAccent" :title="task.id">
-            <span aria-hidden="true">{{ key }}</span
-            ><span class="sr-only">{{ task.id }}</span>
+            <span aria-hidden="true">{{ key }}</span><span class="sr-only">{{ task.id }}</span>
           </span>
           <span v-else class="min-w-0 font-mono text-xs font-medium break-words" :class="idAccent">{{ task.id }}</span>
           <CopyButton :text="task.id" icon class="shrink-0 text-muted-foreground" />

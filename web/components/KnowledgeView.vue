@@ -110,8 +110,7 @@
 <template>
   <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-5">
     <p v-if="knowledge.waiting" class="text-[13px]" :class="toneText.attention">
-      Decisions wait on <code>{{ knowledge.waiting.branch }}</code> for <code>{{ knowledge.waiting.base }}</code
-      >:
+      Decisions wait on <code>{{ knowledge.waiting.branch }}</code> for <code>{{ knowledge.waiting.base }}</code>:
       <a
         v-if="link(knowledge.waiting.pr)"
         :href="link(knowledge.waiting.pr)"
@@ -120,8 +119,7 @@
         class="inline-flex items-center gap-1 underline underline-offset-2"
         >pull request<ExternalLink class="size-3"
       /></a>
-      <template v-else>{{ waitingState(knowledge.waiting) }}</template
-      >. The knowledge below is as it is here, with what waits there marked.
+      <template v-else>{{ waitingState(knowledge.waiting) }}</template>. The knowledge below is as it is here, with what waits there marked.
     </p>
 
     <GroupPanel v-if="knowledge.proposals.length > 0" aria-labelledby="proposed">
@@ -255,8 +253,7 @@
       <div class="flex flex-col gap-2">
         <div v-for="part in openText.parts" :key="part.path" class="flex min-w-0 flex-col gap-1">
           <p v-if="!part.first" class="text-muted-foreground">
-            <code>{{ part.path }}</code
-            >, as it is now:
+            <code>{{ part.path }}</code>, as it is now:
           </p>
           <p v-if="part.lossy" class="text-[13px]" :class="toneText.attention">{{ LOSSY }}</p>
           <!-- eslint-disable-next-line vue/no-v-html -- cleaned by DOMPurify in lib/markdown.ts -->

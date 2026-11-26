@@ -102,8 +102,7 @@
         <ThemeToggle />
       </ProjectSwitcher>
       <p v-if="newer" class="shrink-0 border-b px-4 py-2 text-[13px]" :class="toneText.attention">
-        Jig UI {{ newer.version }} is out. To update, run <code>{{ newer.stop }}</code
-        >, then start Jig UI again.
+        Jig UI {{ newer.version }} is out. To update, run <code>{{ newer.stop }}</code>, then start Jig UI again.
       </p>
       <main class="min-h-0 flex-1 overflow-auto">
         <!-- Keyed on the path: a view reads once when it mounts, so a new path mounts it again; the workspace's
