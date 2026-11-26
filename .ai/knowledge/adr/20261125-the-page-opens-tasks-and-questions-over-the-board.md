@@ -98,5 +98,5 @@ with their results and errors, "давай добавим кнопку прин�
 - The id, the spec, P and T are found by colour across the board, the list and the page.
 - A long Housekeeping report no longer fills a toast; the toast is a summary and the report a press away. When Jig's
   report changes its words, the summary says less — never wrong numbers on the page.
-- A report of a run that ends after its view went is not shown; the next read shows what it did.
+- A report of a run that ends after its view went is not shown; the next read shows what it did. *(Amended by task `ui-improvements-nits`, 2026-11-26: a run still under way when another project is shown is kept, and reports when its project is shown again; a finished report is dropped on leaving, `WorkspaceView.vue`.)*
 - The page needs its server to answer its paths: a static host of `dist/web` alone would not.

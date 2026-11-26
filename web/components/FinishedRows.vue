@@ -7,7 +7,7 @@
   import { Button } from '@/components/ui/button';
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
   import { FINISHED_WRITES, finished, latestFirst, noFinished } from '@/lib/finished';
-  import { endingAccent, idAccent } from '@/lib/tones';
+  import { endingChip, idAccent } from '@/lib/tones';
 
   /**
    * The finished tasks Jig still keeps, the latest first, one line a task — its id, how it ended, its goal, its pull
@@ -50,7 +50,7 @@
       class="grid grid-cols-[minmax(0,13rem)_5.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-2 last:border-b-0 sm:grid-cols-[minmax(0,13rem)_5.5rem_minmax(0,1fr)_7rem_5.5rem_auto]"
     >
       <span class="truncate font-mono text-xs font-medium" :class="idAccent" :title="task.id">{{ task.id }}</span>
-      <Badge class="w-fit border-transparent font-semibold" :class="endingAccent[word] ?? endingAccent.archived">{{ word }}</Badge>
+      <Badge class="w-fit border-transparent font-semibold" :class="endingChip(word)">{{ word }}</Badge>
       <span class="min-w-0 truncate text-[13px] text-foreground/80" :title="task.goal ?? undefined">{{ task.goal }}</span>
       <span class="hidden min-w-0 sm:block">
         <template v-if="pr">

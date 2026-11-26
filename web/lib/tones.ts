@@ -67,6 +67,9 @@ export const endingAccent: Record<string, string> = {
   archived: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
 };
 
+/** The chip of how a finished task ended; an ending this page does not know is shown as archived. */
+export const endingChip = (word: string): string => endingAccent[word] ?? endingAccent.archived!;
+
 /** Each column's accent, by the column ids the board API sends; an id this page does not know gets none. */
 export const columnAccent: Record<string, string> = {
   'needs-you': 'bg-amber-500',

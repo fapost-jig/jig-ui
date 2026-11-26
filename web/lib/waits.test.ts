@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../api';
-import { pullRequests, requested, waits } from './waits';
+import { cardNote, parseRef, pullRequests, requested, waits } from './waits';
 
 const task = (more: Partial<Task> = {}): Task => ({
   id: 't',
@@ -55,6 +55,11 @@ describe('waits', () => {
     ['nothing to say', {}, undefined],
     ['a design waiting at its gate', { gate: 'waiting' }, { text: 'Design waits at its gate', tone: 'attention', icon: 'gate' }],
     ['a design changed after approval', { gate: 'changed' }, { text: 'Design changed after approval', tone: 'attention', icon: 'gate' }],
+    [
+      'a gate answered from the board',
+      { gate: 'answered' },
+      { text: 'Gate answered; waits for the design to be reworked', tone: 'quiet', icon: 'gate' },
+    ],
     ['a stopped autopilot run', { autopilot: 'stopped' }, { text: 'Autopilot stopped with a question', tone: 'attention', icon: 'ask' }],
     [
       'the gate before the autopilot',
@@ -295,5 +300,22 @@ describe('requested', () => {
     const asked = { pauseRequest: { requestedAt: '2026-10-22T11:48:00Z' } };
     expect(requested(task({ ...asked, gate: 'waiting' }), now)).toBe('Pause requested 12 min ago');
     expect(requested(task({ ...asked, gate: 'waiting' }), now + 60 * 60_000)).toBe('Pause requested 1 h ago');
+  });
+});
+
+describe('parseRef', () => {
+  it('splits a queue reference into its kind and id, an id with a colon whole', () => {
+    expect(parseRef('task:a')).toEqual({ kind: 'task', id: 'a' });
+    expect(parseRef('epic:booking')).toEqual({ kind: 'epic', id: 'booking' });
+    expect(parseRef('epic:a:b')).toEqual({ kind: 'epic', id: 'a:b' });
+  });
+});
+
+describe('cardNote', () => {
+  it('leaves out a note that is only the pull request the footer shows, and keeps any other', () => {
+    const open = task({ pullRequest: pr('open', 'green') });
+    expect(cardNote(open, true)).toBeUndefined();
+    expect(cardNote(open, false)).toMatchObject({ icon: 'pull' });
+    expect(cardNote(task({ gate: 'waiting', pullRequest: pr('open', 'green') }), true)).toMatchObject({ icon: 'gate' });
   });
 });

@@ -30,7 +30,7 @@ which is where the facts are: a card no longer expands and the List has no side 
 (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The page is two thirds the task — id with a copy
 button, spec, goal, status line, gate, what needs the person, documents — and one third what is known of it: the writes
 Jig offers (from Jig 0.46.0 running some of them itself, below), the facts (`web/components/TaskFacts.vue`),
-**Ask your agent** (`web/lib/agent-prompts.ts`, `web/components/AgentPrompts.vue`) and a timeline from the times Jig keeps.
+**Ask your agent** (`web/lib/agent-prompts.ts`, `web/components/AgentPrompts.vue`) and a timeline from the times Jig keeps (`web/lib/timeline.ts`, with what needs the person).
 It is served by
 `GET /api/projects/:id/tasks/:task` from `ProjectSource.task`: the task's row from Jig's task list
 in full — column (the board's rule), status, class, branch and base, worktree's uncommitted count,

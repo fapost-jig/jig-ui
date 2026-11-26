@@ -609,6 +609,50 @@ describe('localSource', () => {
     await source.disconnect('waits-for');
   });
 
+  it("lists on a card what its epic waits for too, after the task's own, each once", async () => {
+    const spec = (id: string, state: string) => ({
+      id,
+      title: null,
+      missing_files: [],
+      release: null,
+      epic: { branch: `epic/${id}`, state, checked_out: false, missing: false, ref: null },
+      progress: null,
+      phases: [],
+    });
+    const dep = (on: string) => ({ on, reason: 'Because' });
+    const item = (kind: string, id: string, level: string | null, position: number, depends_on: unknown[]) => ({
+      ref: `${kind}:${id}`,
+      kind,
+      id,
+      level,
+      position,
+      priority: null,
+      depends_on,
+    });
+    const dir = project('waits-through-epic', '0.31.0', {
+      specs: { specs: [spec('booking', 'open'), spec('payments', 'open'), spec('done-epic', 'finished')] },
+      queue: {
+        items: [
+          item('epic', 'payments', null, 5, []),
+          item('task', 'top', null, 10, []),
+          item('epic', 'booking', null, 20, [dep('epic:payments'), dep('task:top'), dep('epic:done-epic')]),
+          item('task', 'inner', 'epic:booking', 100, [dep('task:top')]),
+          item('task', 'plain', 'epic:booking', 200, []),
+        ],
+      },
+      tasks: { tasks: [task('top', 'active'), task('inner', 'active'), task('plain', 'active')], hidden: 0, housekeeping: null },
+    });
+    await source.connect(dir);
+    expect(await source.tasks('waits-through-epic')).toMatchObject({
+      tasks: [
+        { id: 'top', waitsFor: [] },
+        { id: 'inner', waitsFor: ['task:top', 'epic:payments'] },
+        { id: 'plain', waitsFor: ['epic:payments', 'task:top'] },
+      ],
+    });
+    await source.disconnect('waits-through-epic');
+  });
+
   it("orders the specs by their epics' places in the queue: queued, then open, then the rest, each in Jig's order", async () => {
     const row = (id: string, epic: string | null) => ({
       id,
