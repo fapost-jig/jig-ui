@@ -9,12 +9,10 @@
     diffRead,
     LOSSY,
     LOSSY_NAME,
-    NO_DROP,
     pendingLine,
-    readFirst,
     shownDiff,
     shownText,
-    sourceActions,
+    canKeep,
     sourceLine,
     textRead,
     landed,
@@ -70,7 +68,7 @@
 
   /** The changed sources Keep all takes: each one offering Keep now, none decided or waiting. */
   const keepable = computed(() =>
-    sources.value.filter(({ s, actions }) => !s.waiting && actions.keep && !landed(s) && !pending(s.id, 'source')).map(({ s }) => s.id),
+    sources.value.filter(({ s, keep }) => !s.waiting && keep && !landed(s) && !pending(s.id, 'source')).map(({ s }) => s.id),
   );
 
   /** The open document's text as shown — a Markdown file as HTML cleaned of anything that could run —, `undefined` while none is open. */
@@ -93,8 +91,8 @@
   const sources = computed(() =>
     props.knowledge.sources.map((s) => ({
       s,
-      line: sourceLine(s, props.knowledge.canDrop),
-      actions: sourceActions(s, props.knowledge.canDrop),
+      line: sourceLine(s),
+      keep: canKeep(s),
       blocked: undecidable(s),
     })),
   );
@@ -161,7 +159,7 @@
           </p>
           <p v-if="stubLine(p)" :class="p.bytes === null ? toneText.bad : 'text-muted-foreground'">{{ stubLine(p) }}</p>
           <p v-if="p.lossy" :class="toneText.attention">{{ LOSSY_NAME }}</p>
-          <p v-if="knowledge.canRead">
+          <p>
             <Button variant="outline" size="xs" @click="emit('toggleText', p.id, true)">Document</Button>
           </p>
           <p v-if="p.waiting" :class="toneText.attention">
@@ -177,7 +175,6 @@
           </p>
           <template v-else>
             <p v-if="blocked" :class="landed(p) ? 'text-muted-foreground' : toneText.attention">{{ blocked }}</p>
-            <p v-if="!knowledge.canRead && !landed(p)" class="text-muted-foreground">{{ readFirst(p) }}</p>
             <p v-if="pending(p.id, 'proposal')" class="flex flex-wrap items-center gap-2 text-muted-foreground">
               {{ pending(p.id, 'proposal') }}
               <Button v-if="queued.has(p.id)" variant="outline" size="xs" @click="emit('takeBack', p.id)">Take back</Button>
@@ -203,7 +200,7 @@
       </template>
       <ul class="flex flex-col gap-2 px-2 pb-2">
         <li
-          v-for="{ s, line, actions, blocked } in sources"
+          v-for="{ s, line, keep, blocked } in sources"
           :key="s.id"
           class="flex min-w-0 flex-col gap-1.5 rounded-lg border bg-card px-4 py-3 text-card-foreground shadow-xs"
         >
@@ -230,10 +227,9 @@
               {{ pending(s.id, 'source') }}
               <Button v-if="queued.has(s.id)" variant="outline" size="xs" @click="emit('takeBack', s.id)">Take back</Button>
             </p>
-            <p v-else-if="(actions.keep || actions.drop) && !landed(s)" class="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Button v-if="actions.keep" size="xs" @click="emit('decide', s.id, 'reviewed')">Keep</Button>
-              <Button v-if="actions.drop" variant="outline" size="xs" @click="emit('decide', s.id, 'reject')">Drop</Button>
-              <span v-else class="text-muted-foreground">{{ NO_DROP }}</span>
+            <p v-else-if="!landed(s)" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Button v-if="keep" size="xs" @click="emit('decide', s.id, 'reviewed')">Keep</Button>
+              <Button variant="outline" size="xs" @click="emit('decide', s.id, 'reject')">Drop</Button>
             </p>
           </template>
         </li>

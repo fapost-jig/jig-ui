@@ -66,8 +66,8 @@ describe('sourceLine', () => {
 describe('noSettings', () => {
   it('says why the settings are not shown', () => {
     expect(noSettings({ state: 'ready', keys: [key({})], revision: 1 })).toBeUndefined();
-    expect(noSettings({ id: 'p', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.40.0' })).toBe(
-      'Jig 0.40.0 or later in the project shows its settings here; it runs 0.39.0.',
+    expect(noSettings({ id: 'p', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.48.0' })).toBe(
+      'Jig 0.48.0 or later in the project shows its settings here; it runs 0.39.0.',
     );
     expect(noSettings({ id: 'p', state: 'unreadable', code: 'upgrading' })).toMatch(/being upgraded/);
     expect(noSettings({ id: 'p', state: 'unreadable', code: 'timeout' })).toBe('Jig did not answer in time.');

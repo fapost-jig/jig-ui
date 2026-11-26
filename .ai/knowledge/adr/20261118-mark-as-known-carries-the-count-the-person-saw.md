@@ -68,3 +68,6 @@ name that lists them and marks them as known (task `own-staging-work`).
   listed; a newer one arriving among them still moves the list's newest, and the mark is refused.
 - The status read and Jig's mark are two runs: a commit that lands between them, milliseconds apart, is the one case
   left, and only if a shown one left the list in the same instant.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.46.0 gate (`unsupported` below it),
+the item of a Jig before 0.46.0 and the card without a bell no longer apply.)*

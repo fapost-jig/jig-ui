@@ -67,3 +67,6 @@ upgrade itself.
 - The state survives a restart only as fresh as the project's last `jig housekeeping`; right after
   an upgrade the card knows the pull request from the run itself.
 - Upgrades from Jig 0.39.0 on get the full flow; projects on older Jig keep the old behaviour.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.39.0 gate (`LAND_JIG_VERSION`) and the
+old behaviour on an older Jig no longer apply: every supported project has the full flow.)*

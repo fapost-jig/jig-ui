@@ -49,12 +49,8 @@
     >;
     /** A change of its epic or its roadmap is on its way to Jig. */
     busy?: boolean;
-    /** Its roadmap is edited from here: the project's Jig has `jig spec item`. */
-    editable?: boolean;
     /** A change of the view is on its way to Jig: every edit waits. */
     disabled?: boolean;
-    /** Its documents are read from here: the project's Jig reads a spec (`jig spec read`). */
-    canRead?: boolean;
     /** The document open in a dialog, being read or as read. */
     document?: {
       kind: SpecDocument;
@@ -138,7 +134,7 @@
         </span>
       </p>
       <p v-if="summary" class="max-w-[62ch] leading-relaxed text-muted-foreground">{{ summary }}</p>
-      <div v-if="canRead" class="flex flex-wrap gap-2" role="group" aria-label="Documents">
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Documents">
         <Button
           v-for="d in buttons"
           :key="d.kind"
@@ -151,7 +147,7 @@
         >
       </div>
       <DocumentDialog
-        v-if="canRead && document"
+        v-if="document"
         :id="spec.id"
         :open="true"
         :title="documentName"
@@ -229,7 +225,7 @@
                 :waiting="item.id !== null && marked.has(item.id)"
                 @toggle="opened = opened === keyOf(item, index) ? undefined : keyOf(item, index)"
               >
-                <template v-if="editable && item.id !== null" #menu>
+                <template v-if="item.id !== null" #menu>
                   <SpecItemMenu
                     :items="phase.items"
                     :index="index"
@@ -245,7 +241,7 @@
           </GroupPanel>
         </div>
 
-        <template v-if="editable && phase.phase !== null">
+        <template v-if="phase.phase !== null">
           <form v-if="adding" class="flex max-w-3xl items-center gap-2" @submit.prevent="add(phase.phase)">
             <Input
               v-model="text"

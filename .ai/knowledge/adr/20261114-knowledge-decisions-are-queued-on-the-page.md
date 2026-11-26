@@ -92,3 +92,7 @@ of that ADR stands.
 - One refused document gives back every queued decision, the ones Jig never saw included; the person
   presses them again.
 - A Jig line that names no sent id, or names it differently, leaves the page saying "them".
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.44.0 gate (`DECIDE_JIG_VERSION`), the
+`canDecideMany` flag and the one-decision commands `jig knowledge accept|reject|reviewed` used below 0.44.0 no longer
+exist: a queue always goes as one `jig knowledge decide`.)*

@@ -107,7 +107,7 @@ const isReason = (v: unknown): v is string => typeof v === 'string' && v.trim() 
 /** An answer to a task's design as Jig's `--answer` takes one: a line of text without a tab, never blank, at most 2000 characters. */
 const isAnswer = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= 2000 && !/[\r\n\t]/.test(v);
 
-/** A person's write on a task the page runs, by the id of Jig's action that offers it (`answer-gate` from Jig 0.48.0). */
+/** A person's write on a task the page runs, by the id of Jig's action that offers it (`answer-gate` among them). */
 const isTaskWrite = (v: unknown): v is TaskWrite =>
   v === 'approve-gate' || v === 'answer-gate' || v === 'abandon' || v === 'archive' || v === 'unarchive' || v === 'drop-item';
 
@@ -213,14 +213,10 @@ function unwritten(c: Context, w: Exclude<Written, { state: 'written' }> | undef
 
 /**
  * What a roadmap edit came to, as `written` says, with Jig's note — whose step is next, or what failed after the commit,
- * `null` for none; a task filed that Jig did not name on its item is said so (`filed`), with Jig's reasons.
+ * `null` for none.
  */
 function edited(c: Context, w: Written | undefined) {
   if (w?.state === 'written') return c.json({ written: true as const, note: w.note ?? null }, 200);
-  if (w?.state === 'refused' && w.filed) {
-    const message = 'The task was filed, and Jig did not name it on the item.';
-    return c.json({ error: { code: w.code, message, reasons: w.reasons ?? [], filed: true as const } }, 422);
-  }
   return unwritten(c, w);
 }
 
@@ -319,10 +315,7 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
         if (read.state !== 'ready') return c.json({ task: read }, 200);
         if (read.task === null) return refuse(c, 404, 'not-found', 'This project has no live task with this id.');
-        return c.json(
-          { task: { state: read.state, ...read.task, column: placeOf(read.task), revision: read.revision, writes: read.writes } },
-          200,
-        );
+        return c.json({ task: { state: read.state, ...read.task, column: placeOf(read.task), revision: read.revision } }, 200);
       })
 
       // A task's documents, read through the project's Jig at each call: the list, then one as it is written.
@@ -383,7 +376,7 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         return c.json({ diff: { state: read.state, ...read.diff } }, 200);
       })
 
-      // A proposed document's whole file and the file a stub links, as the project has them (Jig 0.41.0).
+      // A proposed document's whole file and the file a stub links, as the project has them.
       .get('/api/projects/:id/knowledge/:doc/text', async (c) => {
         const read = await source.knowledgeText(c.req.param('id'), c.req.param('doc'));
         if (read === undefined) return refuse(c, 404, 'not-connected', 'No connected project has this id.');
@@ -392,7 +385,7 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         return c.json({ text: { state: read.state, ...read.text } }, 200);
       })
 
-      // One of a spec's documents as it is written (Jig 0.48.0): only the words, never where the file is.
+      // One of a spec's documents as it is written: only the words, never where the file is.
       .get('/api/projects/:id/specs/:spec/documents/:kind', async (c) => {
         const kind = c.req.param('kind');
         if (!isSpecDocument(kind))
@@ -542,7 +535,7 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         },
       )
 
-      // A new task is filed with its goal and named on the item — from Jig 0.41.0 in one write; a live task is named as it is.
+      // A new task is filed with its goal and named on the item in one write; a live task is named as it is.
       .post(
         '/api/projects/:id/specs/items/file',
         validator('json', (body: unknown) => {
@@ -573,15 +566,11 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
           }
           const id = c.req.param('id');
           const w = await source.fileItem(id, spec, item, task, goal, revision);
-          // A new id Jig refuses `already-exists` is taken: from Jig 0.42.0 Jig's code says so alone (`taken`); before, it
-          // is a finished task's when Jig's list of them holds it, else the item names a task already, as Jig's line says.
-          // The list tells them apart, not Jig's words.
-          if (w?.state === 'refused' && w.code === 'already-exists' && goal !== null) {
-            const finished = w.taken ? undefined : await source.finished(id);
-            if (w.taken || (finished?.state === 'ready' && finished.tasks.some((t) => t.id === task))) {
-              const message = 'The project has a finished task with this id.';
-              return c.json({ error: { code: w.code, message, reasons: w.reasons ?? [], taken: true as const } }, 422);
-            }
+          // A new id Jig refuses `already-exists` is taken: Jig's code says so alone (`taken`); an item that names a task
+          // already is `already-filed`.
+          if (w?.state === 'refused' && w.code === 'already-exists' && w.taken) {
+            const message = 'The project has a finished task with this id.';
+            return c.json({ error: { code: w.code, message, reasons: w.reasons ?? [], taken: true as const } }, 422);
           }
           return edited(c, w);
         },
@@ -812,9 +801,6 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
         if (w?.state === 'refused' && w.code === 'upgrading') {
           return refuse(c, 409, w.code, "The project's Jig is being upgraded; try again once that ends.");
         }
-        if (w?.state === 'refused' && w.code === 'unsupported') {
-          return refuse(c, 422, w.code, 'Bringing the clone up to origin needs Jig 0.45.0 or later.');
-        }
         return unwritten(c, w?.state === 'written' ? { state: 'refused', code: 'failed' } : w);
       })
 
@@ -845,9 +831,6 @@ function apiRoutes(source: ProjectSource, version: string, stop?: () => void, ne
           }
           if (w?.state === 'refused' && w.code === 'upgrading') {
             return refuse(c, 409, w.code, "The project's Jig is being upgraded; try again once that ends.");
-          }
-          if (w?.state === 'refused' && w.code === 'unsupported') {
-            return refuse(c, 422, w.code, 'Marking work on staging as known needs Jig 0.46.0 or later.');
           }
           return unwritten(c, w);
         },

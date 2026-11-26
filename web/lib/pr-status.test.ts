@@ -41,7 +41,7 @@ describe('the status panel', () => {
     expect(statusLine({ state: 'refused', code: 'not-found', reasons: [] }, 'a')).toBe(
       'a does not offer this any more: look at it again as it is now.',
     );
-    expect(statusLine({ id: 'p', state: 'unsupported', jigVersion: '0.45.0', minimum: '0.46.0' }, 'a')).toBe(
+    expect(statusLine({ id: 'p', state: 'unsupported', jigVersion: '0.45.0', minimum: '0.48.0' }, 'a')).toBe(
       'Jig could not ask the forge (unsupported).',
     );
   });

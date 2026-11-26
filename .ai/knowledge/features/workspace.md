@@ -91,7 +91,7 @@ version in the header and one count are quicker to scan than an item inside each
 - A card knows the machine's Jig version only from the `upgrade-available` item: Jig UI never reads Jig's files
   (convention-jig-client), and runs Jig outside a project for one read only, the header's `jig version --json`
   (adr-20261118-the-header-shows-the-machines-jig), whose version a card does not compare. The project's own Jig
-  computes the item, from Jig 0.34.0, so a project on Jig 0.31–0.33 shows only its version;
+  computes the item, so a project below `MIN_JIG_VERSION` shows only its version;
   `docs/projects.mdx` says so.
 - The mark shows the item's `versions.from` and `.to`, never the card's version beside `.to`: the
   card's version is the project's `jig --version`, and in a project installed with
@@ -137,7 +137,7 @@ version in the header and one count are quicker to scan than an item inside each
   revision — a revision of a read the person never saw; a link to the board — the drawing asked for a button.
   A refusal is a toast that stays until closed, as Housekeeping's error does (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The item on a task's own page has no
   button.
-- From Jig 0.46.0 the items about a task's pull request (`pull-request-waiting`, `pull-request-was-open`) say it in
+- The items about a task's pull request (`pull-request-waiting`, `pull-request-was-open`) say it in
   words from the forge cache — CI, whether it merges, the review, as of when — and, off the staging flow, who merges
   it: the agent while its ship waits for CI (`shipping`), nobody at `agent.git: merge` without one, else the person
   (`whoMerges` in `web/lib/pr-status.ts`). On the card they carry **Merge…**, **Land on staging** and **Status…** from

@@ -32,7 +32,7 @@ and what the task waits for (gate, autopilot run, pull request — `web/lib/wait
 (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). A closed card with a goal names a
 task whose id starts with a tracker's key by that key alone (`SRD-2598`, `cardKey` in `web/lib/task-key.ts`), the goal
 saying the rest, so a long id is not squeezed beside the badges in a narrow column; any other id is broken at its
-hyphens. A task filed from a spec names it under its card or row, from Jig 0.46.0's `spec` on `jig task list`
+hyphens. A task filed from a spec names it under its card or row, from the `spec` on `jig task list`
 (`web/components/SpecMark.vue`): the spec's title, else its id, the phase, and *epic* when the task goes into the spec's
 epic — for a task nobody started, only while `jig spec list` says that epic is open, since Jig names a finished one too
 and cuts nothing from it (`readProject` in `server/source/local.ts`). A press on its text, not the space beside
@@ -96,14 +96,13 @@ done, or moving.
   (`jig queue cancel`) until Jig pauses it — the drop as a request of
   adr-20261014-board-columns-are-derived-from-jig-state. The age moves on with a clock of the
   page (`web/lib/clock.ts`), once a minute, not with reads: an idle project is not read again.
-- A task nobody started takes no request from Jig 0.45.0, which offers it `pause` instead: the card
+- A task nobody started takes no request, Jig offers it `pause` instead: the card
   is `pausable`, and a drop on Paused, or **Pause** in the menu, runs `jig task pause` at once
   (adr-20261113-a-task-nobody-started-is-paused-at-once). **Pause** sits beside the cancel where a request nobody
   will take is there; a started task keeps the request. `already-paused` reads "Somebody paused <id> first."
 - A paused card leaves Paused by a drop on the one column it will be in, or **Resume** in its
   menu: the page runs `jig task resume` at once — no request (adr-20261026-a-drop-out-of-paused-resumes-at-once).
-  Offered only where Jig offers the `resume` action and the project's Jig is 0.35.0 or later; below
-  that the card names `jig task resume <id>`. Jig's refusals are said in Jig UI's own words
+  Offered only where Jig offers the `resume` action. Jig's refusals are said in Jig UI's own words
   (`web/lib/refusal.ts`), never Jig's message: `wrong-checkout` — the pause kept a stash and the
   main checkout is not on the task's branch — and `stash-conflict` — the stash did not apply, the
   task is still paused — both send the person to the terminal. A drop on another column does
@@ -114,23 +113,22 @@ done, or moving.
   Unlike the other refusals, a refused close is said in Jig's own words — its `jig: error:` lines with
   the paths cut out (`closeRefusal` in `web/lib/refusal.ts`) — because the reason (pull request not
   merged, knowledge decision not recorded) is what the person needs, and only Jig knows it.
-- Off the staging flow, from Jig 0.46.0, **Merge…** is first in the menu of a card whose pull request Jig offers to
+- Off the staging flow **Merge…** is first in the menu of a card whose pull request Jig offers to
   merge (`mergeable`), and such a card has no ✕: after a question (`WriteConfirm`, a dialog) it runs `jig task merge-pr <id> --by
   human`, which closes the task once its knowledge decision is recorded; a toast says whether it
   closed, and a refusal says why, with **Status…** beside it where the forge can say more. A card that can be neither
   merged nor landed has **Status…** (`statusable`): a dialog that asks `jig task pr-status` only then — each
   check and how long it ran, the review, the base branch's rules, what holds the merge back
   (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
-- On Jig's staging flow (0.45.0) a task's pull request goes into a staging branch and the task waits
+- On Jig's staging flow a task's pull request goes into a staging branch and the task waits
   there, parked, while it is tested (adr-20261113-a-task-parked-at-staging-is-not-done). A task parked for
   its review is in Review and says the review's state — whom it waits for, changes requested, approved and
   the person's to land —, one parked for "prepare for prod" in On staging
   (adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns); a task on staging that is not
   parked stays in Ready and says whether its fix is there yet, or its promotion's state and CI, with a link
-  to it from Jig 0.46.0. JigClient reads Jig 0.45.0, whose `pull_request` carried the promotion's state, into
-  0.46.0's shape. **Take back for a fix** in its menu, or a drop on In progress, is the resume above. The ✕ waits
-  for housekeeping's `needs-consolidation`, the merge into the base: Jig 0.45.0's close command closes
-  a task once its pull request into staging merged (fapost-lab/jig#509). From Jig 0.46.0 the person's
+  to it. **Take back for a fix** in its menu, or a drop on In progress, is the resume above. The ✕ waits
+  for housekeeping's `needs-consolidation`, the merge into the base: Jig's close command closes
+  a task once its pull request into staging merged (fapost-lab/jig#509). The person's
   own steps are first in the card's menu, where Jig offers them: **Land on staging** on a Review card, one
   press — or a drop of the card on On staging, the same write, offered only where Jig offers `land` (task
   `drop-to-land`) —, and on Jig's `not-approved` **Land without review** beside its line; **Request review…**, a panel
@@ -167,9 +165,8 @@ done, or moving.
 - The order of the columns is not the order of the rules: what waits for the person comes first
   (maintainer, task `design-system`, 2026-10-18).
 - The board's read holds only how many finished tasks there are (`hidden` of `jig task list`, less
-  `archived` below Jig 0.46.0), which keeps the button's number, and a project's change signal, without reading them.
-  The list holds what `jig task list --status consolidated` and `--status abandoned` return — from Jig 0.46.0
-  `--status archived` too — read
+  `archived`), which keeps the button's number, and a project's change signal, without reading them.
+  The list holds what `jig task list --status consolidated` and `--status abandoned` return, and `--status archived` too, read
   through `GET /api/projects/:id/finished` when the person opens it and on each change while it is
   open; it is kept nowhere, and its failure is the list's own (a line and Read again), never the
   project's `unreadable`. A refresh on a change keeps a shown list over one torn read
@@ -178,12 +175,10 @@ done, or moving.
   being reads the person asked for. That leaves: a closed task until housekeeping sees its branch merged — a task of an epic, the epic on
   the default branch — and moves its workspace to trash (one with no branch, or none seen merged,
   stays), an abandoned one for `housekeeping.abandoned_ttl` (14 days by default). An archived task
-  (Jig 0.37.0: an abandoned one past that time, one nobody touched for `housekeeping.stale_after`,
-  or one put away by hand) is shown below Jig 0.46.0 nowhere: Jig keeps it out of its own lists, and
-  a board that showed it would be the one place it still turns up. From Jig 0.46.0 it is in the list,
-  since the page can bring it back (adr-20261118-a-person-writes-on-a-task-from-its-page). Each row is the
+  (an abandoned one past that time, one nobody touched for `housekeeping.stale_after`,
+  or one put away by hand) is in the list, since the page can bring it back (adr-20261118-a-person-writes-on-a-task-from-its-page). Each row is the
   id, closed, abandoned or archived, the goal, the pull request and the day Jig last changed the task, the
-  latest first; a finished task has no details. Its ⋯ menu holds what Jig offers on it from 0.46.0 —
+  latest first; a finished task has no details. Its ⋯ menu holds what Jig offers on it —
   **Bring back**, **Close its roadmap item**, **Archive** — sent with the revision of the list's read; the
   toast says Jig's note or its refusal. A finished task's write reports in a toast above the dialog. The dialog starts closed on every
   visit, and closes when the last finished task leaves; nothing remembers it. An empty read under
@@ -240,7 +235,7 @@ done, or moving.
   sort per column — rejected: one bar for all was asked. A "needs me" filter — rejected: the Needs
   you column is that already. Moves kept on a sorted board — rejected: "after the card above" names
   a queue position the person cannot see there.
-- A task's spec on its card (task `spec-on-card`, 2026-11-18): Jig names the spec on each task (0.46.0), so the
+- A task's spec on its card (task `spec-on-card`, 2026-11-18): Jig names the spec on each task, so the
   page reads no roadmap to find it. Only whether the task goes into the epic reaches the page, never the epic's branch
   (feature-specs): a task nobody started is cut from the epic, a started one goes where its base is
   (`server/jig/client.ts`). The filter's parameter is `from`, not `spec` — `?spec=` names the spec the Specs view

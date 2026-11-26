@@ -49,7 +49,7 @@ checkout or a hand edit (Jig's `schemas/json.md`). So the files are watched, and
   cost about 0.8 of a core in Jig. With no writes, no Jig ran between rescans. A 250 ms quiet time
   read once per write — three times the cost. Since task `specs-and-epics` a read also runs
   `spec list --json` (~0.1 s, feature-specs), and since task `staging-columns-without-tasks` a project with no task
-  listed, on Jig 0.45.0 or later, also `config keys --json`, for its flow — and, off the staging flow, a project with an
+  listed, also `config keys --json`, for its flow — and, off the staging flow, a project with an
   item about a task's pull request, for its `agent.git` (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 - **A rescan must come less often than a read takes.** A rescan that lands during a read sets it to
   run once more, so with `rescanMs` below a read's duration the reads never end and a caller

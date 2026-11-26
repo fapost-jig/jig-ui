@@ -47,20 +47,12 @@ export function roadmapRefusal(code: string, reasons: string[], doing: string, s
   return refusal(code, doing, `the roadmap of ${spec}`);
 }
 
-/** The line for a task filed from an item that Jig then did not name on it: why, and that filing again names it. */
-export function unnamedRefusal(code: string, reasons: string[], task: string): string {
-  const why = code === 'git-not-allowed' ? 'agent.git is none in this clone' : reasons.length > 0 ? reasons.join(' ') : code;
-  return `Filed ${task}, but Jig did not name it on the item (${why}). Once that is resolved, File task… again with ${task}.`;
-}
-
 /**
- * The line for filing an item's task that Jig refused: filed and not named (Jig 0.40.0) as `unnamedRefusal` says it;
- * an id a finished task has (`taken`); an item that names a task already, Jig 0.42.0's `already-filed`; any other
- * `already-exists` in Jig's own words, since on Jig 0.41.0 it is also that item; an id or a goal Jig does not take;
+ * The line for filing an item's task that Jig refused: an id a finished task has (`taken`); an item that names a task
+ * already (`already-filed`); any other `already-exists` in Jig's own words; an id or a goal Jig does not take;
  * `undefined` for anything else, which `roadmapRefusal` says.
  */
-export function fileItemRefusal(code: string, reasons: string[], task: string, filed: boolean, taken: boolean): string | undefined {
-  if (filed) return unnamedRefusal(code, reasons, task);
+export function fileItemRefusal(code: string, reasons: string[], task: string, taken: boolean): string | undefined {
   if (taken) return `The project has a finished task called ${task}. Choose another id.`;
   if (code === 'already-filed')
     return 'The item names a task already, filed from another clone perhaps: the roadmap is shown as it is now.';

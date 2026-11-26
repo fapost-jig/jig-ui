@@ -4,11 +4,10 @@ import { dependCandidates, gateDocuments, pageWrites, refName } from './writes';
 const action = (id: string) => ({ id, command: `jig ${id} a` });
 
 describe('pageWrites', () => {
-  it('runs the approval, the abandon and the archive Jig offers, and none on a Jig before 0.46.0', () => {
+  it('runs the approval, the abandon and the archive Jig offers', () => {
     const actions = ['start', 'approve-gate', 'abandon', 'archive', 'set-class'].map(action);
-    expect([...pageWrites({ actions, writes: true })]).toEqual(['approve-gate', 'abandon', 'archive']);
-    expect([...pageWrites({ actions: [action('pause')], writes: true })]).toEqual([]);
-    expect([...pageWrites({ actions, writes: false })]).toEqual([]);
+    expect([...pageWrites({ actions })]).toEqual(['approve-gate', 'abandon', 'archive']);
+    expect([...pageWrites({ actions: [action('pause')] })]).toEqual([]);
   });
 });
 

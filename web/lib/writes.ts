@@ -19,9 +19,9 @@ export const DOING: Record<TaskWrite | 'depend' | 'undepend', string> = {
   undepend: 'removing a dependency of',
 };
 
-/** Which of the actions Jig offers on a live task its page runs itself; none on a Jig older than 0.46.0, where each is a command. */
-export function pageWrites(details: Pick<ReadyDetails, 'actions' | 'writes'>): Set<string> {
-  return new Set(details.writes ? details.actions.flatMap((a) => (LIVE_WRITES.includes(a.id) ? [a.id] : [])) : []);
+/** Which of the actions Jig offers on a live task its page runs itself. */
+export function pageWrites(details: Pick<ReadyDetails, 'actions'>): Set<string> {
+  return new Set(details.actions.flatMap((a) => (LIVE_WRITES.includes(a.id) ? [a.id] : [])));
 }
 
 /**

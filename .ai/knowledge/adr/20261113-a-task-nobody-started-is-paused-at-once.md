@@ -70,3 +70,6 @@ task `pause-not-started`.
 - The page copies one more condition of its own on top of Jig's actions (no branch). A Jig that starts withholding
   `pause` from a started task with a request makes it redundant, not wrong.
 - Undo: revert the merge; nothing is stored.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.45.0 gate (`PAUSE_JIG_VERSION`) and
+the board as before below it no longer apply: a card is `pausable` wherever Jig offers `pause`.)*

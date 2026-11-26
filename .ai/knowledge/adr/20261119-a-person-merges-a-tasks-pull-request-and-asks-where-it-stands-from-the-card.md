@@ -107,3 +107,6 @@ fetched_at}` and the item's `actions`. Spec `jig-ui`, Phase 4, roadmap item "mer
   in a scratch project): the card shows Merge… there, and Jig refuses it (`wrong-flow`, naming the landing, or
   `forge-unavailable` first). Jig UI follows Jig's offer, not the flow.
 - Undo: revert the merge; nothing is stored.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.46.0 gate on the merge and on Status…
+no longer applies: they are offered wherever Jig offers the action.)*

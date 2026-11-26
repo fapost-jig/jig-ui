@@ -51,13 +51,6 @@ describe('bellOf', () => {
     expect(bellOf(ready([], false))).toBeUndefined();
     expect(bellOf({ id: 'shop', state: 'unreadable', code: 'timeout', upgrade: null })).toBeUndefined();
   });
-
-  it('shows no bell below Jig 0.46.0, and leaves its item, which lists no commits, to the list', () => {
-    const old = item('staging-unowned');
-    expect(bellOf(ready([old], true, '0.45.0'))).toBeUndefined();
-    expect(bellOf(ready([], true, '0.45.2'))).toBeUndefined();
-    expect(listed([old])).toEqual([old]);
-  });
 });
 
 describe('listed', () => {

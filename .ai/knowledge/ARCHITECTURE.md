@@ -42,31 +42,25 @@ one line that brings its own (the install flow). Jig works exactly as before wit
   newest released by `jig version --json` of the `jig` on PATH, run outside any project (`readMachineJig`, Jig 0.46.0,
   adr-20261118-the-header-shows-the-machines-jig), the JSON
   reads `jig status` (what needs the person), `jig task list`, `jig queue list` and `jig spec list`
-  (feature-specs), a task's documents `jig task artifacts` and `jig task artifact read` (from Jig 0.39.0,
-  adr-20261030-a-task-document-is-shown-as-written), and the writes `jig queue move`, `jig queue set --priority`, `jig queue request`
-  and `cancel` (a pause), `jig task pause` (a task nobody started, from Jig 0.45.0), `jig task new` and `jig task resume` (from Jig 0.35.0), `jig task set <id>
-  status consolidated` (a close: from Jig 0.40.0 with `--revision --json`, Jig checking it; before
-  that text, checked against a revision read first), a project's settings
-  `jig config keys` and the person's own `jig config set|unset --local` (from Jig 0.40.0, feature-settings), a roadmap's
-  edits `jig spec item add|move|file` (from Jig 0.40.0, adr-20261106-editing-a-roadmap-from-the-page; `file --new` from
-  Jig 0.41.0, adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41), the
+  (feature-specs), a task's documents `jig task artifacts` and `jig task artifact read`
+  (adr-20261030-a-task-document-is-shown-as-written), and the writes `jig queue move`, `jig queue set --priority`, `jig queue request`
+  and `cancel` (a pause), `jig task pause` (a task nobody started), `jig task new` and `jig task resume`, `jig task set <id>
+  status consolidated` (a close, with `--revision --json`), a project's settings
+  `jig config keys` and the person's own `jig config set|unset --local` (feature-settings), a roadmap's
+  edits `jig spec item add|move|file` (adr-20261106-editing-a-roadmap-from-the-page; `file --new`,
+  adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41), the
   knowledge waiting for a decision `jig knowledge proposed`, `jig knowledge sources` and its `--diff`, and the decisions
-  `jig knowledge accept|reject|reviewed` (from Jig 0.40.0, feature-knowledge) and several in one write `jig knowledge
-  decide` (from Jig 0.44.0, adr-20261114-knowledge-decisions-are-queued-on-the-page), a proposed document's text
-  `jig knowledge read` (from Jig 0.41.0, adr-20261109-knowledge-text-and-drop-from-jig-0-41), `jig refresh` (from Jig
-  0.45.0, adr-20261113-refresh-brings-the-clone-up-from-the-card), `jig staging ack` (from Jig 0.46.0,
-  adr-20261118-mark-as-known-carries-the-count-the-person-saw), a person's writes on a task `jig task gate
-  approved|answered` (the answer from Jig 0.48.0, adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend` (from
-  Jig 0.46.0, adr-20261118-a-person-writes-on-a-task-from-its-page), a person's steps on the staging flow `jig task
-  land`, `jig task promote` and `jig task request-review`, with `jig pr reviewers` (from Jig 0.46.0,
-  adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), a person's merge `jig task merge-pr`
-  and the forge read `jig task pr-status` (from Jig 0.46.0, adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), and
-  `jig upgrade`, its dry run and its run (from Jig 0.34.0), and `jig self-update` (its text line), `housekeepingSummary` (in `client.ts`, a few words on what Housekeeping changed, read from Jig's report so the page never reads it; adr-20261125-the-page-opens-tasks-and-questions-over-the-board), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
-  fixtures in `server/jig/fixtures/` — Jig 0.29.0 for the reads it had, 0.31.0 for the queue,
-  0.39.0 for a task's documents, 0.40.0 for the settings, a roadmap's edits and the knowledge, 0.41.0 for the
-  knowledge's text, Drop and judged reads and for filing an item's new task in one write, 0.45.0 for a task
-  list on the staging flow, `jig refresh` and the clone against origin, 0.46.0 for a staging task's review and
-  promotion, for a person's writes on a task, for a person's steps on staging and for a merge from the card
+  `jig knowledge decide` (feature-knowledge, adr-20261114-knowledge-decisions-are-queued-on-the-page), a proposed document's text
+  `jig knowledge read` (adr-20261109-knowledge-text-and-drop-from-jig-0-41), `jig refresh`
+  (adr-20261113-refresh-brings-the-clone-up-from-the-card), `jig staging ack`
+  (adr-20261118-mark-as-known-carries-the-count-the-person-saw), a person's writes on a task `jig task gate
+  approved|answered` (adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), `jig task abandon`, `jig task archive|unarchive`, `jig spec drop` and `jig queue depend|undepend`
+  (adr-20261118-a-person-writes-on-a-task-from-its-page), a person's steps on the staging flow `jig task
+  land`, `jig task promote` and `jig task request-review`, with `jig pr reviewers`
+  (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card), a person's merge `jig task merge-pr`
+  and the forge read `jig task pr-status` (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), and
+  `jig upgrade`, its dry run and its run, and `jig self-update` (its text line), `housekeepingSummary` (in `client.ts`, a few words on what Housekeeping changed, read from Jig's report so the page never reads it; adr-20261125-the-page-opens-tasks-and-questions-over-the-board), each JSON answer checked by a zod schema (adr-20261018-jig-answers-checked-by-zod-schemas) and tested against
+  fixtures in `server/jig/fixtures/` (Jig 0.48.0 is the minimum a project needs)
   (convention-jig-client).
 - `server/source/` — the ProjectSource port (`project-source.ts`: the workspace, the connected ids
   (`connected`), one project as the workspace shows it (`project`), the Jig projects under a folder (`scan`, walked
@@ -181,7 +175,7 @@ page and above the projects does any time) or
   (adr-20261113-a-task-parked-at-staging-is-not-done); and for closing a ready task as done, after the
   person confirms, its refusal shown in Jig's words (adr-20261029-close-a-ready-task-from-the-board) — from the
   board, and from a merged task's item on the project's card, with the revision the workspace read carries for it
-  (feature-workspace), where a stale revision is said as the project having changed; and, from Jig 0.46.0, for a
+  (feature-workspace), where a stale revision is said as the project having changed; and for a
   person's writes on a task's page — approving its design with the revision its documents were read at, abandoning,
   archiving, what it waits for — and on the finished list's rows, with that list's revision
   (adr-20261118-a-person-writes-on-a-task-from-its-page); and, on the staging flow, for landing a task on staging,
@@ -192,9 +186,8 @@ page and above the projects does any time) or
   (adr-20261022-filing-a-task-carries-no-revision); housekeeping is another, a sweep of the clone as it is, under
   Jig's own lock (adr-20261110-housekeeping-runs-from-the-project-card), and a refresh the third, a fetch and a
   fast-forward of the base that touch nothing the person decided (adr-20261113-refresh-brings-the-clone-up-from-the-card). A roadmap's edits are writes like the queue's,
-  with the specs' revision, committed by Jig on the spec's branch; from Jig 0.41.0 filing an item's
-  new task is one of them too (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41), and on Jig 0.40.0 it is that filing and then naming it on the
-  item, with a revision the adapter reads between the two
+  with the specs' revision, committed by Jig on the spec's branch; filing an item's
+  new task is one of them too (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41)
   (adr-20261106-editing-a-roadmap-from-the-page). A knowledge decision is a write like those, with the
 knowledge's revision, committed by Jig on `knowledge/decisions` and checked against a knowledge read made
 just before it (adr-20261106-knowledge-decisions-from-the-page). Upgrading a project's Jig is the one write that
@@ -259,8 +252,5 @@ The start flow, read-and-follow and change, with its conflict display, are built
   guard, writes carrying a revision (adr-20261014-project-source-port-keeps-hosting-open) — all but
   the upgrade (adr-20261027-upgrading-a-project-runs-in-the-background), filing a task
   (adr-20261022-filing-a-task-carries-no-revision), housekeeping
-  (adr-20261110-housekeeping-runs-from-the-project-card) and, on Jig 0.40.0, the
-  naming of an item's new task, which carries the revision read after its filing
-  (adr-20261106-editing-a-roadmap-from-the-page; from Jig 0.41.0 one write with the person's
-  revision, adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41).
+  (adr-20261110-housekeeping-runs-from-the-project-card).
 - Stack: adr-20261014-stack-vue-hono-sse-on-node.

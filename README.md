@@ -24,8 +24,7 @@ of truth, and every change Jig UI makes goes through Jig's own commands.
 
 - Node.js 24 or later — or none at all, see [Without Node.js](docs/installation.mdx#without-nodejs).
 - git.
-- Jig 0.31.0 or later in each project you connect. Some features need a newer Jig; see
-  [Requirements](docs/requirements.mdx).
+- Jig 0.48.0 or later in each project you connect; see [Requirements](docs/requirements.mdx).
 
 ## Quick start
 

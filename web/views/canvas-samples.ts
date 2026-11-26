@@ -307,7 +307,6 @@ export const actions = [
 const base = {
   state: 'ready' as const,
   revision: 1794994851,
-  writes: true,
   issue: null,
   baseBranch: 'main',
   createdAt: '2026-10-17',
@@ -417,7 +416,7 @@ export const projects: Project[] = [
       },
     ],
   }),
-  { id: 'old-jig', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.29.0', upgrade: null },
+  { id: 'old-jig', state: 'unsupported', jigVersion: '0.30.0', minimum: '0.48.0', upgrade: null },
   { id: 'new-jig', state: 'incompatible', jigVersion: '1.0.0', upgrade: null },
   { id: 'busy', state: 'unreadable', code: 'locked', upgrade: null },
   { id: 'moved', state: 'unavailable', reason: 'missing', upgrade: null },
@@ -732,20 +731,17 @@ export const settingStates: {
     notice: "Jig did not change housekeeping.cadence: invalid value 'soon': not a whole number of days (e.g. 1d, 3d)",
   },
   { label: 'reading' },
-  { label: 'old Jig', settings: { id: 'jig-ui', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.40.0' } },
+  { label: 'old Jig', settings: { id: 'jig-ui', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.48.0' } },
   { label: 'unreadable', settings: { id: 'jig-ui', state: 'unreadable', code: 'timeout' } },
 ];
 
-/** What a record of Jig 0.40.0 reads for the fields Jig 0.41.0 added. */
+/** What a record reads for the fields Jig 0.41.0 added, in a shape that carries none of them. */
 const older = { decidable: null, reason: null, lossy: null };
 
-/** Knowledge Jig 0.40.0 lists as waiting for a decision: a proposal, stubs whose file is there and gone, decisions waiting, each state of a linked file. */
+/** Knowledge, without the fields of Jig 0.41.0 on its records, that waits for a decision: a proposal, stubs whose file is there and gone, decisions waiting, each state of a linked file. */
 export const knowledge: ReadyKnowledge = {
   state: 'ready',
   revision: 1,
-  canRead: false,
-  canDrop: false,
-  canDecideMany: false,
   proposals: [
     {
       id: 'feature-checkout',
@@ -841,9 +837,6 @@ const judged = { decidable: true, reason: null, lossy: false };
 export const knowledgeLater: ReadyKnowledge = {
   state: 'ready',
   revision: 1,
-  canRead: true,
-  canDrop: true,
-  canDecideMany: false,
   proposals: [
     {
       id: 'feature-checkout',

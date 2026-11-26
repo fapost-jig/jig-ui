@@ -10,12 +10,11 @@ import {
   openOne,
   pendingLine,
   noKnowledge,
-  readFirst,
   diffRead,
   shownDiff,
   textRead,
   shownText,
-  sourceActions,
+  canKeep,
   sourceLine,
   stubLine,
   landed,
@@ -61,11 +60,6 @@ describe('a proposal', () => {
     expect(stubLine(proposal({ source: 'docs/style.md', bytes: 43 }))).toBe('Links docs/style.md, 43 B.');
     expect(stubLine(proposal({ source: 'docs/empty.md', bytes: 0 }))).toBe('Links docs/empty.md, 0 B.');
     expect(stubLine(proposal({ source: 'docs/ops.md', bytes: null }))).toBe('Links docs/ops.md, which is missing.');
-  });
-
-  it("sends the person to the document's file, or a stub's linked one, until Jig gives its text", () => {
-    expect(readFirst(proposal())).toContain('read .ai/knowledge/features/checkout.md before you decide');
-    expect(readFirst(proposal({ source: 'docs/style.md' }))).toContain('read docs/style.md before you decide');
   });
 
   it('says a decision waits on its branch', () => {
@@ -142,19 +136,17 @@ describe('sourceLine', () => {
     expect(sourceLine(linked('changed'))).toEqual({ text: 'docs/rules.md changed since it was approved.', tone: 'attention' });
     expect(sourceLine(linked('unrecorded')).text).toContain('read it whole before you keep it');
     expect(sourceLine(linked('missing'))).toEqual({
-      text: 'docs/rules.md is gone: move the link in the project (jig-accept).',
+      text: 'docs/rules.md is gone: drop the link, or move it in the project (jig-accept).',
       tone: 'bad',
     });
-    expect(sourceLine(linked('missing'), true).text).toBe('docs/rules.md is gone: drop the link, or move it in the project (jig-accept).');
   });
 });
 
-describe('sourceActions', () => {
-  it('offers Keep unless the file is gone, and Drop only from Jig 0.41.0', () => {
-    expect(sourceActions(linked('changed'), false)).toEqual({ keep: true, drop: false });
-    expect(sourceActions(linked('unrecorded'), true)).toEqual({ keep: true, drop: true });
-    expect(sourceActions(linked('missing'), false)).toEqual({ keep: false, drop: false });
-    expect(sourceActions(linked('missing'), true)).toEqual({ keep: false, drop: true });
+describe('canKeep', () => {
+  it('offers Keep unless the file is gone', () => {
+    expect(canKeep(linked('changed'))).toBe(true);
+    expect(canKeep(linked('unrecorded'))).toBe(true);
+    expect(canKeep(linked('missing'))).toBe(false);
   });
 });
 
@@ -165,9 +157,6 @@ describe('noKnowledge', () => {
     proposals: [],
     sources: [],
     waiting: null,
-    canRead: false,
-    canDrop: false,
-    canDecideMany: false,
   };
 
   it('says nothing waits, and nothing while something does', () => {
@@ -176,8 +165,8 @@ describe('noKnowledge', () => {
   });
 
   it('says which Jig a project runs that cannot list the knowledge, or why Jig could not', () => {
-    expect(noKnowledge({ id: 'x', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.40.0' })).toBe(
-      'This project runs Jig 0.39.0; deciding knowledge here needs Jig 0.40.0 — run jig upgrade in the project.',
+    expect(noKnowledge({ id: 'x', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.48.0' })).toBe(
+      'This project runs Jig 0.39.0; deciding knowledge here needs Jig 0.48.0 — run jig upgrade in the project.',
     );
     expect(noKnowledge({ id: 'x', state: 'unreadable', code: 'upgrading' })).toContain('being upgraded');
     expect(noKnowledge({ id: 'x', state: 'unreadable', code: 'timeout' })).toBe('Jig did not answer in time.');
@@ -242,17 +231,12 @@ describe('knowledgeRefusal', () => {
     ['git-not-allowed', [], "Jig commits nothing in this clone (agent.git is none): choose a level in the project's Settings."],
     ['not-found', [], 'feature-checkout no longer waits for that decision: the knowledge is shown as it is now.'],
     [
-      'not-on-branch',
-      [],
-      "Jig did not find feature-checkout on knowledge/decisions, which starts from origin's default branch: push the commit that proposed it, or let the decisions waiting there land first.",
-    ],
-    [
       'branch-checked-out',
       ['knowledge/decisions is checked out in … and Jig never moves a checkout.'],
       'Jig did not decide feature-checkout: knowledge/decisions is checked out in … and Jig never moves a checkout.',
     ],
     ['upgrading', [], 'Jig is being upgraded in this project: try deciding feature-checkout again once it has finished.'],
-    // Jig 0.41.0 says itself why a document is not where the decision is judged.
+    // Jig says itself why a document is not where the decision is judged.
     [
       'not-on-branch',
       ['feature-checkout, as this checkout has it, reached main after knowledge/decisions was cut'],
@@ -313,9 +297,6 @@ describe('newer', () => {
     proposals: [],
     sources: [],
     waiting: null,
-    canRead: false,
-    canDrop: false,
-    canDecideMany: false,
   });
 
   it('is a ready read past the revision shown, or over nothing ready', () => {

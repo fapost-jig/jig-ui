@@ -147,9 +147,9 @@ Use in: source code.
 Something a person may do next with a task, as Jig decides it from the task's state, with the Jig
 command that takes it; Jig UI shows the ones Jig offers, and takes some of them itself — a pause
 request, a pause of a task nobody started and a resume from the board, a close from the board
-and from a project's card, and from Jig 0.46.0 a design's approval, an abandon and an archive on the
+and from a project's card, and a design's approval, an abandon and an archive on the
 task's page and a bring-back, a roadmap item's close and an archive on the finished list
-(adr-20261118-a-person-writes-on-a-task-from-its-page) and, from Jig 0.48.0, an answer to a design at its gate,
+(adr-20261118-a-person-writes-on-a-task-from-its-page) and an answer to a design at its gate,
 `answer-gate` (adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), and on the staging flow a landing, a review request and a
 promotion from a card's menu, and a landing by a drop on On staging (adr-20261119-a-person-lands-asks-review-and-prepares-for-prod-from-the-card);
 off it a merge of the task's pull request from a card's menu and from a project's card, and the forge's word on where

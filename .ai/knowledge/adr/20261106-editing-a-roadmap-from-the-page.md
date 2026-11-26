@@ -82,3 +82,7 @@ included, stands as they say:
   (`already-exists`, `not-linkable`), not by the person's revision.
 - With `spec/<id>` checked out in the person's clone (as `jig spec new` and `resume` leave it), every
   edit is refused `branch-checked-out` until they switch away.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.40.0 gate (`ROADMAP_JIG_VERSION`), the
+`editable` flag and the two-write filing of a new task on Jig 0.40.0 (with its `filed` refusal flag) no longer apply:
+a roadmap is always editable and a new task is filed in one write.)*

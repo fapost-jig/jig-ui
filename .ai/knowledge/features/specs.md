@@ -15,7 +15,7 @@ paths:
   - server/jig/fixtures/spec-list-waiting.json
   - web/components/SpecBoard.vue
   - web/components/SpecItemCard.vue
-summary: "A project's specs from jig spec list as the Specs view: a searchable list beside the chosen spec, complete ones last with a close request; the epic menu; the roadmap edited on the card; from Jig 0.48.0 the summary and the spec's documents in a dialog"
+summary: "A project's specs from jig spec list as the Specs view: a searchable list beside the chosen spec, complete ones last with a close request; the epic menu; the roadmap edited on the card; the summary and the spec's documents in a dialog"
 reviewed_at: 2026-11-25
 ---
 # Specs and epics
@@ -47,8 +47,8 @@ it (`jig spec close`) or, with an open epic, to finish the epic; a finished epic
 neither. Complete is judged on the roadmap the head shows (`shownRoadmap`), Jig's numbers. The epic menu
 steps over the order the list shows, so a queued complete epic shown last has no Up.
 
-From Jig 0.48.0 the head shows the spec's `summary` (the `Summary:` line of `spec.md`, from `jig spec
-list`) under its title, and **Spec** and **Roadmap** buttons (`canRead`) that read the document on
+The head shows the spec's `summary` (the `Summary:` line of `spec.md`, from `jig spec
+list`) under its title, and **Spec** and **Roadmap** buttons that read the document on
 demand — `GET /api/projects/:id/specs/:spec/documents/:kind` → `ProjectSource.specText` →
 `readSpecText` (`jig spec read <id> spec|roadmap --json`), Jig run only for a spec id it listed, an
 exception to "a page fetch runs no Jig" like a task's documents — and open it in a dialog
@@ -56,12 +56,12 @@ exception to "a page fetch runs no Jig" like a task's documents — and open it 
 are. The roadmap read there leaves out edits waiting on the spec's branch; the dialog says so
 (adr-20261125-a-specs-documents-are-shown-as-written).
 
-From Jig 0.40.0 (`editable`) a roadmap is edited on the Specs view: **Add item** under the lanes of
+A roadmap is edited on the Specs view: **Add item** under the lanes of
 a numbered phase, an item's ⋯ menu (`SpecItemMenu.vue`) moving it Up or Down among its lane's cards
 (`laneStep`) or To Phase N, and
 **File task…** (`FileItemDialog.vue`) filing an item's task and naming it on the item — `POST
 /api/projects/:id/specs/items/add`, `/move`, `/file`, Jig's `jig spec item add|move|file`
-(adr-20261106-editing-a-roadmap-from-the-page). From Jig 0.41.0 File task… files a new task and
+(adr-20261106-editing-a-roadmap-from-the-page). File task… files a new task and
 names it on the item in one Jig write, with the specs' revision (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41). While edits wait on the
 spec's write branch, the
 view shows the roadmap there (`shownRoadmap`), a line saying where they wait, and a "waiting" mark
@@ -140,8 +140,8 @@ Task `roadmap-from-page` (2026-11-06), decided by the maintainer at the design g
 roadmap shown with waiting marks, the ⋯ menu only, the two-step filing and no `jig writes ship`
 (adr-20261106-editing-a-roadmap-from-the-page).
 
-Task `file-item-in-one-write` (2026-11-10): from Jig 0.41.0 the filing is one write, `jig spec item
-file --new`, with the person's revision; the two steps stay below it (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41).
+Task `file-item-in-one-write` (2026-11-10): the filing is one write, `jig spec item
+file --new`, with the person's revision; the two-step filing for Jig 0.40.0 no longer applies (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41).
 
 Task `quiet-design` (2026-11-10), a colleague's request through the maintainer, who chose the
 prototype's variant C (branch `prototype/specs-redesign`) over a quiet outline and a list with

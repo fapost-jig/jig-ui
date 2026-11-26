@@ -28,7 +28,7 @@ because macOS asks before an app reads them, and says so: type one, `~/Documents
 choose **Find projects** to look there. It also passes over, without saying so, `Library` on macOS
 and `AppData` on Windows, which hold apps' data.
 
-The project needs [Jig 0.31.0 or later](/requirements). Each project gets a short id from its
+The project needs [Jig 0.48.0 or later](/requirements). Each project gets a short id from its
 folder name (`My Project` becomes `my-project`, a second `api` becomes `api-2`); the page names
 it by that id.
 
@@ -66,7 +66,7 @@ readable project's card shows:
 - **Its live tasks counted** — `active`, `paused` and `ready` (finished tasks are not counted).
 - **What needs you** — the same items `jig status` lists under "Needs you", most urgent first: a
   design waiting at its gate, a stopped autopilot run, a pull request waiting for review, a task to
-  close. Each says what happened and what to do; a pull request comes with a link to it — and with Jig 0.46.0 says
+  close. Each says what happened and what to do; a pull request comes with a link to it, says
   where it stands and who merges it, with **Merge…** and **Status…** where Jig offers them
   ([Merging a task's pull request](#merging-a-tasks-pull-request)) —,
   knowledge waiting for your decision with **Decide on the page** ([Deciding knowledge](#deciding-knowledge)),
@@ -79,33 +79,33 @@ readable project's card shows:
   may be missing until it runs.
 - **Housekeeping**, beside **Board**, runs `jig housekeeping` in the project — what Jig's session
   hook runs once a day: merged tasks' workspaces go to Jig's trash for 7 days, abandoned ones to the
-  archive after 14 days (from Jig 0.37.0; before it, to the trash), the pull request facts are read
+  archive after 14 days, the pull request facts are read
   again, and merged branches are deleted as far as the project's settings let Jig. The card shows
   Jig's report in a toast in the bottom-right corner while it runs, and a spinner on the button: the toast says only what it
   changed (*removed 6 · 2 branches deleted*), and **Report** in it opens Jig's whole report; it closes by itself, and a
   failure stays until you close it. Jig fetches first, so a dialog for your git credentials,
   such as the macOS keychain's, may ask you to allow it; the run waits for it up to two minutes.
 - **The newer Jig on this machine**, after the project's own version, when the project runs an
-  older Jig than the one installed here: *0.34.0 → 0.35.0 on this machine*, and **Upgrade…** to
+  older Jig than the one installed here: *0.50.0 → 0.51.2 on this machine*, and **Upgrade…** to
   upgrade it from the page ([Upgrading a project's Jig](#upgrading-a-projects-jig)). Above the
   projects, a line counts how many need it. A project whose Jig says a newer release is out —
-  *jig v0.38.0 is out* — gets **Upgrade…** too: it updates this machine's Jig first. So does every
+  *jig v0.52.0 is out* — gets **Upgrade…** too: it updates this machine's Jig first. So does every
   other project on an older Jig: a project hears of a new release only when its own
   `jig housekeeping` runs, and Jig UI takes the newest release any project has heard of.
 
-The project's Jig says when it is behind, from Jig 0.34.0 on; a project on an older Jig shows only
-its version, so compare it with `jig --version` yourself.
+The project's Jig says when it is behind. A project below Jig 0.48.0 is not read; its card tells to run `jig upgrade` in
+the project.
 
 The page follows the projects while it is open — see [Staying current](#staying-current). A
 project whose state is not readable shows why:
 
 | Shown | Meaning |
 | --- | --- |
-| `Jig 0.31.0` | The project is connected and readable. |
+| `Jig 0.48.0` | The project is connected and readable. |
 | Answers in a form this Jig UI does not read | The project's Jig is newer than this Jig UI understands. Update Jig UI: `npx @fapost/jig-ui@latest`, or `jig-ui` if you [installed it without Node.js](/installation#without-nodejs). |
 | Jig did not answer within 30 s | Each Jig run of a read has 30 seconds; a busy machine reading several projects at once can run past that. **Read again** reads it now; the next change in the project, or the read every minute, does too. |
 | Jig could not be read | Jig refused the read — for example while an agent is writing to the project. The code in brackets is Jig's. **Read again** reads it now; the next change in the project, or the read every minute, does too. |
-| Jig UI needs 0.31.0 or later | The project's Jig is older than Jig UI reads. Run `jig upgrade` in the project; it is shown as readable once the upgrade lands, without connecting it again. |
+| Jig UI needs 0.48.0 or later | The project's Jig is older than Jig UI reads. Run `jig upgrade` in the project; it is shown as readable once the upgrade lands, without connecting it again. |
 | The project directory is not there any more | The folder was moved or deleted. Disconnect it, then connect its new path. |
 | There is no Jig in the project any more | Jig was removed from the project. |
 
@@ -172,7 +172,7 @@ offered only while no project is being upgraded.
 
 Where the project's `agent.git` lets Jig open a pull request but not merge it, an upgrade ends on a
 branch, and the project's main checkout stays on the Jig it had until the pull request is merged and
-brought here. From Jig 0.39.0 in the project, the card says so — *The upgrade to 0.40.0 waits for
+brought here. The card says so — *The upgrade to 0.51.2 waits for
 its pull request to be merged*, with the pull request's link — and offers **Check merge** instead of
 **Upgrade…**, after a restart of Jig UI too: Jig remembers the pull request from its last
 `jig housekeeping`.
@@ -187,9 +187,6 @@ stop it with Jig's reasons; Jig never stashes and never forces.
 **Check all merges** above the projects does the same for every project with such an upgrade, one
 at a time, and a toast says which were brought up to date and which still wait. After **Upgrade all**, each
 project is either upgraded or waits for its pull request, and its card offers **Check merge**.
-
-A project on an older Jig shows the pull request as the run left it, until Jig UI stops; run
-`jig upgrade` there once the pull request is merged.
 
 ## The board
 
@@ -211,8 +208,7 @@ fits wins:
 
 Beside the project's name, in every view, **Refresh** and **Housekeeping** do what they do on the project's card
 ([Bringing the clone up to origin](#bringing-the-clone-up-to-origin), [What the page shows](#what-the-page-shows)): a spinner shows on the button while it runs, and progress, results and errors appear as toasts in the bottom-right corner:
-a result that went well closes by itself; one that needs a look, or an error, stays until you close it. Refresh needs Jig 0.45.0 or later in the project, and with
-an older Jig it says so. **↻** reads the project again now.
+a result that went well closes by itself; one that needs a look, or an error, stays until you close it. **↻** reads the project again now.
 
 A card does not expand. From top to bottom it shows:
 
@@ -221,7 +217,7 @@ A card does not expand. From top to bottom it shows:
   whole id is in its tooltip and on the task's page. A long id is broken at its hyphens;
 - **the spec**, when the task was filed from one, as a chip under the id: the spec's title and the phase, and in
   fuchsia when the task goes into the spec's epic — for a task nobody started yet, while that epic is open. Click it to
-  open the spec on **Specs**; a spec that is not in this checkout is only named. It needs Jig 0.46.0;
+  open the spec on **Specs**; a spec that is not in this checkout is only named;
 - **the goal**, up to four lines. Click it to open the task's page;
 - **one status line** with an icon: the autopilot's stage (*Autopilot · review*), *Waits for &lt;task&gt;*, paused, a gate
   waiting or answered, or staging;
@@ -236,9 +232,8 @@ board opens them in a dialog with a search field, the latest first: each one's i
 that read fails, the list says so and offers **Read again**; the board goes on as it was. The list holds what Jig still keeps: `jig housekeeping` moves a closed task's workspace to
 trash once it sees the task's branch merged — for a task of an epic, once the epic reached the
 default branch — and an abandoned one's after 14 days (`housekeeping.abandoned_ttl`); the task
-leaves the list with it. From Jig 0.37.0 on, housekeeping archives the abandoned task instead and
-keeps its notes; with a Jig older than 0.46.0 an archived task is shown nowhere on the board, and `jig task list --status
-archived` lists them. From Jig 0.46.0 the list holds the archived tasks too, and each row's ⋯ menu
+leaves the list with it. Housekeeping archives the abandoned task instead and
+keeps its notes. The list holds the archived tasks too, and each row's ⋯ menu
 holds what Jig offers on it:
 
 - **Bring back** an archived task, as it was before it was archived (`jig task unarchive`).
@@ -272,7 +267,7 @@ project.
 - **Class** and **Priority** show only the tasks of the classes or priorities you tick; **None** is
   a task with no class, or no priority. Nothing ticked shows them all.
 - **Spec** shows only the tasks filed from the specs you tick, so one epic's tasks are seen together; **None** is a
-  task filed from no spec. It is there while a task names a spec (Jig 0.46.0), or while a link has a spec ticked
+  task filed from no spec. It is there while a task names a spec, or while a link has a spec ticked
   that no task names any more, so you can untick it.
 - **Find a task** keeps the tasks whose id or goal holds the text, in any case.
 
@@ -336,7 +331,7 @@ stage begins. Until then the card stays in its column and says *Pause requested 
 only where Jig offers the request, or pauses the task at once (below): not for a task already
 paused, and not twice.
 
-A task nobody started has no stage to pause at, so with Jig 0.45.0 or later it is paused at once:
+A task nobody started has no stage to pause at, so it is paused at once:
 the drag onto Paused, or **Pause** in its ⋯ menu, runs `jig task pause <id>`, and the card moves to
 Paused. A task already started keeps the request, even when its pause was already asked, since an
 agent may be in one of its stages. If somebody paused the task first, the board says so.
@@ -355,8 +350,8 @@ that only when the checkout is on the task's branch; otherwise a toast says to r
 `jig task resume <id>` there. When the stash does not apply cleanly, the task stays paused and the
 toast says to resolve the conflicts in the checkout first. A pause Jig UI asked for never stashes.
 
-Resuming from the board needs Jig 0.35.0 or later in the project. With an older Jig the card says
-how to resume it — run `jig task resume <id>` in the project — and **Resume** is off.
+Where Jig does not offer the resume, the card says how to resume it — run `jig task resume <id>` in the project — and
+**Resume** is off.
 
 A drop on any other column does nothing: a card goes onto Paused, onto the column a resume would put it in, or, a
 Review card Jig offers to land, onto On staging ([Tasks on staging](#tasks-on-staging)).
@@ -367,8 +362,8 @@ A card in **Ready** whose task can be closed carries a **✕** beside its ⋯ me
 whose merge closes it ([Merging a task's pull request](#merging-a-tasks-pull-request)). Press it,
 then **Close task** in the question that opens as a dialog, to close the task as done: Jig UI runs
 `jig task set <id> status consolidated` — the command Jig's own `close` action names — in the
-project, checked against the board you saw: from Jig 0.40.0 Jig itself refuses the close when
-anything was written there since; with an older Jig, Jig UI reads the project just before. The card
+project, checked against the board you saw: Jig itself refuses the close when
+anything was written there since. The card
 leaves the board and shows in the list of finished tasks.
 
 The same close is on a project's card on the Projects page: Jig's item *Merged: the task can be
@@ -390,7 +385,7 @@ recorded knowledge decision has no ✕, and its item no **Close task**: record i
 
 ## Merging a task's pull request
 
-With Jig 0.46.0 in the project, a card whose pull request Jig offers to merge has **Merge…** first in its ⋯ menu. It
+A card whose pull request Jig offers to merge has **Merge…** first in its ⋯ menu. It
 asks first, since only a revert on the forge takes a merge back; **Merge** then merges the pull request into its base as
 you (`jig task merge-pr <id> --by human`), checked against the board you saw. Jig asks the forge once and merges nothing
 while the pull request is a draft, conflicts with its base, waits for an approval, or has a check that failed or still
@@ -419,12 +414,11 @@ without the buttons.
 The questions before **Close**, **Prepare for prod** and **Merge**, and **Status…** of a pull request, open as dialogs.
 Reading states such as *Reading the board…* show a spinner.
 
-Merging and asking reach the forge with your git credentials, so the macOS keychain may ask. Below Jig 0.46.0 the
-merge stays with your agent or the forge.
+Merging and asking reach the forge with your git credentials, so the macOS keychain may ask.
 
 ## Tasks on staging
 
-A project on Jig's staging flow (`git.flow: staging`, from Jig 0.45.0) ships each task's pull request
+A project on Jig's staging flow (`git.flow: staging`) ships each task's pull request
 into a staging branch first. The task waits there, *parked*, while it is tested, and reaches the main
 branch through a second pull request once someone says "prepare for prod"
 ([Test on staging first](https://jig.fapost.in/staging-flow)). On this flow the board has two more columns. A task
@@ -439,16 +433,15 @@ on the staging branch, waiting for "prepare for prod", is in **On staging**:
 | Review | Pull request into staging — yours to land | the project asks for no review (`git.staging_review: none`), and landing it is yours |
 | Review | Approved | the review is approved; your agent lands it |
 | Review | No review requested yet | nobody was asked to review it: **Request review…** in its ⋯ menu asks someone |
-| Review | Pull request into staging waits for review | Jig does not know the review's state yet: it learns it at the next `jig housekeeping`, and Jig 0.45.0 never does |
+| Review | Pull request into staging waits for review | Jig does not know the review's state yet: it learns it at the next `jig housekeeping` |
 | On staging | On staging, waits for prepare for prod | once it passed its test there, choose **Prepare for prod…** in its ⋯ menu, or tell your agent "prepare for prod" |
-| Ready | Promotion open, CI green | its promotion, the pull request into the main branch, is open; the note follows its state and CI and links to it (from Jig 0.46.0) |
+| Ready | Promotion open, CI green | its promotion, the pull request into the main branch, is open; the note follows its state and CI and links to it |
 | Ready | Promotion opened | your agent just opened its promotion; its state and CI show after the next `jig housekeeping` |
 | Ready | Fix not on staging yet | you took it back for a fix, and the fix has commits the staging branch does not have yet |
 | Ready | On staging | its work is on the staging branch, it does not wait there, and it has no promotion yet |
 
 A task's details show its pull request into staging and its promotion apart, each with its own state, CI, link and the
-time Jig's housekeeping last heard of it. On
-Jig 0.45.0 the promotion has no link, and the pull request into staging no state.
+time Jig's housekeeping last heard of it.
 
 **Take back for a fix** in a parked card's ⋯ menu, or a drag of the card onto **In progress**, runs
 `jig task resume <id>` with the revision of the board you saw: the task is active again, and once it
@@ -456,7 +449,7 @@ ships again its fix lands on the staging branch as the first change did.
 
 ### Land, ask for a review, prepare for prod
 
-With Jig 0.46.0 in the project, a card's ⋯ menu holds the steps of this flow that are yours, first in it, where Jig
+A card's ⋯ menu holds the steps of this flow that are yours, first in it, where Jig
 offers them:
 
 - **Land on staging**, on a card in Review, or a drag of the card onto **On staging**, merges its pull request into the
@@ -478,10 +471,10 @@ offers them:
 
 Each carries the revision of the board you saw, as every change from the board does, and what Jig did, or why it refused, is said in a toast
 (a result goes by itself, a refusal stays), in Jig's words where only Jig knows why. Each reaches the forge with your git credentials, so the macOS
-keychain may ask. Below Jig 0.46.0 they stay with your agent, or your CI.
+keychain may ask.
 
 A task on the staging flow has no ✕ until its work is in the main branch. Landing on staging does not
-finish a task, yet on Jig 0.45.0 `jig task set <id> status consolidated` closes one as soon as its pull
+finish a task, yet Jig's close command once closed one as soon as its pull
 request into staging merged (fapost-jig/jig#509).
 On this flow Jig UI offers the close only once `jig housekeeping` saw the work in the main branch: the
 task's item *Merged: the task can be closed*. **Housekeeping** on the project's card runs it.
@@ -489,7 +482,7 @@ task's item *Merged: the task can be closed*. **Housekeeping** on the project's 
 ### Your work on staging
 
 Commits can reach the staging branch without a task: a fix pushed there by hand, or a task given up after it landed.
-Jig 0.46.0 counts the ones that are yours — their author's email or name is this clone's git identity — and that the
+Jig counts the ones that are yours — their author's email or name is this clone's git identity — and that the
 main branch does not have and no live task's branch holds. While there are any, the bell beside the project's name on
 its card is lit; press it for the list: each commit's subject, how long ago it was made and its short sha, the newest 20
 with the exact count. Nobody else's commits are shown.
@@ -499,8 +492,7 @@ Bring what the main branch still needs to it through a task. **Mark as known** m
 the commits the list shows and, when Jig counts more than its newest 20, the older ones it counts too: if one arrived or
 left since the page read the project, the mark is refused, and the list shows what is there now.
 A commit fetched from a terminal lights the bell when the page next reads the project; **Refresh** and
-**Housekeeping** read it again after their fetch. On a Jig before 0.46.0 the card shows Jig's item about staging work
-as it says it, with no bell. A spinner shows on **Mark as known** while it runs. When Jig refuses the mark for another reason, a toast that stays until you close it says why.
+**Housekeeping** read it again after their fetch. A spinner shows on **Mark as known** while it runs. When Jig refuses the mark for another reason, a toast that stays until you close it says why.
 
 ## Specs
 
@@ -513,13 +505,13 @@ title, how many roadmap items are done out of all of them, and its fog. An epic 
 roadmap was read from the remote branch as it was at the last fetch, or the branch is nowhere;
 the version level its release raises is shown when the roadmap records one.
 
-With Jig 0.48.0 or later in the project, the spec's short description — the `Summary:` line of its
+The spec's short description — the `Summary:` line of its
 `spec.md` — stands under its title, and **Spec** and **Roadmap** open the document as it is written, in a
 dialog: one at a time, and closing it goes back to the board. A document is shown as a task's
 documents are, as Markdown, and scrolls inside the dialog when it is long. Where Jig dropped bytes that are not UTF-8 the page says so; where Jig no longer
 has the document it says that; where Jig could not read it, **Read again** tries once more. Jig UI reads
 them through `jig spec read` and never opens the spec's files itself. A spec without a `Summary:` line shows
-no description, and an older Jig gives neither the description nor the buttons.
+no description.
 
 Its phases stand in a row of steps, each with how many of its items are done, or ✓ once all of
 them are; items before the first phase heading have a step of their own. The page opens on the
@@ -554,7 +546,7 @@ Setting its priority puts it in the queue too, at the bottom.
 
 ### Editing a roadmap
 
-With Jig 0.40.0 or later in the project, a spec's roadmap is edited on the Specs view:
+A spec's roadmap is edited on the Specs view:
 
 - **Add item**, under the lanes of a numbered phase, adds a line at the end of that phase. Items
   before the first phase heading have none.
@@ -584,25 +576,16 @@ Jig refuses edits when:
 - the spec's branch is checked out in a checkout of yours, as `jig spec new` and `jig spec resume`
   leave it: switch that checkout to another branch first.
 - the project changed since you saw the specs: they are read again; try again on them.
-- an earlier edit of the spec still waits where this one cannot follow (Jig 0.41.0): an epic was
+- an earlier edit of the spec still waits where this one cannot follow: an epic was
   opened or finished since, or edits that never reached the remote sit above a pull request closed
   unmerged, or above edits the remote no longer has. Jig's line says what to do.
-- the id given to a new task is a finished task's: choose another id. From Jig 0.42.0 an archived
+- the id given to a new task is a finished task's: choose another id. An archived
   task's id is marked too, at once, without reading the finished tasks.
-- the item already names a task on the spec's branch, for example one filed in another clone: from
-  Jig 0.42.0 the page says so in a line of its own and shows the roadmap as it is now; below Jig
-  0.42.0, Jig's line says so.
+- the item already names a task on the spec's branch, for example one filed in another clone: the page says so in a line of its own and shows the roadmap as it is now.
 
-With Jig 0.41.0 or later, filing a new task is one Jig command, `jig spec item file --new`, with
+Filing a new task is one Jig command, `jig spec item file --new`, with
 the revision of the specs you saw, as for every other edit: a change made in the project since then
 refuses it, and the specs are read again. When Jig refuses it, no task is filed.
-
-On Jig 0.40.0 it is two Jig commands: `jig task new`, which carries no revision, then
-`jig spec item file` with the revision Jig has right after it. So a change made in the project
-since you saw the specs does not refuse it: the item is found by Jig's own handle for it, and Jig
-refuses an item that names a task already. If Jig files the task but then refuses to name it on
-the item, the dialog says so and why; once that is resolved, **File task…** again with the same
-id names it, without filing a second task.
 
 Rewording, checking off or removing an item is not here: ask your agent.
 
@@ -610,8 +593,7 @@ Rewording, checking off or removing an item is not here: ask your agent.
 
 **Knowledge** — the fourth choice beside Board, List and Specs — shows what waits for your decision
 in the project's knowledge: documents proposed and not agreed to yet, and the files linked by
-approved documents that changed since they were approved. It needs Jig 0.40.0 or later in the
-project; on an older Jig it says which Jig the project runs. On the projects page, a card's items
+approved documents that changed since they were approved. On the projects page, a card's items
 about knowledge or linked files waiting for your decision link here with **Decide on the page**.
 
 A proposal shows its id, type, summary and file, the paths and domains whose tasks it would make
@@ -621,40 +603,36 @@ or that it is missing. **Accept** or **Reject** decides it. **Accept all (N)** a
 
 **Document** opens its text in a dialog, with the fields shown above it left out, and for a document
 that links a file, that file as it is now. One dialog is open at a time, and closing it goes back to the
-list; where Jig no longer lists the document as proposed, the dialog says so, and where Jig could not read it, **Read again** tries once more. A Markdown file is shown formatted; any other file as it is. This needs
-Jig 0.41.0 in the project; on Jig 0.40.0 each proposal names the file to read before you decide.
+list; where Jig no longer lists the document as proposed, the dialog says so, and where Jig could not read it, **Read again** tries once more. A Markdown file is shown formatted; any other file as it is.
 
 A changed file shows **Diff since approved**, which opens Jig's diff of it since it was approved in a
 dialog; where Jig could not read the diff, **Read again** tries once more. **Keep**
 approves the file as it is now. **Drop** ends the link: agents are no longer sent to the file. A file
 with no approved text kept to compare with says so: read it whole before you keep it. A file that is
-gone has only **Drop**, or move the link in the project with your agent (`jig-accept`). Drop needs
-Jig 0.41.0; on Jig 0.40.0 a gone file has no button.
+gone has only **Drop**, or move the link in the project with your agent (`jig-accept`).
 
 A decision never holds the page. The document is marked at once — *Accepted, queued* (or *Rejected*,
 *Kept*, *Dropped*) with **Take back** — and you go on to the next. Whatever is queued goes to Jig as
-soon as no write is running; what you decide while one runs waits and goes as the next. On Jig 0.44.0
-or later all that is queued goes as one write, so any number of decisions costs a fetch, a commit and
+soon as no write is running; what you decide while one runs waits and goes as the next. All that is queued goes as one write, so any number of decisions costs a fetch, a commit and
 a push or two, not one each. While its write runs
 a document reads *…, sending…*, and it can no longer be taken back. A queued decision lives in the
 project's page: leaving it — for another project or a task's details — or closing it before its
 write starts drops it.
 
-On Jig 0.44.0 or later Jig UI sends them with one `jig knowledge decide`; below that, one decision a
-write with `jig knowledge accept`, `reject` or `reviewed`, one after another. Each write carries the
+Jig UI sends them with one `jig knowledge decide`. Each write carries the
 revision of the knowledge you saw. Jig commits the decisions on the branch `knowledge/decisions` in a
 tree of its own, never in your checkout, and takes them as far as `agent.git` lets it, as for
 [roadmap edits](#editing-a-roadmap). A decided document stays in the list, marked *Accepted, waiting*, *Rejected, waiting*, *Kept,
 waiting* or *Dropped, waiting*, until that branch's pull request is merged; a toast
 says where the decisions wait.
 
-On Jig 0.45.0, a document that origin's default branch already decided says *Decided on origin
+A document that origin's default branch already decided says *Decided on origin
 already* and has no buttons: no decision is owed. It leaves the list once your checkout has origin's
 default branch — on that branch, **Refresh** on the project's card brings it
 ([Bringing the clone up to origin](#bringing-the-clone-up-to-origin)); on another, once that branch
 takes the default branch in.
 
-On Jig 0.41.0, a document Jig cannot decide yet says why above its buttons: it is committed only in
+A document Jig cannot decide yet says why above its buttons: it is committed only in
 your clone — push it first, then decide —, or it reached the default branch after the decisions
 waiting were started — decide it once they have landed. Jig fetches before it decides, so a decision
 sent after the push goes through; one sent too early is refused with Jig's reason.
@@ -703,12 +681,12 @@ commands at the foot of the page is gone. The details are:
   answer the autopilot, pause, ship, close…) with the command to run in the project and a **copy**
   button; the page follows the change once you do.
 
-With Jig 0.46.0 or later in the project, the page also does some of these itself, where Jig offers
+The page also does some of these itself, where Jig offers
 them:
 
 - **Approve the design.** While a T3 or T4 design waits at its gate, it is shown above the details as its
   author wrote it — for a T4, its spec and alternatives first — with **Approve the design** under it.
-  Pressing it is your approval (`jig task gate <id> approved`). From Jig 0.48.0 a one-line answer to the gate can be
+  Pressing it is your approval (`jig task gate <id> approved`). A one-line answer to the gate can be
   sent with **Send the answer**. Jig approves only the design you were
   shown: if anything was written in the project since, it refuses, and the page says to look again.
 - **Abandon…** asks why the task is given up — one line, which the next agent reads — then
@@ -719,15 +697,7 @@ them:
   one its epic gives it stays. **Add…** makes it wait for another live task or an open epic, with the
   reason Jig asks for (`jig queue depend`).
 When Jig refuses — somebody did it first, the project changed since you read it, its autopilot run is on —
-a toast that stays until you close it says why. With an older Jig the page shows only the commands.
-
-<Note>
-A Jig UI that an agent started — from a Claude Code session, say — may be refused every approval as
-*the project changed*: Jig 0.46.0 records the agent's session as it approves, which changes the project
-before it checks. Jig has fixed this ([jig#590](https://github.com/fapost-jig/jig/issues/590)) after
-0.47.0; until a Jig with the fix is in the project, start Jig UI from a terminal, or as a service, to
-approve from the page.
-</Note>
+a toast that stays until you close it says why.
 
 Starting the task stays your agent's work: in place of `jig task start`, the page gives the request
 to copy to it, *Start task `<id>` in `<project>`*.
@@ -738,15 +708,14 @@ to copy to it, *Start task `<id>` in `<project>`*.
   Jig no longer has the document the dialog says so, and where Jig could not read it, **Read again**
   tries once more. A document is shown
   as its authors wrote it, paths included. Anything in it that could run in the page — a script, an
-  event handler, a form — is taken out. Needs Jig 0.39.0 or later in the project.
+  event handler, a form — is taken out.
 
 A finished task has no details page; its link says so.
 
 ## Bringing the clone up to origin
 
 Jig reads only this clone, never origin, so what the page shows is as of the clone's last fetch: a
-pull request merged on the forge since — a task's, a knowledge decision's — is not in it yet. On Jig
-0.45.0 a project's card says so: Jig's item *This checkout is behind origin* when the main branch here
+pull request merged on the forge since — a task's, a knowledge decision's — is not in it yet. A project's card says so: Jig's item *This checkout is behind origin* when the main branch here
 is behind origin's, and, when the clone last fetched more than a day ago, how long ago that was.
 
 **Refresh**, on that item or beside that line, or beside the project's name on its board, runs `jig refresh` in the
@@ -805,7 +774,6 @@ an agent — is not overwritten: the dialog reads them again and a toast says so
 The Telegram token is never shown, only whether it is set. **Clear** removes it; set it with
 `jig notify setup` in a terminal in the project — Jig never takes it on a command line.
 
-Needs Jig 0.40.0 or later in the project.
 
 ## Disconnect a project
 

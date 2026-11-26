@@ -48,7 +48,7 @@ const ready = (id: string, attention: Attention[] = []): Project => ({
 
 const behind = ready('behind', [item('gate-waiting'), item('upgrade-available', { from: '0.34.0', to: '0.35.0' })]);
 const current = ready('current', [item('release-available')]);
-const old: Project = { id: 'old', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0', upgrade: null };
+const old: Project = { id: 'old', state: 'unsupported', jigVersion: '0.30.0', minimum: '0.48.0', upgrade: null };
 
 describe('upgradeOf', () => {
   it("reads both versions from Jig's upgrade item", () => {

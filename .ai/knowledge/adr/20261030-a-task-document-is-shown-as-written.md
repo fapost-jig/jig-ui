@@ -63,3 +63,6 @@ adr-20261029-finding-projects-shows-their-paths), and feature-task-details drops
   page asks, for a task live in the last read only — an id the address made up, or a finished
   task's, reaches no Jig — and none while the project upgrades
   (adr-20261027-upgrading-a-project-runs-in-the-background).
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.39.0 gate and the section saying a
+project runs an older Jig no longer apply: every supported project lists and reads the documents.)*

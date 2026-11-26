@@ -87,3 +87,7 @@ proposal in the checkout but not on `origin/<base>` is listed, yet a decision on
   `branch-checked-out` until they switch away.
 - When jig#391 or jig#392 lands, the text and Drop are small tasks on this view; a `decidable` mark
   in the read would let the view say "push it first" before Accept rather than after.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.40.0 gate (`KNOWLEDGE_JIG_VERSION`),
+its `unsupported` answers and the adapter's own `not-on-branch` for Jig's `not-found` no longer apply: Jig itself says
+`not-on-base` or `not-on-branch`.)*

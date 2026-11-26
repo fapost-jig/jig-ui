@@ -71,3 +71,7 @@ adr-20261014-project-source-port-keeps-hosting-open.
 - A refused filing leaves nothing to tidy up: no task is left without its item.
 - The two-step filing of adr-20261106-editing-a-roadmap-from-the-page, its `agent.git` check and
   `filed` now hold only below 0.41.0.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.41.0 gate (`FILE_NEW_JIG_VERSION`),
+the two-write filing kept below it and the `filed` refusal flag no longer exist: a new task is always filed in one
+write.)*

@@ -91,3 +91,7 @@ origin, 2026-11-09):
   as its text.
 - `write-still-waits` reaches a roadmap edit by its code too, not as `failed`; the page's line, Jig's
   own words, is unchanged.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.41.0 gate
+(`KNOWLEDGE_TEXT_JIG_VERSION`), the `canRead` and `canDrop` flags and the behaviour below 0.41.0 no longer apply: the
+text and Drop are always offered.)*

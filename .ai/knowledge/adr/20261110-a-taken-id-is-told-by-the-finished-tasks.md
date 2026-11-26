@@ -62,3 +62,6 @@ and the roadmap is shown as it is now. Below 0.42.0 the decision above stands as
   for another id, and the next try shows Jig's line about the item.
 - An id whose task Jig keeps but does not list as finished, such as an archived one, gets Jig's
   line with no mark.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.42.0 gate (`FILED_JIG_VERSION`) and
+the decision that stood below it no longer apply: `already-exists` always answers `taken: true`.)*

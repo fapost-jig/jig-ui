@@ -72,7 +72,7 @@ export interface SpecChoice {
 
 /**
  * The specs the board's tasks were filed from, as the filter offers them: by title, then `none` where a task is of no
- * spec. None while no task names a spec — a Jig before 0.46.0 names none — but a spec the view `chosen` (an address's
+ * spec. None while no task names a spec, but a spec the view `chosen` (an address's
  * `?from=`) is offered whether a task names it or not, so it can be unticked.
  */
 export function specsOf(columns: Column[], chosen: readonly string[] = []): SpecChoice[] {

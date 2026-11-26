@@ -56,9 +56,9 @@ live tasks, how many finished ones Jig still keeps and whether it is on Jig's st
 the flow from its tasks, or, with none listed, from `config keys`), those finished tasks (`finished(id)`,
 read through Jig at each call and kept nowhere, so a failure stays its own answer and never becomes the project's state —
 only what Jig offered on each, in memory, for a write from that list), one live task in full (`task(id, taskId)`, with
-the revision of its board read and whether its Jig takes a person's writes), a task's documents (`artifacts(id, taskId)`, and one as it
+the revision of its board read), a task's documents (`artifacts(id, taskId)`, and one as it
 is written, `artifact(id, taskId, kind)`, read through Jig at each call), its specs
-(`specs(id)`, with `canRead`, and a spec's document as written, `specText(id, spec, kind)`, read through Jig at each
+(`specs(id)`, and a spec's document as written, `specText(id, spec, kind)`, read through Jig at each
 call, for a spec Jig listed), its settings (`settings(id)`, as `jig config keys` lists them with a revision of their own,
 read through Jig at each call), `readAgain(id)` — the project read through Jig now, for a person's Read again — `scan(folder?)`, the
 Jig projects under a folder — the source's own home folder when none is given — by path — connect,
@@ -76,7 +76,7 @@ Jig's report on `written` as `report` —, `refresh(id)` — what it did on `wri
 writes on a task `act(id, taskId, write, reason, revision)` — only one Jig offers in the last read of the task, or of
 the finished list for a finished one — and `depend(id, taskId, on, reason, revision)` and `undepend(id, taskId, on,
 revision)` — between live tasks or onto an open epic, and only a dependency of the task's own —, all three
-`unsupported` below `WRITES_JIG_VERSION` without Jig (adr-20261118-a-person-writes-on-a-task-from-its-page), a person's
+(adr-20261118-a-person-writes-on-a-task-from-its-page), a person's
 steps on the staging flow `landOnStaging(id, taskId, withoutReview, revision)` — `land(id)` is the upgrade's —,
 `promote(id, taskId, revision)` and `requestReview(id, taskId, logins, revision)`, each only for a task its last read
 shows `landable`, `promotable` or `reviewRequestable`, any other `not-found` without Jig, and the logins only among
@@ -86,9 +86,7 @@ revision)`, only for a task its last read shows `mergeable`, and the forge's wor
 `prStatus(id, taskId)`, read on demand only for a live task whose last read offered `pr-status` — a card shows it as
 `statusable` where it can be neither merged nor landed, and is not `closable` where Jig offers `merge` —, its
 `forge-unavailable` and `no-pull-request` answered as refusals (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card), and the
-knowledge waiting for a decision — `knowledge(id)`, with a revision of its own and whether the project's Jig
-reads a document's text, drops a link and decides several documents in one write (`canRead`, `canDrop`,
-`canDecideMany`), a linked file's diff `knowledgeDiff(id, doc)`
+knowledge waiting for a decision — `knowledge(id)`, with a revision of its own, a linked file's diff `knowledgeDiff(id, doc)`
 and a proposed document's text `knowledgeText(id, doc)`, read through Jig at each call, and the write
 `decideKnowledge(id, decisions, revision)`, every `{doc, decision}` as one write, refused with the `doc` it stopped at —,
 which answer `written` — with Jig's `note`, paths cut, where a roadmap edit carries one —, `refused` with Jig's code,
@@ -132,31 +130,22 @@ shown instead of a revision: Jig checks the count, and the adapter reads the lis
 (adr-20261118-mark-as-known-carries-the-count-the-person-saw).
 
 A roadmap edit runs Jig only for the spec, the phase and the item handles of the roadmap the last
-read shows — the one on the spec's write branch while edits wait there — and below
-`ROADMAP_JIG_VERSION` answers `refused: unsupported`; the specs read says which (`editable`).
+read shows — the one on the spec's write branch while edits wait there.
 `fileItem` with a live task id runs only `spec item file --task` with the person's revision. With a
-new id, from `FILE_NEW_JIG_VERSION` it runs only `spec item file --new` with the person's revision,
-and a refusal files nothing (adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41); from `FILED_JIG_VERSION`
-(0.42.0) its `already-exists` answers `refused` with `taken: true`, the id being a task's
-(adr-20261110-a-taken-id-is-told-by-the-finished-tasks). On Jig 0.40.0 it is the one write of two Jig writes: `agent.git`
-read first (`none` is `refused: git-not-allowed` without Jig writing anything), `task new`, the
-revision read again, `spec item file` with it; a refusal after the task was filed answers `refused`
-with `filed: true`, and the same request again with the same id — now live — names it
+new id it runs only `spec item file --new` with the person's revision, and a refusal files nothing
+(adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41); its `already-exists` answers `refused` with `taken: true`,
+the id being a task's (adr-20261110-a-taken-id-is-told-by-the-finished-tasks)
 (adr-20261106-editing-a-roadmap-from-the-page).
 
 A knowledge decision reads the knowledge again first — no held read lists it — and runs Jig only for
 every id that read lists open to its decision — one that is not refuses them all, with its `doc` (adr-20261114-knowledge-decisions-are-queued-on-the-page):
 `accept` and `reject` a proposal, `reviewed` a linked file
-not `missing`, and from `KNOWLEDGE_TEXT_JIG_VERSION` `reject` a listed linked file too, which drops its
+not `missing`, and `reject` a listed linked file too, which drops its
 link — each with no decision waiting on it; anything else is `refused: not-found` without Jig. A record
 Jig reads as not decidable now is still sent: Jig's write fetches first and judges it. A diff runs Jig
 only for a file the sources read just before lists as `changed`, a text only for a document the
-proposals read lists. Below Jig 0.41.0, Jig's own `not-found` on a decision the read allowed answers
-`not-on-branch`, a code of Jig UI's own: the document is not on `knowledge/decisions`, cut from origin's
-base; from 0.41.0 Jig says so itself, as `not-on-base` or `not-on-branch`. Below `KNOWLEDGE_JIG_VERSION`
-the reads answer `unsupported` and a decision `refused: unsupported`; a text below
-`KNOWLEDGE_TEXT_JIG_VERSION` is `unsupported` (adr-20261106-knowledge-decisions-from-the-page,
-adr-20261109-knowledge-text-and-drop-from-jig-0-41).
+proposals read lists. Jig itself says a document is not on the base or the branch, as `not-on-base` or `not-on-branch`
+(adr-20261106-knowledge-decisions-from-the-page, adr-20261109-knowledge-text-and-drop-from-jig-0-41).
 
 An upgrade is offered only for a project whose last read carries Jig's `upgrade-available` item
 (else `refused: not-found`), one at a time (`refused: running`). Its run — `running`, then `done`

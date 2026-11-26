@@ -2,8 +2,8 @@ import type { LandedAll, Machine, Project, UpgradePlan } from '../api';
 import type { Tone } from './tones';
 
 /**
- * The project's Jig and the machine's, when Jig says the project's is older — its `upgrade-available` item, which a
- * project's Jig reports from 0.34.0; an older Jig, or a project that cannot be read, has none.
+ * The project's Jig and the machine's, when Jig says the project's is older — its `upgrade-available` item; a project
+ * that cannot be read, or is below the minimum, has none.
  */
 export function upgradeOf(project: Project):
   | {
@@ -34,7 +34,7 @@ export function releaseOf(project: Project, release: string | null = null): stri
   return release !== null && older(project.jigVersion, release) ? `jig v${release} is out` : undefined;
 }
 
-/** An upgrade of the project that waits for its pull request, as the server works it out (Jig 0.39.0 in the project). */
+/** An upgrade of the project that waits for its pull request, as the server works it out (the project's own Jig lands it). */
 export type MergeWait = NonNullable<Project['mergeWait']>;
 
 /** The project's upgrade that waits for its pull request — open, or merged and not here yet; none otherwise. */
