@@ -24,8 +24,8 @@
   const refreshing = reporter(`refresh:${props.project}`, () => emit('dismissRefresh'));
   const housekeeping_ = reporter(`housekeeping:${props.project}`, () => emit('dismissHousekeeping'));
 
-  // The toasts belong to the view that holds the reports: they go with it, a run's spinner included — the report of a
-  // run that ends after the view went is not shown.
+  // The toasts belong to the view that holds the reports: they go with it, a run's spinner included. A run kept while its
+  // project is not shown (WorkspaceView keeps it) reports when that project is shown again.
   onUnmounted(() => {
     refreshing.clear();
     housekeeping_.clear();

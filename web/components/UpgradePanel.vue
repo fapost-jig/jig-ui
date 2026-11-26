@@ -39,6 +39,11 @@
   const pullRequest = computed(() => link(result.value?.url ?? null));
   const showSteps = computed(() => (inline ? steps.value.length > 0 : stepsOpen.value && steps.value.length > 0));
 
+  // A self-update runs on once started and then plans the upgrade again: the dialog cannot close until it is done.
+  function closePlan(): void {
+    if (props.plan?.state !== 'self-updating') emit('close');
+  }
+
   const reporting = reporter(`upgrade:${props.project}`, () => emit('dismiss'));
   // The toast belongs to the card: it goes with it, a run's spinner included, and that is not the person closing the result.
   onUnmounted(reporting.clear);
@@ -108,9 +113,13 @@
   <component
     :is="inline ? 'div' : Dialog"
     v-if="plan && !(run?.state === 'running') && !result"
-    v-bind="inline ? {} : { open: true, 'onUpdate:open': (open: boolean) => !open && emit('close') }"
+    v-bind="inline ? {} : { open: true, 'onUpdate:open': (open: boolean) => !open && closePlan() }"
   >
-    <component :is="inline ? 'div' : DialogContent" class="flex flex-col gap-3 text-[13px] sm:max-w-lg">
+    <component
+      :is="inline ? 'div' : DialogContent"
+      v-bind="inline ? {} : { showCloseButton: plan?.state !== 'self-updating' }"
+      class="flex flex-col gap-3 text-[13px] sm:max-w-lg"
+    >
       <DialogHeader v-if="!inline">
         <DialogTitle>Upgrade Jig in {{ project }}</DialogTitle>
         <DialogDescription class="sr-only">What the upgrade would do, before it starts.</DialogDescription>

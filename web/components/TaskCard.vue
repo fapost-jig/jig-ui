@@ -9,7 +9,7 @@
   import { minute } from '@/lib/clock';
   import { cardKey } from '@/lib/task-key';
   import type { StagingStep } from '@/lib/staging';
-  import { requested, waits } from '@/lib/waits';
+  import { cardNote, requested } from '@/lib/waits';
   import { ago } from '@/lib/ago';
   import { shownPull } from '@/lib/pull';
   import WriteConfirm from './WriteConfirm.vue';
@@ -67,10 +67,7 @@
   const merging = defineModel<boolean>('merging', { default: false });
 
   /** The note, unless all it says is the pull request the footer already shows. */
-  const note = computed(() => {
-    const n = waits(props.task);
-    return n?.icon === 'pull' && pull.value ? undefined : n;
-  });
+  const note = computed(() => cardNote(props.task, !!pull.value));
 
   const request = computed(() => requested(props.task, minute.value.getTime()));
   const key = computed(() => cardKey(props.task.id, props.task.goal, false));

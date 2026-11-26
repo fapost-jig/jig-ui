@@ -9,6 +9,7 @@
   import { shownPull } from '@/lib/pull';
   import { minute } from '@/lib/clock';
   import type { StagingStep } from '@/lib/staging';
+  import { refName } from '@/lib/writes';
   import { requested, waits } from '@/lib/waits';
   import WriteConfirm from './WriteConfirm.vue';
   import PrStatus from './PrStatus.vue';
@@ -68,7 +69,7 @@
   const pull = computed(() => shownPull(props.task));
   const taskPage = computed(() => `/projects/${encodeURIComponent(props.project)}/tasks/${encodeURIComponent(props.task.id)}`);
   /** The item the note says it waits for, by its name. */
-  const waitsOn = computed(() => note.value?.ref?.replace(/^task:/, '').replace(/^epic:/, 'epic '));
+  const waitsOn = computed(() => note.value?.ref && refName(note.value.ref));
 </script>
 
 <template>
