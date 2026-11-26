@@ -29,12 +29,11 @@ Why:      a change of Jig's contract must be a change here and in its contract t
           Jig's files are not a contract Jig promised.
 ```
 
-The minimum Jig the package reads is `MIN_JIG_VERSION` in `server/jig/client.ts` — 0.31.0, the
-first Jig with a queue (0.29.0 was the first that prints JSON). A write a later Jig made possible
-does not raise it: it carries a version of its own, checked by the local adapter against the
-project's Jig before the page is offered the write — `RESUME_JIG_VERSION`, 0.35.0, for
-`resumeTask`, `ARTIFACTS_JIG_VERSION`, 0.39.0, for a task's documents, `ROADMAP_JIG_VERSION`, 0.40.0, for a
-roadmap's edits, `KNOWLEDGE_JIG_VERSION`, 0.40.0, for the knowledge waiting for a decision, `KNOWLEDGE_TEXT_JIG_VERSION`, 0.41.0, for a proposed document's text and a dropped link, `FILE_NEW_JIG_VERSION`, 0.41.0, for filing an item's new task in one write, `FILED_JIG_VERSION`, 0.42.0, for `already-filed` apart from a taken id, `DECIDE_JIG_VERSION`, 0.44.0, for several knowledge decisions in one write, `REFRESH_JIG_VERSION`, 0.45.0, for bringing the clone up to origin, `WRITES_JIG_VERSION`, 0.46.0, for a person's writes on a task (adr-20261118-a-person-writes-on-a-task-from-its-page), and `SPEC_TEXT_JIG_VERSION`, 0.48.0, for a spec's documents (`readSpecText`; a spec's `summary`, from the same Jig, is read as `null` below it) (adr-20261125-a-specs-documents-are-shown-as-written) — so a project on an older Jig is still read, and only that write is missing. `CLOSE_JIG_VERSION`, 0.40.0, is the other kind: the close is offered on any Jig, and the version picks how `closeTask` checks it. `STAGING_JIG_VERSION`, 0.45.0, is a read's: below it the adapter does not ask a project with no task listed for its `git.flow`. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
+The minimum Jig the package reads is `MIN_JIG_VERSION` in `server/jig/client.ts` — 0.48.0, the first Jig that
+prints a spec's documents and its `summary` (adr-20261125-a-specs-documents-are-shown-as-written). A project on an older
+Jig is `unsupported` (never read, whatever it could offer) and the page tells to run `jig upgrade` in it; no read or write
+has a version gate of its own. The one other version is `MACHINE_VERSION_JIG_VERSION`, 0.46.0, for the machine's own `jig`
+on PATH, whose `version --json` the header reads. `jig` runs as `bash .ai/scripts/jig`; on Windows the bash is Git's,
 found from `git --exec-path` (`<git>/mingw64/libexec/git-core` → `<git>/bin/bash.exe`), never a
 `bash` on PATH, which may be WSL's. It is asked once per process; a failed ask is not kept.
 
@@ -45,12 +44,10 @@ dropped by `z.object`, so nothing Jig UI does not read gets past `server/jig/`.
 
 Every field a schema reads is in Jig's output, `null` where Jig has nothing — except a few: an
 attention item's `versions` (`{from, to}`, the project's Jig as its manifest says and the
-machine's), which only `upgrade-available` carries, from Jig 0.34.0, and older Jig never printed on
-any item. It reads as `null` when absent, and an `upgrade-available` item without it fails the read,
+machine's), which only `upgrade-available` carries. It reads as `null` when absent, and an `upgrade-available` item without it fails the read,
 as a field Jig dropped does (task `projects-to-upgrade`). A roadmap item's `id` (Jig's handle) and a
-spec's `waiting` (the edits on its write branch, with the roadmap there) are printed from Jig 0.40.0
-only, and read as `null` when absent (task `roadmap-from-page`). A task's `staging` and `parked` are
-printed on Jig 0.45.0's staging flow only, absent on any other; that absence is how the adapter tells
+spec's `waiting` (the edits on its write branch, with the roadmap there) are read as `null` when absent (task `roadmap-from-page`). A task's `staging` and `parked` are
+printed on the staging flow only, absent on any other; that absence is how the adapter tells
 the flow (task `tasks-on-staging`) — a project with no task listed tells it only in its setting `git.flow`, which the
 adapter then reads from `config keys` (task `staging-columns-without-tasks`) —, and the schema names it once, as `stagingFlow`, reading both as
 `null` when absent — a check on `staging` itself would read every staging-flow task not on staging as
@@ -87,9 +84,8 @@ as and where it came from; it reaches the page whole, paths cut.
 
 A task-list read runs Jig's JSON task listing, the live tasks only, checks the envelope, then `data` through the
 `TaskList` schema — the status among Jig's own words — and returns typed tasks and the count of finished ones left out
-(`hidden`, less `archived` from Jig 0.37.0, which counts those among the hidden). The finished tasks themselves are
-`readFinishedTasks`: `--status` takes one status, so a run for each — consolidated, abandoned, and archived when the
-caller asks (from `WRITES_JIG_VERSION`) — and any one's failure fails the read; its revision is the oldest of theirs,
+(`hidden`, less `archived`, which counts those among the hidden). The finished tasks themselves are
+`readFinishedTasks`: `--status` takes one status, so a run for each — consolidated, abandoned and archived — and any one's failure fails the read; its revision is the oldest of theirs,
 which a write from the list carries. A task document's read (`readArtifact`) answers its envelope's revision too: an
 approval of a design carries the oldest of its documents', so one rewritten since is refused. Jig's refusal throws `JigRefusal` with its code
 (an unknown code is `failed`, so a code the page tells apart is in the client's `CODES` with a test
@@ -105,13 +101,12 @@ A write — `moveInQueue`, `setPriority`, `requestPause`, `cancelPause` — name
 `stale-revision`, `not-found`, `usage`, `already-exists` and `failed` come back as `JigRefusal`
 codes. `resumeTask` (`jig task resume <id>`) names the task by its bare id, as `jig task` does, and
 adds `not-paused`, `wrong-checkout` and `stash-conflict`; its answer (how long the pause lasted, a
-stash applied) is not read. `pauseTask` (`jig task pause <id> --revision <n> --json`, from Jig 0.45.0,
-`PAUSE_JIG_VERSION`) names the task by its bare id too and adds `already-paused`. Its success answer carries the revision before
+stash applied) is not read. `pauseTask` (`jig task pause <id> --revision <n> --json`) names the task by its bare id too and adds `already-paused`. Its success answer carries the revision before
 the write, so the caller reads again; a test pins each command's arguments and a refusal.
 `writeTask` runs a person's write on a task by the id of Jig's action that offers it — `approve-gate` (`task gate <id>
-approved`), `answer-gate` (`task gate <id> answered --answer <a line>`, Jig's own action from 0.48.0), `abandon` (with `--reason`), `archive`, `unarchive`, `drop-item` (`spec drop <id>`, a roadmap write with its
+approved`), `answer-gate` (`task gate <id> answered --answer <a line>`), `abandon` (with `--reason`), `archive`, `unarchive`, `drop-item` (`spec drop <id>`, a roadmap write with its
 longer timeout, whose note it answers without a path) — and `depend` / `undepend` change what a task waits for
-(`queue depend|undepend task:<id> --on <ref>`, a reason with the first); each from `WRITES_JIG_VERSION`, adding the
+(`queue depend|undepend task:<id> --on <ref>`, a reason with the first); each adds the
 codes `no-gate`, `autopilot-running`, `autopilot-stopped`, `already-archived`, `not-archived`, `wrong-status` and
 `already-closed`.
 A person's steps on the staging flow — `landTask` (`jig task land <id> --by human [--without-review]`), `promoteTask`
@@ -138,12 +133,9 @@ back as refusals with Jig's line. Their success fixtures are written from Jig's 
 project (adr-20261119-a-person-merges-a-tasks-pull-request-and-asks-where-it-stands-from-the-card).
 `fileTask` (`jig task new <id> --goal <text>`) takes no revision — Jig has none for it — and its
 tests pin that a person's goal reaches Jig as one argument, unglobbed
-(adr-20261022-filing-a-task-carries-no-revision). `closeTask` (`jig task set <id> status consolidated`) takes the
-project's Jig version and runs with a longer timeout (Jig asks the forge). From `CLOSE_JIG_VERSION` it is a write like
+(adr-20261022-filing-a-task-carries-no-revision). `closeTask` (`jig task set <id> status consolidated`) runs with a longer timeout (Jig asks the forge). It is a write like
 the others, with `--revision <n>` and `--json`, and adds `not-closable`, Jig's reason as `reasons`; the closed task it
-answers is not read. On an older Jig it is the one text write: it reads `queue list --json` first and refuses
-`stale-revision` itself when the clone's revision is not the caller's; a refusal is `failed` with Jig's `jig: error:`
-lines, through `withoutPaths`, as `reasons` (adr-20261029-close-a-ready-task-from-the-board). A refusal's `reasons` lose
+answers is not read (adr-20261029-close-a-ready-task-from-the-board). A refusal's `reasons` lose
 the command's own name, of one word, two or three (`upgrade: `, `task set: `, `spec item file: `). On Windows the arguments do not go on Git bash's
 command line, which it parses itself: it globbed a one-word goal `out*` that Node left unquoted,
 and with `MSYS=noglob` it read `\"` as a backslash and a quote (both caught by the Windows CI leg).
@@ -160,7 +152,7 @@ warnings on stderr (a task not archived, the queue not pruned) lead the report, 
 above"); `ran` gives both streams (`Ran`), `jig` only stdout. Its tests run a stand-in over
 `server/jig/fixtures/housekeeping.txt` (adr-20261110-housekeeping-runs-from-the-project-card).
 
-`refresh` (`jig refresh --json`, Jig 0.45.0, 2 minutes: a fetch) answers JSON, but not all of it: `base.message` and
+`refresh` (`jig refresh --json`, 2 minutes: a fetch) answers JSON, but not all of it: `base.message` and
 `fetch.message` are git's own lines and `checked_out_in` a worktree's path, so the schema keeps the outcomes, the base's
 name and commits and the writes closed, and drops the rest. Its fixtures are one per way the base went, from a scratch
 repository with a local bare origin, the worktree's path renamed (adr-20261113-refresh-brings-the-clone-up-from-the-card).
@@ -186,9 +178,9 @@ without it a long run of word characters took seconds (a test pins under a secon
 
 The settings — `readSettings` (`jig config keys --json`), `setSetting` and `unsetSetting`
 (`jig config set <key> <value>` and `jig config unset <key>`, each `--local --revision <n> --json`) —
-need `SETTINGS_JIG_VERSION`, 0.40.0, which the local adapter checks before running Jig. A key's
+run on any supported Jig. A key's
 value, default and description go through `withoutPaths`; a secret's value and default are
-dropped even if Jig prints them (Jig 0.40.0 prints none); a kind Jig adds later reads as `text`. Jig
+dropped even if Jig prints them (Jig prints none); a kind Jig adds later reads as `text`. Jig
 checks every value itself: `invalid-value`, `unknown-key`, `not-local` (a key only the project's
 `.ai/config.yaml` answers) and `secret-key` (the Telegram token, which Jig takes only in a terminal)
 come back as codes, Jig's line as `reasons` with the command's name cut by `said` — one word
@@ -196,13 +188,13 @@ come back as codes, Jig's line as `reasons` with the command's name cut by `said
 reads the settings again.
 
 A roadmap's edits — `addItem`, `moveItem` and `fileItem` (`jig spec item add|move|file <spec> …
---revision <n> --json`), and from Jig 0.41.0 `fileNewItem` (`jig spec item file <spec> <item> --new
+--revision <n> --json`), and `fileNewItem` (`jig spec item file <spec> <item> --new
 <task> --goal <text>`, which files the task in the same write) — have 60 s each (`ROADMAP_TIMEOUT_MS`): Jig fetches, may push and ask the
 forge. Of the answer only `write.note` is read — whose step is next, or a push that failed after the
 commit — through `withoutPaths`. Their refusals add `git-not-allowed` (`agent.git: none`),
 `not-linkable`, `epic-missing`, `write-busy`, `branch-checked-out` (its message names the checkout's
 absolute path), `branch-diverged`, `branch-has-other-commits`, `base-not-on-origin`,
-`tree-in-the-way`, `commit-refused` and, from Jig 0.41.0, `write-still-waits`, Jig's line as `reasons`,
+`tree-in-the-way`, `commit-refused` and `write-still-waits`, Jig's line as `reasons`,
 its command cut by `said` — of one word, two or three (`spec item move: `)
 (adr-20261106-editing-a-roadmap-from-the-page, adr-20261110-filing-an-items-task-in-one-write-from-jig-0-41).
 
@@ -211,16 +203,17 @@ The knowledge waiting for a decision — `readKnowledge` (`jig knowledge propose
 `unrecorded` and `missing` kept, a stub proposal's `bytes` taken from the sources read) and
 `readSourceDiff` (`jig knowledge sources --diff <id> --json`) — keeps Jig's paths, relative to the
 project, and the diff as Jig prints it (adr-20261106-knowledge-decisions-from-the-page). Each record's
-`decidable`, `reason` and `lossy` (Jig 0.41.0) read `null` from an older Jig. `readKnowledgeText`
-(`jig knowledge read <id> --json`, Jig 0.41.0) keeps the document's whole file and a stub's linked file
+`decidable`, `reason` and `lossy` read `null` where Jig prints none. `readKnowledgeText`
+(`jig knowledge read <id> --json`) keeps the document's whole file and a stub's linked file
 as Jig gives them, each with its `lossy` (adr-20261109-knowledge-text-and-drop-from-jig-0-41).
-`decideKnowledge` (from `DECIDE_JIG_VERSION` one `jig knowledge decide --accept|--reject|--reviewed <id>…
---revision <n> --json` for every decision given, each id after its decision's flag, in the order given; below it
-`jig knowledge accept|reject|reviewed <id> --revision <n> --json` for one, more refused `usage` without Jig; 60 s,
+`decideKnowledge` (one `jig knowledge decide --accept|--reject|--reviewed <id>…
+--revision <n> --json` for every decision given, each id after its decision's flag, in the order given; 60 s,
 `KNOWLEDGE_TIMEOUT_MS`) always passes the revision — without it Jig decides unchecked — and reads only
-`write.note`, through `withoutPaths`, with the roadmap edits' `WriteNote` schema. Its refusals add
-`not-proposed` (decided already, or an active stub given to `reject` by Jig 0.40.0, or one whose file
-is as approved) and `source-missing` (a stub whose linked file is gone); Jig 0.41.0's `not-on-base`,
+`write.note`, through `withoutPaths`, with the roadmap edits' `WriteNote` schema. A refusal line that a check shared with the single-decision commands prints keeps its `knowledge accept|reject|reviewed: `
+prefix under `knowledge decide`: `decideKnowledge` strips it with the command's own. The client also keeps reading Jig 0.45.0's staging
+answer shapes on purpose: harmless shape tolerance, no gate. Its refusals add
+`not-proposed` (decided already, or an active stub given to `reject`, or one whose file
+is as approved) and `source-missing` (a stub whose linked file is gone); Jig's `not-on-base`,
 `not-on-branch` and `write-still-waits` are Jig's codes, carried with its line as reasons. Jig names the document
 it stopped at only in that line: the refusal carries as `doc` the first sent id the line names as a word of its own,
 not as part of a longer id — one of two places Jig UI reads Jig's words, and only to name, never to act (adr-20261114-knowledge-decisions-are-queued-on-the-page).

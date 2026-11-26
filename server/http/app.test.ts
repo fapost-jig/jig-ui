@@ -231,9 +231,9 @@ describe('/api/projects and /api/workspace', () => {
       headers: { host: HOST, cookie: COOKIE, 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  const ready = project('ready', '0.31.0');
-  const old = project('old', '0.26.0');
-  const broken = project('broken', '0.31.0', true);
+  const ready = project('ready', '0.48.0');
+  const old = project('old', '0.30.0');
+  const broken = project('broken', '0.48.0', true);
   const empty = {
     counts: { active: 0, paused: 0, ready: 0 },
     attention: [],
@@ -249,7 +249,7 @@ describe('/api/projects and /api/workspace', () => {
   it('connects, lists and disconnects a project, by id only', async () => {
     const first = await call('POST', '/api/projects', { path: ready });
     expect(first.status).toBe(201);
-    expect(await first.json()).toEqual({ project: { id: 'ready', state: 'ready', jigVersion: '0.31.0', ...empty } });
+    expect(await first.json()).toEqual({ project: { id: 'ready', state: 'ready', jigVersion: '0.48.0', ...empty } });
     expect((await call('POST', '/api/projects', { path: join(ready, '.ai') })).status).toBe(200);
 
     expect((await call('POST', '/api/projects', { path: old })).status).toBe(201);
@@ -258,8 +258,8 @@ describe('/api/projects and /api/workspace', () => {
     const text = await list.text();
     expect(JSON.parse(text)).toEqual({
       projects: [
-        { id: 'ready', state: 'ready', jigVersion: '0.31.0', ...empty, upgrade: null },
-        { id: 'old', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0', upgrade: null },
+        { id: 'ready', state: 'ready', jigVersion: '0.48.0', ...empty, upgrade: null },
+        { id: 'old', state: 'unsupported', jigVersion: '0.30.0', minimum: '0.48.0', upgrade: null },
         { id: 'broken', state: 'unreadable', code: 'failed', upgrade: null },
       ],
       machine: { release: null, selfUpdate: null, upgradeAll: null, landingAll: false },
@@ -281,7 +281,7 @@ describe('/api/projects and /api/workspace', () => {
   });
 
   it('finds the Jig projects under a folder, the home folder when none is typed, and refuses what is not one', async () => {
-    const found = project('found/here', '0.31.0');
+    const found = project('found/here', '0.48.0');
     project('found/without-jig');
     const folder = join(realpathSync.native(webRoot), 'found');
     const scan = await call('POST', '/api/scan', { folder });
@@ -363,14 +363,14 @@ describe('/api/projects and /api/workspace', () => {
       secret: false,
     };
     // A project with no task yet: its settings tell the flow.
-    await call('POST', '/api/projects', { path: project('staged-empty', '0.46.0', false, [], [flow]) });
+    await call('POST', '/api/projects', { path: project('staged-empty', '0.48.0', false, [], [flow]) });
     const empty = await (await call('GET', '/api/projects/staged-empty/board')).text();
     expect(JSON.parse(empty)).toMatchObject({
       board: {
         columns: ['needs-you', 'in-progress', 'review', 'on-staging', 'ready', 'backlog', 'paused'].map((id) => ({ id, cards: [] })),
       },
     });
-    const staged = project('staged', '0.45.0', false, [
+    const staged = project('staged', '0.48.0', false, [
       row('s', { status: 'ready', staging: 'on', parked: { reason: 'signal', hint: null } }),
     ]);
     await call('POST', '/api/projects', { path: staged });
@@ -397,7 +397,7 @@ describe('/api/projects and /api/workspace', () => {
 
   it("serves a project's specs, its state when it is not readable, and 404 for an unknown id", async () => {
     const text = await (await call('GET', '/api/projects/ready/specs')).text();
-    expect(JSON.parse(text)).toEqual({ specs: { state: 'ready', specs: [], revision: 1, editable: false, canRead: false } });
+    expect(JSON.parse(text)).toEqual({ specs: { state: 'ready', specs: [], revision: 1 } });
     expectNoPath(text);
     expect(await (await call('GET', '/api/projects/broken/specs')).json()).toEqual({
       specs: { id: 'broken', state: 'unreadable', code: 'failed' },
@@ -407,7 +407,7 @@ describe('/api/projects and /api/workspace', () => {
 
   it('puts the cards of a project in their columns and carries no worktree path', async () => {
     const tree = join(realpathSync.native(webRoot), 'tree-of-busy').replace(/\\/g, '/');
-    const busy = project('busy', '0.31.0', false, [
+    const busy = project('busy', '0.48.0', false, [
       row('a', { branch: null }),
       row('b', { worktree: { path: tree, uncommitted: 1 }, gate: { state: 'waiting', by: null } }),
       row('c', { status: 'ready' }),
@@ -434,7 +434,7 @@ describe('/api/projects and /api/workspace', () => {
 
   it('serves one task in full with its column, never a worktree path or a refusal naming one', async () => {
     const tree = join(realpathSync.native(webRoot), 'tree-of-detailed').replace(/\\/g, '/');
-    const detailed = project('detailed', '0.31.0', false, [
+    const detailed = project('detailed', '0.48.0', false, [
       row('w', {
         worktree: { path: tree, uncommitted: 2 },
         gate: { state: 'waiting', by: null },
@@ -583,7 +583,7 @@ describe('/api/projects/:id/queue', () => {
       headers: { host: HOST, 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),
     });
-  const queued = project('queued', '0.31.0', false, [row('a'), row('b')]);
+  const queued = project('queued', '0.48.0', false, [row('a'), row('b')]);
 
   it("writes a move and a priority through the project's Jig", async () => {
     await post(app, '/api/projects', { path: queued });
@@ -725,7 +725,7 @@ describe('/api/projects/:id/queue', () => {
   it('reads the settings and writes one of them through the port, only a key, a one-line value and a revision', async () => {
     const asked: unknown[][] = [];
     let outcome: Written = { state: 'written' };
-    const old = { id: 'x', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.40.0' } as const;
+    const old = { id: 'x', state: 'unsupported', jigVersion: '0.39.0', minimum: '0.48.0' } as const;
     const source: ProjectSource = {
       ...localSource(join(webRoot, 'fake-config')),
       settings: (id) => Promise.resolve(id === 'x' ? { state: 'ready', keys: [], revision: 5 } : id === 'old' ? old : undefined),
@@ -1045,7 +1045,7 @@ describe('/api/projects/:id/queue', () => {
 
   it("serves a task's documents and one as it is written, and refuses what is not there", async () => {
     const listed = [{ kind: 'plan', state: 'present', reason: null, updatedAt: 'x', bytes: 7 }] as const;
-    const old = { id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.39.0' } as const;
+    const old = { id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.48.0' } as const;
     const asked: string[] = [];
     const source: ProjectSource = {
       ...localSource(join(webRoot, 'fake-config')),
@@ -1149,10 +1149,12 @@ describe('/api/projects/:id/queue', () => {
   });
 
   it('answers a project it cannot read with its state', async () => {
-    const res = await post(app, '/api/projects', { path: project('dated', '0.26.0') });
+    const res = await post(app, '/api/projects', { path: project('dated', '0.30.0') });
     expect(res.status).toBe(201);
     const move = await post(app, '/api/projects/dated/queue/move', { task: 'a', place: 'top', revision: 1 });
-    expect(await move.json()).toEqual({ project: { id: 'dated', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0' } });
+    expect(await move.json()).toEqual({
+      project: { id: 'dated', state: 'unsupported', jigVersion: '0.30.0', minimum: '0.48.0' },
+    });
   });
 
   it('is refused without the token and from another origin', async () => {
@@ -1247,45 +1249,7 @@ describe('/api/projects/:id/specs/items', () => {
     expect([res.status, ((await res.json()) as { error: { code: string } }).error.code]).toEqual([status, code]);
   });
 
-  it("says a task was filed that Jig did not name on its item, with Jig's reasons", async () => {
-    const outcome: Written = { state: 'refused', code: 'branch-checked-out', reasons: ['spec/shop is checked out in …'], filed: true };
-    const res = await post(faked(outcome).app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
-    expect([res.status, await res.json()]).toEqual([
-      422,
-      {
-        error: {
-          code: 'branch-checked-out',
-          message: 'The task was filed, and Jig did not name it on the item.',
-          reasons: ['spec/shop is checked out in …'],
-          filed: true,
-        },
-      },
-    ]);
-  });
-
-  it("says a new id Jig refused already-exists is a finished task's when Jig's list of them holds it", async () => {
-    const outcome: Written = { state: 'refused', code: 'already-exists', reasons: ['task already exists: search'] };
-    const search = { id: 'search', status: 'consolidated' as const, goal: null, updatedAt: null, pullRequest: null, offers: [] };
-    const { app, sent } = faked(outcome, { state: 'ready', tasks: [search], revision: 1 });
-    const res = await post(app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
-    expect([res.status, await res.json()]).toEqual([
-      422,
-      {
-        error: {
-          code: 'already-exists',
-          message: 'The project has a finished task with this id.',
-          reasons: ['task already exists: search'],
-          taken: true,
-        },
-      },
-    ]);
-    expect(sent).toEqual([
-      ['file', 'x', 'shop', item, 'search', 'g', 3],
-      ['finished', 'x'],
-    ]);
-  });
-
-  it('says a new id is taken when the adapter says so, from Jig 0.42.0, reading no finished tasks', async () => {
+  it('says a new id is taken when the adapter says so, reading no finished tasks', async () => {
     const outcome: Written = { state: 'refused', code: 'already-exists', reasons: ['task already exists: search'], taken: true };
     const { app, sent } = faked(outcome);
     const res = await post(app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
@@ -1303,12 +1267,9 @@ describe('/api/projects/:id/specs/items', () => {
     expect(sent).toEqual([['file', 'x', 'shop', item, 'search', 'g', 3]]);
   });
 
-  it.each<[string, ProjectFinished]>([
-    ['no finished task of that id', { state: 'ready', tasks: [], revision: 1 }],
-    ['a list Jig did not give', { id: 'x', state: 'unreadable', code: 'failed' }],
-  ])("leaves Jig's line on already-exists with %s", async (_, finished) => {
+  it("leaves Jig's line on an already-exists the adapter did not call taken", async () => {
     const outcome: Written = { state: 'refused', code: 'already-exists', reasons: ['i-5d729342e61f already names task other'] };
-    const res = await post(faked(outcome, finished).app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
+    const res = await post(faked(outcome).app, 'file', { spec: 'shop', item, task: 'search', goal: 'g', revision: 3 });
     expect([res.status, await res.json()]).toEqual([
       422,
       { error: { code: 'already-exists', message: 'Jig refused the change.', reasons: ['i-5d729342e61f already names task other'] } },
@@ -1372,8 +1333,7 @@ describe('/api/projects/:id/knowledge', () => {
     const sent: unknown[][] = [];
     const source: ProjectSource = {
       ...localSource(join(webRoot, 'knowledge-config')),
-      knowledge: (id) =>
-        Promise.resolve(id === 'x' ? { state: 'ready', ...read, canRead: true, canDrop: true, canDecideMany: true } : undefined),
+      knowledge: (id) => Promise.resolve(id === 'x' ? { state: 'ready', ...read } : undefined),
       knowledgeDiff: (id, doc) =>
         Promise.resolve(
           id === 'x'
@@ -1385,7 +1345,7 @@ describe('/api/projects/:id/knowledge', () => {
           id === 'x'
             ? { state: 'ready', text: doc === 'feature-checkout' ? text : null }
             : id === 'old'
-              ? { id, state: 'unsupported', jigVersion: '0.40.0', minimum: '0.41.0' }
+              ? { id, state: 'unsupported', jigVersion: '0.40.0', minimum: '0.48.0' }
               : undefined,
         ),
       decideKnowledge: (...a) => (sent.push(a), Promise.resolve(outcome)),
@@ -1396,7 +1356,7 @@ describe('/api/projects/:id/knowledge', () => {
   it("reads the knowledge as Jig gave it, the project's own paths included, and a changed file's diff", async () => {
     const { app } = faked(undefined);
     expect(await (await app.request('/api/projects/x/knowledge', { headers })).json()).toEqual({
-      knowledge: { state: 'ready', ...read, canRead: true, canDrop: true, canDecideMany: true },
+      knowledge: { state: 'ready', ...read },
     });
     expect((await app.request('/api/projects/y/knowledge', { headers })).status).toBe(404);
     expect(await (await app.request('/api/projects/x/knowledge/convention-rules/diff', { headers })).json()).toEqual({
@@ -1416,7 +1376,7 @@ describe('/api/projects/:id/knowledge', () => {
     const none = await app.request('/api/projects/x/knowledge/convention-rules/text', { headers });
     expect([none.status, ((await none.json()) as { error: { code: string } }).error.code]).toEqual([404, 'not-found']);
     expect(await (await app.request('/api/projects/old/knowledge/feature-checkout/text', { headers })).json()).toEqual({
-      text: { id: 'old', state: 'unsupported', jigVersion: '0.40.0', minimum: '0.41.0' },
+      text: { id: 'old', state: 'unsupported', jigVersion: '0.40.0', minimum: '0.48.0' },
     });
     expect((await app.request('/api/projects/y/knowledge/feature-checkout/text', { headers })).status).toBe(404);
     expect((await app.request('/api/projects/x/knowledge/feature-checkout/text', { headers: { host: HOST } })).status).toBe(401);
@@ -1523,7 +1483,7 @@ describe('/api/projects/:id/tasks', () => {
     await app.request('/api/projects', {
       method: 'POST',
       headers: { host: HOST, 'content-type': 'application/json', cookie: COOKIE },
-      body: JSON.stringify({ path: project('filing', '0.31.0') }),
+      body: JSON.stringify({ path: project('filing', '0.48.0') }),
     });
     const res = await post(app, { task: 'fix-login', goal: 'Log in; "again" --json' });
     expect(res.status).toBe(200);

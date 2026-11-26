@@ -128,31 +128,22 @@ describe('readFinishedTasks', () => {
   const closed = changed('task-list-all.json', (d) => (d.tasks = d.tasks.filter((t: { status: string }) => t.status === 'consolidated')));
   const dropped = readFileSync(fixture('task-list-status-abandoned.json'), 'utf8');
 
-  it('asks for one status at a time, and reads both by id at the oldest of their revisions', async () => {
-    const dir = finishedJig('finished', closed, dropped);
-    const read = await readFinishedTasks(dir);
-    expect(read.tasks.map((t) => [t.id, t.status])).toEqual([
-      ['fix-typo', 'consolidated'],
-      ['old-idea', 'abandoned'],
-    ]);
-    expect(read.revision).toBe(1792922487);
-    expect(readFileSync(join(dir, 'calls.log'), 'utf8').trim().split('\n').sort()).toEqual([
-      'task list --status abandoned --json',
-      'task list --status consolidated --json',
-    ]);
-  });
-
   // task-list-archived.json is what Jig 0.46.0 printed in a scratch repository.
-  it('reads the archived ones too when asked, with what Jig offers on each', async () => {
+  it('asks for one status at a time, the archived ones too, and reads them by id at the oldest of their revisions', async () => {
     const dir = finishedJig('finished-archived', closed, dropped);
-    const read = await readFinishedTasks(dir, true);
+    const read = await readFinishedTasks(dir);
     expect(read.tasks.map((t) => [t.id, t.status])).toEqual([
       ['fix-typo', 'consolidated'],
       ['old-idea', 'abandoned'],
       ['put-away', 'archived'],
     ]);
     expect(read.tasks[2]?.actions.filter((a) => a.offered).map((a) => a.id)).toEqual(['unarchive']);
-    expect(readFileSync(join(dir, 'calls.log'), 'utf8')).toContain('task list --status archived --json');
+    expect(read.revision).toBe(1792922487);
+    expect(readFileSync(join(dir, 'calls.log'), 'utf8').trim().split('\n').sort()).toEqual([
+      'task list --status abandoned --json',
+      'task list --status archived --json',
+      'task list --status consolidated --json',
+    ]);
   });
 
   it('refuses as a whole when either status is refused', async () => {
@@ -164,11 +155,11 @@ describe('readFinishedTasks', () => {
 describe('supports', () => {
   it.each([
     [MIN_JIG_VERSION, true],
-    ['0.31.1', true],
-    ['0.32.0', true],
+    ['0.48.1', true],
+    ['0.49.0', true],
     ['1.0.0', true],
-    ['0.30.0', false],
-    ['0.29.0', false],
+    ['0.47.9', false],
+    ['0.34.0', false],
     ['0.9.0', false],
   ])('%s → %s', (version, expected) => {
     expect(supports(version)).toBe(expected);
@@ -1068,12 +1059,12 @@ describe('readSpecText', () => {
 });
 
 describe('decideKnowledge', () => {
-  it("drops an approved stub's link with reject (Jig 0.41.0)", async () => {
+  it("drops an approved stub's link with reject", async () => {
     const dir = logging(`case-${cases++}`, 'knowledge-drop.json');
-    expect(await decideKnowledge(dir, [{ doc: 'convention-team-rules', decision: 'reject' }], 1794230818, '0.41.0')).toBe(
+    expect(await decideKnowledge(dir, [{ doc: 'convention-team-rules', decision: 'reject' }], 1794230818)).toBe(
       'agent.git is push: the pull request is yours',
     );
-    expect(args(dir)).toEqual(['knowledge', 'reject', 'convention-team-rules', '--revision', '1794230818', '--json']);
+    expect(args(dir)).toEqual(['knowledge', 'decide', '--reject', 'convention-team-rules', '--revision', '1794230818', '--json']);
   });
 
   it.each([
@@ -1082,12 +1073,15 @@ describe('decideKnowledge', () => {
     ['reviewed', 'knowledge-reviewed.json'],
   ] as const)("runs %s on one document against the revision it was read at and answers Jig's note", async (decision, json) => {
     const dir = logging(`case-${cases++}`, json);
-    expect(await decideKnowledge(dir, [{ doc: 'feature-checkout', decision }], 1793950153, '0.43.0')).toBe(
+    expect(await decideKnowledge(dir, [{ doc: 'feature-checkout', decision }], 1793950153)).toBe(
       'agent.git is commit: pushing knowledge/decisions is yours',
     );
-    expect(args(dir)).toEqual(['knowledge', decision, 'feature-checkout', '--revision', '1793950153', '--json']);
+    expect(args(dir)).toEqual(['knowledge', 'decide', `--${decision}`, 'feature-checkout', '--revision', '1793950153', '--json']);
   });
 
+  // The fixtures were recorded from `knowledge accept|reject`; their prefix was set to `knowledge decide: `, which Jig
+  // prints for these checks under decide (scripts/lib/knowledge.sh `knowledge $sub:`, owntree OT_WHO). source-missing keeps
+  // `knowledge accept:`, printed by a check shared with accept.
   it.each([
     ['knowledge-stale.json', 'stale-revision', 'accept', ['the clone changed since revision 1; read again and retry']],
     ['knowledge-not-proposed.json', 'not-proposed', 'reject', ['not a proposed document: convention-team-rules (status: active)']],
@@ -1142,7 +1136,7 @@ describe('decideKnowledge', () => {
     "carries the refusal in %s as %s of %s, Jig's reason without its command's name or a path",
     async (json, code, decision, reasons) => {
       const dir = answering(`case-${cases++}`, json, 1);
-      await expect(decideKnowledge(dir, [{ doc: 'convention-ops', decision }], 1, '0.43.0')).rejects.toMatchObject({
+      await expect(decideKnowledge(dir, [{ doc: 'convention-ops', decision }], 1)).rejects.toMatchObject({
         code,
         reasons,
       });
@@ -1159,31 +1153,27 @@ describe('decideKnowledge', () => {
     const json = changed('knowledge-accept.json', (data) => {
       data.write.note = note;
     });
-    expect(await decideKnowledge(answering(`case-${cases++}`, json), [{ doc: 'feature-checkout', decision: 'accept' }], 1, '0.45.0')).toBe(
-      note,
-    );
+    expect(await decideKnowledge(answering(`case-${cases++}`, json), [{ doc: 'feature-checkout', decision: 'accept' }], 1)).toBe(note);
   });
 
   it('refuses an answer without its write', async () => {
     const json = changed('knowledge-accept.json', (data) => {
       delete data.write;
     });
-    await expect(
-      decideKnowledge(answering(`case-${cases++}`, json), [{ doc: 'x', decision: 'accept' }], 1, '0.43.0'),
-    ).rejects.toBeInstanceOf(JigShapeError);
+    await expect(decideKnowledge(answering(`case-${cases++}`, json), [{ doc: 'x', decision: 'accept' }], 1)).rejects.toBeInstanceOf(
+      JigShapeError,
+    );
   });
 
   // Jig 0.45.0 in a scratch project: three documents, one of each kind, in one write.
-  it('decides several documents of any kinds in one `jig knowledge decide` from Jig 0.44.0, each with the flag of its decision', async () => {
+  it('decides several documents of any kinds in one `jig knowledge decide`, each with the flag of its decision', async () => {
     const dir = logging(`case-${cases++}`, 'knowledge-decide.json');
     const decisions = [
       { doc: 'adr-20261114-alpha', decision: 'accept' },
       { doc: 'adr-20261114-beta', decision: 'reject' },
       { doc: 'adr-use-postgres', decision: 'reviewed' },
     ] as const;
-    expect(await decideKnowledge(dir, [...decisions], 1794637520, '0.44.0')).toBe(
-      'agent.git is commit: pushing knowledge/decisions is yours',
-    );
+    expect(await decideKnowledge(dir, [...decisions], 1794637520)).toBe('agent.git is commit: pushing knowledge/decisions is yours');
     expect(args(dir)).toEqual([
       'knowledge',
       'decide',
@@ -1205,26 +1195,16 @@ describe('decideKnowledge', () => {
       { doc: 'adr-20261114-gamma', decision: 'accept' },
       { doc: 'adr-20261114-alpha', decision: 'accept' },
     ] as const;
-    await expect(decideKnowledge(dir, [...decisions], 1794637528, '0.45.0')).rejects.toMatchObject({
+    await expect(decideKnowledge(dir, [...decisions], 1794637528)).rejects.toMatchObject({
       code: 'not-proposed',
       reasons: ['not a proposed document: adr-20261114-alpha (status: accepted)'],
       doc: 'adr-20261114-alpha',
     });
   });
 
-  it.each([
-    ['none at all', [], '0.45.0'],
-    [
-      'more than one below Jig 0.44.0',
-      [
-        { doc: 'a', decision: 'accept' },
-        { doc: 'b', decision: 'reject' },
-      ],
-      '0.43.0',
-    ],
-  ] as const)('refuses %s as usage without running Jig', async (_, decisions, version) => {
+  it('refuses none at all as usage without running Jig', async () => {
     const dir = logging(`case-${cases++}`, 'knowledge-decide.json');
-    await expect(decideKnowledge(dir, [...decisions], 1, version)).rejects.toMatchObject({ code: 'usage' });
+    await expect(decideKnowledge(dir, [], 1)).rejects.toMatchObject({ code: 'usage' });
     expect(existsSync(join(dir, 'args.log'))).toBe(false);
   });
 });
@@ -1526,30 +1506,11 @@ function selfUpdating(name: string, out: string, err = '', code = 0): string {
   return dir;
 }
 
-/** A checkout whose Jig answers `queue list --json` at `revision` and `task set` with `err` and `code`, logging every call. */
-function closing(name: string, revision: number, err = '', code = 0): string {
-  const dir = join(root, name);
-  mkdirSync(join(dir, '.ai', 'scripts'), { recursive: true });
-  writeFileSync(join(dir, 'err.txt'), err);
-  writeFileSync(
-    join(dir, '.ai', 'scripts', 'jig'),
-    `#!/usr/bin/env bash
-echo "$*" >> calls.log
-case "$*" in
-  "queue list --json") echo '{"schema":1,"revision":${revision},"generated_at":"x","data":{"items":[]}}' ;;
-  "task set "*) cat err.txt >&2; exit ${code} ;;
-esac
-`,
-  );
-  return dir;
-}
-const closeCalls = (dir: string) => readFileSync(join(dir, 'calls.log'), 'utf8').trim().split('\n');
-
 // task-set-close*.json are what Jig 0.40.0 printed in a scratch repository.
 describe('closeTask', () => {
-  it('has Jig 0.40.0 check the close against the revision it was read at', async () => {
+  it('has Jig check the close against the revision it was read at', async () => {
     const dir = logging(`case-${cases++}`, 'task-set-close.json');
-    await closeTask(dir, 'beta', 1793894295, '0.40.0');
+    await closeTask(dir, 'beta', 1793894295);
     expect(args(dir)).toEqual(['task', 'set', 'beta', 'status', 'consolidated', '--revision', '1793894295', '--json']);
   });
 
@@ -1557,42 +1518,14 @@ describe('closeTask', () => {
     ['task-set-close-stale.json', 'stale-revision'],
     ['task-set-close-not-found.json', 'not-found'],
   ])('carries the refusal in %s as %s', async (json, code) => {
-    await expect(closeTask(answering(`case-${cases++}`, json, 1), 'beta', 1, '0.40.0')).rejects.toEqual(refusal(code));
+    await expect(closeTask(answering(`case-${cases++}`, json, 1), 'beta', 1)).rejects.toEqual(refusal(code));
   });
 
   it("carries Jig's reason a task is not closable, as its own command says it", async () => {
-    await expect(closeTask(answering(`case-${cases++}`, 'task-set-close-not-closable.json', 1), 'e1', 1, '0.40.0')).rejects.toMatchObject({
+    await expect(closeTask(answering(`case-${cases++}`, 'task-set-close-not-closable.json', 1), 'e1', 1)).rejects.toMatchObject({
       code: 'not-closable',
       reasons: [
         'status consolidated requires knowledge_consolidated true; record the knowledge decision first: jig task set e1 knowledge_consolidated true',
-      ],
-    });
-  });
-
-  it("reads an older Jig's revision first, then runs the command of Jig's close action", async () => {
-    const dir = closing(`case-${cases++}`, 41);
-    await closeTask(dir, 'beta', 41, '0.39.0');
-    expect(closeCalls(dir)).toEqual(['queue list --json', 'task set beta status consolidated']);
-  });
-
-  it('refuses a revision the clone has moved past, running nothing', async () => {
-    const dir = closing(`case-${cases++}`, 42);
-    await expect(closeTask(dir, 'beta', 41, '0.39.0')).rejects.toEqual(refusal('stale-revision'));
-    expect(closeCalls(dir)).toEqual(['queue list --json']);
-  });
-
-  it("carries Jig's refusal as its reasons, without a path", async () => {
-    const err = [
-      'jig: error: task set: status consolidated requires knowledge_consolidated true; record the knowledge decision first: jig task set beta knowledge_consolidated true',
-      'jig: error: task set: cannot write /Users/me/project/.ai/workspace/tasks/beta/state',
-      'a line that is not an error',
-    ].join('\n');
-    const dir = closing(`case-${cases++}`, 41, err, 1);
-    await expect(closeTask(dir, 'beta', 41, '0.39.0')).rejects.toMatchObject({
-      code: 'failed',
-      reasons: [
-        'status consolidated requires knowledge_consolidated true; record the knowledge decision first: jig task set beta knowledge_consolidated true',
-        'cannot write …',
       ],
     });
   });

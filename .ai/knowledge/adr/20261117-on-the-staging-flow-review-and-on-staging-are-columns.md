@@ -86,3 +86,7 @@ gate, 2026-11-17.
 - Seen against Jig 0.46.0 in a scratch repository on the staging flow with a local origin, the review states and the
   promotion from a forge cache written by hand (`server/jig/fixtures/task-list-staging-review.json`); untested on a forge.
 - Undo: revert the merge; nothing is stored.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so a project on Jig 0.45.0 is `unsupported`;
+JigClient's reading of 0.45.0's shape into 0.46.0's remains in the code but no project reaches it, and
+`STAGING_JIG_VERSION` is gone.)*

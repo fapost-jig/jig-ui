@@ -65,3 +65,6 @@ paths included, on 2026-11-25 (in the session, after the review asked for it).
   is of what is shown there.
 - A roadmap read through `jig spec read` leaves out edits waiting on the spec's branch, which the
   board shows; the dialog says so while edits wait.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so a spec's `summary` is never read as `null`
+for an older Jig, and `canRead` is gone: the documents are always offered.)*

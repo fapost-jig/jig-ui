@@ -42,7 +42,7 @@ Each key carries Jig's description and where its value comes from (`sourceLine`)
 ## Constraints
 
 - **The project's keys are read-only.** `.ai/config.yaml` is committed: a change made from the page
-  would sit uncommitted in the main checkout, for everyone working on the project, and Jig 0.40.0
+  would sit uncommitted in the main checkout, for everyone working on the project, and Jig
   itself calls that file "edited by hand" (its `not-local` refusal).
 - **The Telegram token is only cleared.** Jig refuses it on a command line (`secret-key`: ps, the
   shell history and a transcript would keep it); the page names `jig notify setup` instead. Its
@@ -52,8 +52,8 @@ Each key carries Jig's description and where its value comes from (`sourceLine`)
   (`a.b`, lower case) and a value of one line, at most 500 characters; JigClient passes each as one
   argument, without a shell; Jig refuses the rest (`unknown-key`, `invalid-value`, and `usage` for a
   value that is one of its flags). No value takes `--local` off the command or reaches
-  `.ai/config.yaml` (Jig 0.40.0's `config set`, read at the review).
-- **A list is shown, not edited:** no key of the person's own takes one in Jig 0.40.0.
+  `.ai/config.yaml` (Jig's `config set`, read at the review).
+- **A list is shown, not edited:** no key of the person's own takes one.
 - **Every change ends in a new read.** Refused, stale or written, the dialog reads the settings
   again and shows what is now true; a stale revision is said ("The settings changed since they were
   shown…"), never retried. A field's unsaved text is dropped with that read; the notice, a toast, quotes the
@@ -65,13 +65,11 @@ Each key carries Jig's description and where its value comes from (`sourceLine`)
   a value of its own and went on showing a pick Jig had refused (review of task `settings-dialog`).
 - A value comes without its absolute paths (`withoutPaths`, convention-jig-client): a key such as
   `run.path` may show `…`, and is set again by typing it whole, or in a terminal.
-- Needs Jig 0.40.0 (`SETTINGS_JIG_VERSION`). Below it **Settings…** is still offered and the dialog
-  says which Jig the project runs, as a task's documents do below 0.39.0: the page compares no
-  versions itself.
+- Every supported Jig has the settings; a project below `MIN_JIG_VERSION` is `unsupported` and has no dialog.
 
 ## Decisions and rejected alternatives
 
 - Editing the project's keys through `jig config set` without `--local` — rejected: the constraint
   above.
 - Setting the token from the page, as the roadmap item first said ("set or cleared") — dropped:
-  Jig 0.40.0 refuses it on a command line, and the item now says "only cleared".
+  Jig refuses it on a command line, and the item now says "only cleared".

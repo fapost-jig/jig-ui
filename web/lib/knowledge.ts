@@ -18,9 +18,9 @@ export function pendingLine(decision: Decision, of: 'proposal' | 'source', sendi
 }
 
 /**
- * Why Jig 0.41.0 reads a record as not decidable as of the last fetch: what it is judged on does not have it yet. The
+ * Why Jig reads a record as not decidable as of the last fetch: what it is judged on does not have it yet. The
  * decision can still be sent — Jig fetches before it judges, so a push since makes it decidable, and a refusal says why.
- * `undefined` for a decidable record, and for every record of Jig 0.40.0.
+ * `undefined` for a decidable record.
  */
 export function undecidable(record: Proposal | LinkedSource): string | undefined {
   if (record.decidable !== false) return undefined;
@@ -33,7 +33,7 @@ export function undecidable(record: Proposal | LinkedSource): string | undefined
   return 'Jig cannot decide it yet.';
 }
 
-/** Jig 0.45.0: origin's base decided the record already and this checkout is only behind — no decision is owed, none is offered. */
+/** Origin's base decided the record already and this checkout is only behind — no decision is owed, none is offered. */
 export const landed = (record: Proposal | LinkedSource): boolean => record.decidable === false && record.reason === 'landed';
 
 /** A record whose file name lost bytes that are not UTF-8: the name shown may be another file's. */
@@ -54,15 +54,8 @@ export function stubLine(proposal: Proposal): string | undefined {
   return proposal.bytes === null ? `Links ${proposal.source}, which is missing.` : `Links ${proposal.source}, ${size(proposal.bytes)}.`;
 }
 
-/** Jig 0.40.0 gives no document's text (fapost-lab/jig#391): the file the person reads before deciding. */
-export const readFirst = (proposal: Proposal): string =>
-  `Jig cannot give Jig UI a document's text yet (fapost-lab/jig#391): read ${proposal.source ?? proposal.path} before you decide.`;
-
-/** What became of an approved stub's linked file, and what a person can do about it here — from Jig 0.41.0 drop the link too. */
-export function sourceLine(
-  source: LinkedSource,
-  canDrop = false,
-): {
+/** What became of an approved stub's linked file, and what a person can do about it here — drop the link too. */
+export function sourceLine(source: LinkedSource): {
   text: string;
   tone: Tone;
 } {
@@ -70,21 +63,11 @@ export function sourceLine(
   if (source.state === 'unrecorded') {
     return { text: `${source.source}: no approved text is kept to compare with — read it whole before you keep it.`, tone: 'attention' };
   }
-  if (canDrop) return { text: `${source.source} is gone: drop the link, or move it in the project (jig-accept).`, tone: 'bad' };
-  return { text: `${source.source} is gone: move the link in the project (jig-accept).`, tone: 'bad' };
+  return { text: `${source.source} is gone: drop the link, or move it in the project (jig-accept).`, tone: 'bad' };
 }
 
-/** Which buttons a linked file offers: Keep unless it is gone, Drop from Jig 0.41.0 — on Jig 0.40.0 the NO_DROP line in its place. */
-export const sourceActions = (
-  source: LinkedSource,
-  canDrop: boolean,
-): {
-  keep: boolean;
-  drop: boolean;
-} => ({ keep: source.state !== 'missing', drop: canDrop });
-
-/** Jig 0.40.0 cannot drop the link of an approved stub: its `reject` takes only a proposal (fapost-lab/jig#392). */
-export const NO_DROP = 'Dropping the link has no Jig command yet (fapost-lab/jig#392).';
+/** Whether a linked file offers Keep: unless it is gone. Drop is always offered. */
+export const canKeep = (source: LinkedSource): boolean => source.state !== 'missing';
 
 /** A knowledge read newer than the one shown, by Jig's revision, which only grows; one not ready is never newer. */
 export const newer = (read: Knowledge | 'not-connected', shown: Knowledge | 'not-connected' | undefined): boolean =>
@@ -205,12 +188,12 @@ export function textRead(read: DocumentText | 'reading' | 'not-found' | 'failed'
 
 /**
  * The line for decisions Jig refused, which gives them all back: a stale revision as the knowledge having changed; else
- * `agent.git: none` sends the person to Settings; a document no longer open to it, or one Jig 0.40.0 did not find on its
- * branch, is said so; otherwise Jig's own reasons — Jig 0.41.0 says itself why a document is not where the decision is
- * judged —, paths already cut out by the server, or the code. `doc` is the document the refusal names, `null` for none;
- * `back` how many decisions are given back, the refused write's and those queued behind it. Jig wrote none of them,
- * whatever an earlier write of the same run did — except for an answer this Jig UI cannot read (`incompatible`), which
- * may have written the write's: the knowledge read after it shows which.
+ * `agent.git: none` sends the person to Settings; a document no longer open to it is said so; otherwise Jig's own reasons
+ * — Jig says itself why a document is not where the decision is judged —, paths already cut out by the server, or the
+ * code. `doc` is the document the refusal names, `null` for none; `back` how many decisions are given back, the
+ * refused write's and those queued behind it. Jig wrote none of them, whatever an earlier write of the same run did —
+ * except for an answer this Jig UI cannot read (`incompatible`), which may have written the write's: the knowledge read
+ * after it shows which.
  */
 export function knowledgeRefusal(code: string, reasons: string[], doc: string | null, back: number): string {
   const one = back === 1;
@@ -228,9 +211,6 @@ export function knowledgeRefusal(code: string, reasons: string[], doc: string | 
 function why(code: string, reasons: string[], doc: string): string {
   if (code === 'git-not-allowed') return NO_COMMITS;
   if (code === 'not-found') return `${doc} no longer waits for that decision: the knowledge is shown as it is now.`;
-  if (code === 'not-on-branch' && reasons.length === 0) {
-    return `Jig did not find ${doc} on knowledge/decisions, which starts from origin's default branch: push the commit that proposed it, or let the decisions waiting there land first.`;
-  }
   if (reasons.length > 0) return `Jig did not decide ${doc}: ${reasons.join(' ')}`;
   return refusal(code, 'deciding', doc);
 }

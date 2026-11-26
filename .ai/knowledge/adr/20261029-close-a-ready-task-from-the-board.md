@@ -76,3 +76,7 @@ Jig's contract says a cache behind the forge "can only withhold a close the comm
 - *(Amended by adr-20261113-a-task-parked-at-staging-is-not-done, 2026-11-13: on Jig's staging flow the
   close is offered only for a task housekeeping flagged `needs-consolidation`, not on Jig's offer or the
   pull request, which is the one into staging.)*
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.40.0 gate (`CLOSE_JIG_VERSION`) and
+the older-Jig path, which read the queue's revision first and checked it in the adapter, no longer exist: the close
+always runs `--revision` and `--json` and Jig checks it.)*

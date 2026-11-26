@@ -26,7 +26,7 @@ export function waits(task: Omit<Task, 'resumesTo'>):
   // Answered from the board: the agent reworks the design when it resumes the task, and comes back to the gate.
   if (task.gate === 'answered') return { text: 'Gate answered; waits for the design to be reworked', tone: 'quiet', icon: 'gate' };
   if (task.autopilot === 'stopped') return { text: 'Autopilot stopped with a question', tone: 'attention', icon: 'ask' };
-  // Below Jig 0.35.0 `jig task resume` takes no revision to write against (fapost-lab/jig#295): the page names the command.
+  // Where Jig offers no `resume` the page names the command.
   if (task.paused) return { text: task.resumable ? 'Paused' : `Paused — jig task resume ${task.id}`, tone: 'quiet', icon: 'pause' };
   // The first of what it still waits for in Jig's queue; the rest are on its page.
   const on = task.waitsFor[0];
@@ -96,8 +96,7 @@ function inReview(parked: NonNullable<Task['parked']>): {
 /**
  * A task's pull request as its details show it. On Jig's staging flow, once the task waits at the staging branch or its
  * work went there, the pull request into staging and the promotion into the base are shown apart, each with its own
- * state, CI, link and the time Jig's housekeeping heard it; a project on Jig 0.45.0 has no link to the promotion and no
- * state of the one into staging.
+ * state, CI, link and the time Jig's housekeeping heard it.
  * Elsewhere, one pull request.
  */
 export function pullRequests(task: Pick<Task, 'pullRequest' | 'staging' | 'parked' | 'promotion'>): {

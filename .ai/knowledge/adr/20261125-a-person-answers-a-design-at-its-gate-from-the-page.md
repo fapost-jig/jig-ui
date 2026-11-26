@@ -42,3 +42,6 @@ state — `jig task gate <id> answered --answer <text>` — and an agent reads i
 
 - A design can be turned back from the page; nothing tells a waiting agent, so the page tells the person to.
 - An answered gate shows on the card and the row as a quiet note until the design is reworked.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the case of a Jig that offers only the
+approval, with no answer field, no longer exists.)*

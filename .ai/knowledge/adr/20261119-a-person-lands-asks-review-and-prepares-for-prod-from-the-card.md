@@ -107,3 +107,6 @@ card"; task `staging-from-card`, design approved at the gate on 2026-11-19.
   (adr-20261118-a-person-writes-on-a-task-from-its-page), a Jig UI an agent started is always refused `stale-revision`;
   one started from a terminal or as a service is not.
 - Undo: revert the merge; nothing is stored.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.46.0 gate on the staging writes no
+longer applies: they are offered wherever Jig offers the action.)*

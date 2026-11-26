@@ -62,3 +62,6 @@ This amends the two ADRs above for the project's page; the card is unchanged.
 - Undo: revert the merge; nothing is stored.
 - *(Amended by task findings-sweep, 2026-11-20: what `api.ts` imports from `lib/` is now the state types,
   `housekeepingOf` and `refreshOf`, pure functions with tests that turn the answer into the page's state.)*
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the `unsupported` refusal of Refresh below
+Jig 0.45.0 and the alternative of hiding it there no longer apply.)*

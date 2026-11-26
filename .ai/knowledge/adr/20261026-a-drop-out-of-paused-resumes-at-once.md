@@ -67,3 +67,7 @@ design gate and after the architecture review, 2026-10-26.
   task parked at a staging branch makes it `active`, and `resumesTo` follows.)* *(Amended by
   adr-20261117-on-the-staging-flow-review-and-on-staging-are-columns, 2026-11-17: such a resume also ends the parking,
   which now has columns of its own, so `resumesTo` drops `parked` too.)*
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.35.0 gate (`RESUME_JIG_VERSION`) and
+the card naming `jig task resume <id>` on an older Jig no longer apply: Resume is offered wherever Jig offers
+`resume`.)*

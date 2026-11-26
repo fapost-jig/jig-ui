@@ -449,7 +449,7 @@
 
     <CanvasSection
       title="ProjectCard"
-      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal, a merge done, a landing refused as not approved (to the Board); pull requests in words with who merges each — the person, the agent's ship, the last housekeeping run's —, Merge… and Status… on them, a status open; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal; on the staging flow, the bell lit with your work there (press it), and dark with none"
+      note="ready with attention and stale housekeeping; nothing needs you; its Jig older than the machine's, Upgrade… offered; its Jig below the minimum; each state it cannot be read in; Housekeeping under way, its report, its refusal; a merged task to close, its close under way, Jig's refusal, a merge done, a landing refused as not approved (to the Board); pull requests in words with who merges each — the person, the agent's ship, the last housekeeping run's —, Merge… and Status… on them, a status open; a clone behind origin, one last fetched days ago, Refresh under way, the base brought up, changes in the way, a refusal; on the staging flow, the bell lit with your work there (press it), and dark with none"
     >
       <ProjectCard v-for="project in projects" :key="project.id" :project="project" />
       <ProjectCard v-for="(run, i) in housekeepingRuns" :key="`housekeeping-${i}`" :project="projects[1]!" :housekeeping="run" />
@@ -613,7 +613,7 @@
 
     <CanvasSection
       title="QueueMenu"
-      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused under a Jig that cannot resume it (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown); on the staging flow (Jig 0.46.0) first Land on staging and Request review… on an approved Review card, Request review… alone, Prepare for prod… on an On staging card; off it Merge… where Jig offers the merge, Status… where it cannot"
+      note="press to open: To top, Up, Down, To bottom, Priority, the pause — first queued, in the middle, not queued, last, paused where Jig offers no resume (no pause to ask, Resume off), paused and resumable, a pause asked, nobody started (Pause), parked at the staging branch (Take back for a fix), while its change is on its way, on a sorted board (no move), on a filtered board (To top and To bottom at either end of the cards shown); on the staging flow first Land on staging and Request review… on an approved Review card, Request review… alone, Prepare for prod… on an On staging card; off it Merge… where Jig offers the merge, Status… where it cannot"
     >
       <div class="flex flex-wrap items-center gap-6">
         <span
@@ -826,7 +826,7 @@
         @close="taskDocument = undefined"
       />
       <TaskDocuments task="design-system" :documents="{ state: 'ready', artifacts: [] }" />
-      <TaskDocuments task="design-system" :documents="{ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.39.0' }" />
+      <TaskDocuments task="design-system" :documents="{ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.48.0' }" />
       <TaskDocuments task="design-system" :documents="{ id: 'x', state: 'unreadable', code: 'timeout' }" />
       <TaskDocuments task="design-system" />
     </CanvasSection>
@@ -858,7 +858,7 @@
     </CanvasSection>
 
     <CanvasSection
-      title="KnowledgeView, Jig 0.41.0"
+      title="KnowledgeView, with texts and drops"
       note="proposals — press Document for a feature's text, a stub's with its Markdown file (bytes dropped) and with a file that is not Markdown, one not pushed being read, one after the decisions were cut whose name lost bytes and whose text Jig could not read, one no longer proposed when its text was read, each in a DocumentDialog with its parts in the slot; changed sources — Diff since approved with no approved text (team-rules) and one gone (release), and — Keep and Drop, Drop on a file gone, one dropped and waiting, one changed only here; then a Drop queued and a Drop being sent"
     >
       <KnowledgeView
@@ -987,7 +987,7 @@
         <StateLine :project="{ id: 'shop', state: 'unreadable', code: 'timeout' }" />
         <StateLine :project="{ id: 'shop', state: 'unreadable', code: 'timeout' }" reading />
         <StateLine :project="{ id: 'shop', state: 'unreadable', code: 'not-initialised' }" />
-        <StateLine :project="{ id: 'shop', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.31.0' }" />
+        <StateLine :project="{ id: 'shop', state: 'unsupported', jigVersion: '0.26.0', minimum: '0.48.0' }" />
       </div>
     </CanvasSection>
 
@@ -1123,11 +1123,11 @@
 
     <CanvasSection
       title="SpecBoard, with its documents"
-      note="its description under the title (none for a spec without one) and the Spec and Roadmap buttons (Jig 0.48.0), each opening its document in a DocumentDialog; the states of the dialog are under DocumentDialog"
+      note="its description under the title (none for a spec without one) and the Spec and Roadmap buttons, each opening its document in a DocumentDialog; the states of the dialog are under DocumentDialog"
     >
       <div class="flex flex-col gap-10">
-        <SpecBoard :spec="specs[0]!" project="jig-ui" :columns="new Map()" can-read />
-        <SpecBoard :spec="specs[1]!" project="jig-ui" :columns="new Map()" can-read />
+        <SpecBoard :spec="specs[0]!" project="jig-ui" :columns="new Map()" />
+        <SpecBoard :spec="specs[1]!" project="jig-ui" :columns="new Map()" />
       </div>
     </CanvasSection>
 
@@ -1152,12 +1152,12 @@
 
     <CanvasSection
       title="SpecBoard, editable"
-      note="its roadmap edited from the page (Jig 0.40.0): each item's menu, Up and Down among its lane, and Add item under the lanes of a numbered phase — none before the first; edits waiting on the spec's branch committed only, pushed, in a pull request, the roadmap there with the items they changed marked; while an edit is on its way"
+      note="its roadmap edited from the page: each item's menu, Up and Down among its lane, and Add item under the lanes of a numbered phase — none before the first; edits waiting on the spec's branch committed only, pushed, in a pull request, the roadmap there with the items they changed marked; while an edit is on its way"
     >
       <div class="flex flex-col gap-10">
-        <SpecBoard :spec="specs[1]!" project="jig-ui" :columns="new Map()" editable />
-        <SpecBoard v-for="spec in waitingSpecs" :key="spec.id" :spec="spec" project="jig-ui" :columns="specColumns" editable />
-        <SpecBoard :spec="specs[0]!" project="jig-ui" :columns="specColumns" editable busy disabled />
+        <SpecBoard :spec="specs[1]!" project="jig-ui" :columns="new Map()" />
+        <SpecBoard v-for="spec in waitingSpecs" :key="spec.id" :spec="spec" project="jig-ui" :columns="specColumns" />
+        <SpecBoard :spec="specs[0]!" project="jig-ui" :columns="specColumns" busy disabled />
       </div>
     </CanvasSection>
   </div>

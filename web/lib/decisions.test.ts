@@ -21,7 +21,7 @@ function writes() {
 describe('useDecisions', () => {
   it('sends Accept all as one write, leaving out what is queued or on its way already', async () => {
     const { sent, send, end } = writes();
-    const d = useDecisions(send, () => true);
+    const d = useDecisions(send);
     d.decide('a', 'reject');
     d.decideAll([
       { doc: 'a', decision: 'accept' },
@@ -39,7 +39,7 @@ describe('useDecisions', () => {
 
   it('sends Accept all at once as one write when nothing runs', async () => {
     const { sent, send, end } = writes();
-    const d = useDecisions(send, () => true);
+    const d = useDecisions(send);
     d.decideAll([
       { doc: 'a', decision: 'accept' },
       { doc: 'b', decision: 'accept' },
@@ -55,7 +55,7 @@ describe('useDecisions', () => {
 
   it('sends a press at once, and the presses made while it runs together, as the next write', async () => {
     const { sent, send, end } = writes();
-    const d = useDecisions(send, () => true);
+    const d = useDecisions(send);
     d.decide('a', 'accept');
     expect(sent).toEqual([[{ doc: 'a', decision: 'accept' }]]);
     d.decide('b', 'reject');
@@ -79,7 +79,7 @@ describe('useDecisions', () => {
 
   it('takes back a queued document before its write, and none being sent, nor one pressed twice', async () => {
     const { sent, send, end } = writes();
-    const d = useDecisions(send, () => true);
+    const d = useDecisions(send);
     d.decide('a', 'accept');
     d.decide('b', 'reject');
     d.decide('c', 'accept');
@@ -94,7 +94,7 @@ describe('useDecisions', () => {
 
   it('gives back the refused write and what waits behind it', async () => {
     const { sent, send, end } = writes();
-    const d = useDecisions(send, () => true);
+    const d = useDecisions(send);
     d.decide('a', 'accept');
     d.decide('b', 'reject');
     await end(false);
@@ -104,10 +104,7 @@ describe('useDecisions', () => {
   });
 
   it('gives back a write that failed outright', async () => {
-    const d = useDecisions(
-      () => Promise.reject(new Error('gone')),
-      () => true,
-    );
+    const d = useDecisions(() => Promise.reject(new Error('gone')));
     d.decide('a', 'accept');
     await new Promise((resolve) => setTimeout(resolve));
     expect([d.sending.value.size, d.queued.value.size]).toEqual([0, 0]);
@@ -116,23 +113,12 @@ describe('useDecisions', () => {
   it('drops what waits when the page that holds it goes, sending nothing more', async () => {
     const { sent, send, end } = writes();
     const page = effectScope();
-    const d = page.run(() => useDecisions(send, () => true))!;
+    const d = page.run(() => useDecisions(send))!;
     d.decide('a', 'accept');
     d.decide('b', 'reject');
     page.stop();
     await end();
     expect(sent).toEqual([[{ doc: 'a', decision: 'accept' }]]);
     expect(d.queued.value.size).toBe(0);
-  });
-
-  it('sends one decision a write below Jig 0.44.0, one after another', async () => {
-    const { sent, send, end } = writes();
-    const d = useDecisions(send, () => false);
-    d.decide('a', 'accept');
-    d.decide('b', 'reject');
-    d.decide('c', 'reviewed');
-    await end();
-    await end();
-    expect(sent).toEqual([[{ doc: 'a', decision: 'accept' }], [{ doc: 'b', decision: 'reject' }], [{ doc: 'c', decision: 'reviewed' }]]);
   });
 });

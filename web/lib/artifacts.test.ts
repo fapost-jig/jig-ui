@@ -30,8 +30,8 @@ describe('noDocuments', () => {
     expect(
       noDocuments({ state: 'ready', artifacts: [{ kind: 'task', state: 'present', reason: null, updatedAt: at, bytes: 9 }] }),
     ).toBeUndefined();
-    expect(noDocuments({ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.39.0' })).toBe(
-      "Jig 0.39.0 or later in the project lists the task's documents.",
+    expect(noDocuments({ id: 'x', state: 'unsupported', jigVersion: '0.38.1', minimum: '0.48.0' })).toBe(
+      "Jig 0.48.0 or later in the project lists the task's documents.",
     );
     expect(noDocuments({ id: 'x', state: 'unreadable', code: 'timeout' })).toBe('Jig did not answer in time.');
     expect(noDocuments({ id: 'x', state: 'unreadable', code: 'upgrading' })).toContain('being upgraded');

@@ -29,7 +29,7 @@ A board card's goal and a List row link to the task's page, `/projects/<id>/task
 which is where the facts are: a card no longer expands and the List has no side pane
 (adr-20261125-the-page-opens-tasks-and-questions-over-the-board). The page is two thirds the task — id with a copy
 button, spec, goal, status line, gate, what needs the person, documents — and one third what is known of it: the writes
-Jig offers (from Jig 0.46.0 running some of them itself, below), the facts (`web/components/TaskFacts.vue`),
+Jig offers (running some of them itself, below), the facts (`web/components/TaskFacts.vue`),
 **Ask your agent** (`web/lib/agent-prompts.ts`, `web/components/AgentPrompts.vue`) and a timeline from the times Jig keeps (`web/lib/timeline.ts`, with what needs the person).
 It is served by
 `GET /api/projects/:id/tasks/:task` from `ProjectSource.task`: the task's row from Jig's task list
@@ -46,16 +46,15 @@ declared — met or not, since Jig's queue does not say. It re-fetches on a chan
 like the board.
 
 The full page also lists the task's **documents** (`web/components/TaskDocuments.vue`): the ones
-Jig 0.39.0 reports there — written, empty, or not readable with Jig's word for why — in Jig's order,
+Jig reports there — written, empty, or not readable with Jig's word for why — in Jig's order,
 from `GET /api/projects/:id/tasks/:task/artifacts`; a click opens one in the page's document dialog
 (`web/components/DocumentDialog.vue`), one at a time, read from `…/artifacts/:kind` and rendered from
 its Markdown (`web/lib/markdown.ts`). Both are read through Jig at each call, not held with the
 board's read; on a change of the project the list and the open document are read again, a failed
-reread keeping the document shown. A project on an older Jig says so in the section.
-
-From Jig 0.46.0 the full page **runs a person's writes** where Jig offers them
+reread keeping the document shown.
+The full page **runs a person's writes** where Jig offers them
 (adr-20261118-a-person-writes-on-a-task-from-its-page): a design at its gate is shown as written with a field for an answer, **Approve the design** and **Send the
-answer** under it (`web/components/GateApproval.vue`, `answer-gate` from Jig 0.48.0 — `jig task gate <id> answered
+answer** under it (`web/components/GateApproval.vue`, `answer-gate` — `jig task gate <id> answered
 --answer <line>`: one line without a tab, at most 2000 characters, refused `stale-revision` after a rewrite;
 adr-20261125-a-person-answers-a-design-at-its-gate-from-the-page), **Abandon…** with its reason and **Archive** sit in the page's writes (`web/components/TaskWrites.vue`), and "Waits for" takes a dependency away or adds one
 (`web/components/DependsEditor.vue`). No other offered action is listed as a command: what has no button is asked of the agent in words (**Ask your
@@ -76,7 +75,7 @@ so the page never decides what is allowed.
 - **Only offered actions reach the page, without a reason.** An action's `reason` is Jig's refusal
   text word for word and can name a checkout or worktree path; no path reaches `web/` (RULES.md).
   For the same reason the worktree is only its `uncommitted` count — JigClient drops the path.
-- **Jig UI runs only the writes of its ADR**, and only where Jig offers them on a Jig that takes them (0.46.0): an
+- **Jig UI runs only the writes of its ADR**, and only where Jig offers them: an
   approval, an answer at the gate, an abandon, an archive and the task's dependencies. Every other action is asked of the
   agent in words, and starting a task is the agent's work, never the page's.
 - **A document is shown as written**, a path in it included — the one other place a path reaches

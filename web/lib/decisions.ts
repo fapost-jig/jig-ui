@@ -6,11 +6,10 @@ import type { Decision, DocumentDecision } from '@/api';
  * as soon as none runs — what is pressed while one runs goes as the next. `send` makes the write and reads the knowledge
  * again, answering whether Jig wrote it; a refusal gives back everything, the write's and what waits behind it, since
  * Jig wrote none of them and most refusals would refuse the rest too — an answer this Jig UI cannot read may have written
- * the write's, and the knowledge read after it no longer offers those. `many` is false below Jig 0.44.0: one decision a
- * write. A queued document can be taken back until its write starts. The queue ends with the page that holds it: what
- * waits is dropped, never sent behind a page nobody sees.
+ * the write's, and the knowledge read after it no longer offers those. A queued document can be taken back until its write
+ * starts. The queue ends with the page that holds it: what waits is dropped, never sent behind a page nobody sees.
  */
-export function useDecisions(send: (decisions: DocumentDecision[]) => Promise<boolean>, many: () => boolean) {
+export function useDecisions(send: (decisions: DocumentDecision[]) => Promise<boolean>) {
   const queued = ref(new Map<string, Decision>());
   const sending = ref(new Map<string, Decision>());
 
@@ -20,7 +19,7 @@ export function useDecisions(send: (decisions: DocumentDecision[]) => Promise<bo
   async function run(): Promise<void> {
     running = true;
     while (queued.value.size > 0) {
-      const batch = [...queued.value].slice(0, many() ? undefined : 1);
+      const batch = [...queued.value];
       for (const [doc] of batch) queued.value.delete(doc);
       sending.value = new Map(batch);
       const written = await send(batch.map(([doc, decision]) => ({ doc, decision }))).catch(() => false);

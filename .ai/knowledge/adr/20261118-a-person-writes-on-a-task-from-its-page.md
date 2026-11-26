@@ -94,3 +94,7 @@ task `person-writes`. The design was approved at its gate on 2026-11-18.
 - The page keeps no list of its own of what is allowed: the buttons are Jig's offers, and the refusal lines are Jig's
   codes. A Jig that offers a new write shows it as a command until Jig UI learns it.
 - Undoing a write is the person's, through Jig: `reopen` (a command), **Bring back**, or a new design for the gate.
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.46.0 gate (`WRITES_JIG_VERSION`), the
+per-card `writes` flag, the commands shown below it and the `archived` flag of `readFinishedTasks` (archived tasks are
+always read) no longer apply.)*

@@ -7,68 +7,8 @@ import { z } from 'zod';
 
 const run = promisify(execFile);
 
-/** The oldest Jig Jig UI reads and writes: 0.29.0 is the first that prints JSON, 0.31.0 the first with a queue. */
-export const MIN_JIG_VERSION = '0.31.0';
-
-/** The first Jig whose `task resume` takes `--revision` and `--json` (fapost-lab/jig#295). */
-export const RESUME_JIG_VERSION = '0.35.0';
-
-/**
- * The first Jig seen to take `task pause --revision --json` and to withhold `request-pause` from a task nobody started,
- * offering `pause` instead (task `pause-not-started-directly` in fapost-lab/jig).
- */
-export const PAUSE_JIG_VERSION = '0.45.0';
-
-/**
- * The first Jig that remembers an upgrade's pull request (`upgrade-pull-request-*` in `jig status`) and lands it once
- * merged (`jig upgrade --land`, fapost-lab/jig#352). The project's own Jig runs both, so they reach upgrades from it on.
- */
-export const LAND_JIG_VERSION = '0.39.0';
-
-/** The first Jig that lists a task's documents and reads one as JSON (fapost-lab/jig#347). */
-export const ARTIFACTS_JIG_VERSION = '0.39.0';
-
-/** The first Jig whose close (`task set <id> status consolidated`) takes `--revision` and `--json` (fapost-lab/jig#365). */
-export const CLOSE_JIG_VERSION = '0.40.0';
-/** The first Jig that lists its settings as JSON and sets them with `--revision` and `--json` (fapost-lab/jig#363). */
-export const SETTINGS_JIG_VERSION = '0.40.0';
-/** The first Jig that names a roadmap's items, shows the edits waiting, and adds, moves and files them (fapost-lab/jig#362). */
-export const ROADMAP_JIG_VERSION = '0.40.0';
-/** The first Jig that lists knowledge waiting for a decision as JSON and commits a decision on a branch of its own. */
-export const KNOWLEDGE_JIG_VERSION = '0.40.0';
-/**
- * The first Jig that reads a knowledge document's text (`jig knowledge read`, fapost-lab/jig#391), drops the link of an
- * approved stub whose file changed or is gone (`reject`, fapost-lab/jig#392), and says of each record whether a decision
- * on it would be judged on what the read shows.
- */
-export const KNOWLEDGE_TEXT_JIG_VERSION = '0.41.0';
-/** The first Jig that gives a spec's short description (`summary` of `jig spec list`) and reads its documents (`jig spec read`). */
-export const SPEC_TEXT_JIG_VERSION = '0.48.0';
-
-/** The first Jig that decides several knowledge documents, of any kinds, in one write: `jig knowledge decide`. */
-export const DECIDE_JIG_VERSION = '0.44.0';
-/** The first Jig that files an item's new task and names it on the item in one write (`spec item file --new`, fapost-lab/jig#390). */
-export const FILE_NEW_JIG_VERSION = '0.41.0';
-
-/**
- * The first Jig that refuses filing an item that names a task already with a code of its own, `already-filed`
- * (fapost-lab/jig#442), so its `already-exists` on `--new` says only that the id is a task's.
- */
-export const FILED_JIG_VERSION = '0.42.0';
-/** The first Jig that brings the clone up to origin (`jig refresh`) and says how it stands against origin (`jig status`'s `origin`). */
-export const REFRESH_JIG_VERSION = '0.45.0';
-/** The first Jig with the staging flow (`git.flow: staging`): its setting, and a task row's `staging` and `parked`. */
-export const STAGING_JIG_VERSION = '0.45.0';
-/**
- * The first Jig whose person's writes on a task answer in JSON against a revision (fapost-jig/jig, task `ui-writes-json`):
- * `task gate`, `abandon`, `archive`, `unarchive` and `spec drop`, and the action `drop-item`.
- */
-export const WRITES_JIG_VERSION = '0.46.0';
-/**
- * The first Jig whose `staging-unowned` item is the reader's own commits only, listed (`staging`), and that marks them
- * as known (`jig staging ack`; fapost-lab/jig#511).
- */
-export const STAGING_ACK_JIG_VERSION = '0.46.0';
+/** The oldest Jig Jig UI reads and writes: every project's Jig is held to it, and a project below it is `unsupported`. */
+export const MIN_JIG_VERSION = '0.48.0';
 
 const SCRIPT = '.ai/scripts/jig';
 /** A read's limit: 10 s ran out with several projects read at once, each four Jig runs (task `read-timeout`). */
@@ -756,13 +696,11 @@ export async function readTasks(
 }
 
 /**
- * The closed and the abandoned tasks while Jig keeps their workspace — and the archived ones when asked, which a Jig that
- * brings one back from the page lists (`WRITES_JIG_VERSION`) — by id as Jig sorts a list. `--status` takes one status at a
- * time, so this is a run for each.
+ * The closed, the abandoned and the archived tasks while Jig keeps their workspace — the page brings an archived one
+ * back from the list — by id as Jig sorts a list. `--status` takes one status at a time, so this is a run for each.
  */
 export async function readFinishedTasks(
   root: string,
-  archived = false,
   platform: NodeJS.Platform = process.platform,
 ): Promise<{
   tasks: TaskSummary[];
@@ -770,9 +708,7 @@ export async function readFinishedTasks(
 }> {
   // All are waited for, a failure too: an upgrade starts once this read has ended, and must find no Jig still running.
   const reads = await Promise.allSettled(
-    ['consolidated', 'abandoned', ...(archived ? ['archived'] : [])].map((status) =>
-      readJson(root, ['task', 'list', '--status', status], platform),
-    ),
+    ['consolidated', 'abandoned', 'archived'].map((status) => readJson(root, ['task', 'list', '--status', status], platform)),
   );
   const answers = reads.map((read) => {
     if (read.status === 'rejected') throw read.reason;
@@ -1175,7 +1111,7 @@ export type ItemPlace =
  */
 const WriteNote = z.object({ write: z.object({ note: maybe }) });
 
-/** A person's write on a task from its page, by the id of Jig's action that offers it (`WRITES_JIG_VERSION`). */
+/** A person's write on a task from its page, by the id of Jig's action that offers it. */
 export type TaskWrite = 'approve-gate' | 'answer-gate' | 'abandon' | 'archive' | 'unarchive' | 'drop-item';
 
 const WRITE_COMMANDS: Record<TaskWrite, (task: string) => string[]> = {
@@ -1496,8 +1432,8 @@ export function fileItem(
 }
 
 /**
- * Files a new task with its goal and names it on a roadmap item in one write (`jig spec item file --new`, from
- * `FILE_NEW_JIG_VERSION`), so the revision carried is the caller's read; as `roadmapWrite`. A refusal files nothing.
+ * Files a new task with its goal and names it on a roadmap item in one write (`jig spec item file --new`), so the revision
+ * carried is the caller's read; as `roadmapWrite`. A refusal files nothing.
  */
 export function fileNewItem(
   root: string,
@@ -1655,13 +1591,12 @@ export interface DocumentDecision {
 }
 
 /**
- * Decides documents against the revision of the knowledge read they were based on, as one write: from
- * `DECIDE_JIG_VERSION` `jig knowledge decide --accept|--reject|--reviewed <id>… --revision <n> --json`, each id with the
- * flag of its decision, in the order given; below it `jig knowledge accept|reject|reviewed <id> --revision <n> --json`,
- * one decision only — more is refused `usage` without Jig. Jig commits them on `knowledge/decisions` in a tree of its
+ * Decides documents against the revision of the knowledge read they were based on, as one write: `jig knowledge decide
+ * --accept|--reject|--reviewed <id>… --revision <n> --json`, each id with the flag of its decision, in the order given;
+ * none is refused `usage` without Jig. Jig commits them on `knowledge/decisions` in a tree of its
  * own and goes as far as `agent.git` allows; any refusal refuses them all, before anything is written. The revision is
  * never left out — without it Jig decides unchecked. Answers Jig's note without a path; refused as a roadmap edit is,
- * and `not-proposed` (decided already, or not a proposal) and `source-missing`; from Jig 0.41.0 also `not-on-base`,
+ * and `not-proposed` (decided already, or not a proposal) and `source-missing`, `not-on-base`,
  * `not-on-branch` (the document is not on the branch the decision is judged on yet) and `write-still-waits`. Jig's
  * line names the document it stopped at, and only there: the refusal carries it as `doc`, the one of these the line
  * names as a word of its own, not as part of a longer id.
@@ -1670,23 +1605,21 @@ export async function decideKnowledge(
   root: string,
   decisions: DocumentDecision[],
   revision: number,
-  jigVersion: string,
   platform: NodeJS.Platform = process.platform,
 ): Promise<string | null> {
-  const many = supports(jigVersion, DECIDE_JIG_VERSION);
-  if (decisions.length === 0 || (!many && decisions.length > 1)) throw new JigRefusal('usage');
-  const named = many
-    ? ['decide', ...decisions.flatMap(({ doc, decision }) => [`--${decision}`, doc])]
-    : [decisions[0]!.decision, decisions[0]!.doc];
+  if (decisions.length === 0) throw new JigRefusal('usage');
+  const named = ['decide', ...decisions.flatMap(({ doc, decision }) => [`--${decision}`, doc])];
   try {
     const { data } = await readJson(root, ['knowledge', ...named, '--revision', String(revision)], platform, KNOWLEDGE_TIMEOUT_MS);
     const { note } = parsed(WriteNote, data).write;
     return note && withoutPaths(note);
   } catch (error) {
     if (!(error instanceof JigRefusal)) throw error;
+    // A check Jig shares with its single-decision commands may still name one of them (`knowledge accept: `).
+    const reasons = error.reasons.map((line) => line.replace(/^knowledge (accept|reject|reviewed): /, ''));
     const names = (line: string, doc: string) => line.split(/[^\w-]+/).includes(doc);
-    const stopped = decisions.find(({ doc }) => error.reasons.some((line) => names(line, doc)))?.doc;
-    throw new JigRefusal(error.code, error.reasons, stopped);
+    const stopped = decisions.find(({ doc }) => reasons.some((line) => names(line, doc)))?.doc;
+    throw new JigRefusal(error.code, reasons, stopped);
   }
 }
 
@@ -1696,35 +1629,12 @@ const CLOSE_TIMEOUT_MS = 60_000;
 /**
  * Closes a task as done (`jig task set <id> status consolidated`, the command of Jig's `close` action). Jig lets it
  * through only when the knowledge decision is recorded and the pull request, asked of the forge now, has merged — a
- * forge cache that has not heard of the merge yet withholds the action, never the command. From `CLOSE_JIG_VERSION` on,
- * Jig claims the write against `revision` itself: refused as `stale-revision`, `not-found`, or `not-closable` with Jig's
- * reason as `reasons`; the closed task it answers is not read, the caller reads again. An older Jig takes no `--revision`
- * and prints no JSON: the clone's revision is read first, and a write since `revision` is refused as `stale-revision`
- * with nothing run — a read, not a claim: a write between it and the close is not seen; Jig's own refusal throws
- * JigRefusal `failed` with its error lines, without a path.
+ * forge cache that has not heard of the merge yet withholds the action, never the command. Jig claims the write against
+ * `revision` itself: refused as `stale-revision`, `not-found`, or `not-closable` with Jig's reason as `reasons`; the
+ * closed task it answers is not read, the caller reads again.
  */
-export async function closeTask(
-  root: string,
-  task: string,
-  revision: number,
-  jigVersion: string,
-  platform: NodeJS.Platform = process.platform,
-): Promise<void> {
-  if (supports(jigVersion, CLOSE_JIG_VERSION)) {
-    await readJson(root, ['task', 'set', task, 'status', 'consolidated', '--revision', String(revision)], platform, CLOSE_TIMEOUT_MS);
-    return;
-  }
-  if ((await readJson(root, ['queue', 'list'], platform)).revision !== revision) throw new JigRefusal('stale-revision');
-  try {
-    await jig(root, ['task', 'set', task, 'status', 'consolidated'], platform, CLOSE_TIMEOUT_MS);
-  } catch (error) {
-    const stderr = (error as { stderr?: string }).stderr ?? '';
-    const reasons = stderr.split('\n').flatMap((line) => {
-      const m = /^jig: error: (?:task set: )?(.+)$/.exec(line.trim());
-      return m?.[1] ? [withoutPaths(m[1])] : [];
-    });
-    throw new JigRefusal('failed', reasons);
-  }
+export async function closeTask(root: string, task: string, revision: number, platform: NodeJS.Platform = process.platform): Promise<void> {
+  await readJson(root, ['task', 'set', task, 'status', 'consolidated', '--revision', String(revision)], platform, CLOSE_TIMEOUT_MS);
 }
 
 /** What `jig upgrade --json` did, or for `--dry-run` would do (Jig 0.34.0): Jig's texts without a path. */

@@ -70,7 +70,7 @@ export type ProjectView =
       counts: TaskCounts;
       attention: Attention[];
       housekeepingStale: boolean;
-      /** How the clone stands against origin as of its last fetch (Jig 0.45.0); `null` from an older Jig. */
+      /** How the clone stands against origin as of its last fetch; `null` while it cannot be told. */
       origin: Origin;
       /** The project is on Jig's staging flow, as its board says (`ProjectTasks.stagingFlow`). */
       stagingFlow: boolean;
@@ -199,7 +199,7 @@ export interface LandedAll {
 /** A connected project as the workspace shows it, with the upgrade started from the page, if any. */
 /**
  * An upgrade of the project that ended in a pull request and waits for it: still open, or merged and not brought here
- * yet. Only where the project's Jig can land it (0.39.0).
+ * yet. Only where the project's Jig can land it.
  */
 export interface MergeWait {
   state: 'open' | 'merged';
@@ -253,13 +253,13 @@ export interface Task {
   /** Jig offers to ask it to pause (its `request-pause` action); a request is taken back while there is one. */
   pauseRequestable: boolean;
   /**
-   * Nobody started it, and a drop on Paused pauses it at once (`task pause --revision`, Jig 0.45.0): Jig withholds
+   * Nobody started it, and a drop on Paused pauses it at once (`task pause --revision`): Jig withholds
    * `request-pause`, since no stage would take a request, and offers `pause`.
    */
   pausable: boolean;
   /**
    * Paused or parked at the staging branch, and resumable from the page: Jig offers its `resume` action and takes
-   * `task resume --revision` (0.35.0).
+   * `task resume --revision`.
    */
   resumable: boolean;
   /**
@@ -336,8 +336,8 @@ export interface Task {
     position: number;
   } | null;
   /**
-   * The spec the task was filed from (Jig 0.46.0): its id, title (`null` when the spec is not in the checkout), the
-   * link's phase, and whether the task goes into the spec's epic. `null` for a task of no spec, and before 0.46.0.
+   * The spec the task was filed from: its id, title (`null` when the spec is not in the checkout), the
+   * link's phase, and whether the task goes into the spec's epic. `null` for a task of no spec.
    */
   spec: {
     id: string;
@@ -395,7 +395,7 @@ export interface TaskDetails extends Task {
 export interface FinishedTask {
   id: string;
   status: 'consolidated' | 'abandoned' | 'archived';
-  /** The writes the page runs on it that Jig offers now; none on a Jig older than 0.46.0. */
+  /** The writes the page runs on it that Jig offers now. */
   offers: ('archive' | 'unarchive' | 'drop-item')[];
   goal: string | null;
   /** The day Jig last changed the task, which for a finished one is the day it finished. */
@@ -435,14 +435,12 @@ export type ProjectTask =
       task: TaskDetails | null;
       /** The revision of the board read the details come from, which a write from them carries. */
       revision: number;
-      /** The project's Jig runs a person's writes on a task (0.46.0): its page offers them as buttons. */
-      writes: boolean;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
 /**
  * A task's documents that are there, in Jig's order, `null` when Jig has no task of that id; or why they cannot be
- * listed — a project whose Jig is older than 0.39.0 is `unsupported`, with 0.39.0 as its minimum.
+ * listed.
  */
 export type TaskArtifacts =
   | {
@@ -468,7 +466,7 @@ export type ProjectPrStatus =
 
 /**
  * The project's settings and the person's own in this clone, every key Jig reads, with the revision they were read at; or
- * why they cannot be read — a project whose Jig is older than 0.40.0 is `unsupported`, with 0.40.0 as its minimum.
+ * why they cannot be read.
  */
 export type ProjectSettings =
   | {
@@ -501,11 +499,6 @@ export type ProjectReviewers =
 export type ProjectKnowledge =
   | ({
       state: 'ready';
-      /** Jig 0.41.0 and later: a proposal's text can be read (`knowledgeText`), and `reject` drops a stub's link. */
-      canRead: boolean;
-      canDrop: boolean;
-      /** Jig 0.44.0 and later: several decisions, of any kinds, go as one write (`jig knowledge decide`). */
-      canDecideMany: boolean;
     } & Knowledge)
   | Exclude<ProjectView, { state: 'ready' }>;
 
@@ -580,17 +573,13 @@ export type ShownSpec = Spec & {
 
 /**
  * A project's specs — the queued epics first, in the queue's order, then the other open epics, then the specs with
- * none, each in Jig's order — and the revision a write based on them carries; `editable` when the project's Jig adds,
- * moves and files roadmap items, and `canRead` when it reads a spec's documents (`specText`) and gives its short
- * description; or why the project cannot be read.
+ * none, each in Jig's order — and the revision a write based on them carries; or why the project cannot be read.
  */
 export type ProjectSpecs =
   | {
       state: 'ready';
       specs: ShownSpec[];
       revision: number;
-      editable: boolean;
-      canRead: boolean;
     }
   | Exclude<ProjectView, { state: 'ready' }>;
 
@@ -638,9 +627,7 @@ export type Written =
       code: string;
       /** Jig's own reasons, without a path, where a command's refusal carries them (closing a task). */
       reasons?: string[];
-      /** Filing an item's task on Jig 0.40.0: the task was filed, and Jig refused to name it on the item. */
-      filed?: true;
-      /** Filing an item's new task from Jig 0.42.0: its id is a task's already, as Jig's `already-exists` now says alone. */
+      /** Filing an item's new task: its id is a task's already, as Jig's `already-exists` now says alone. */
       taken?: true;
       /** Knowledge decisions: the document the refusal is about — the one not open, or the first sent that Jig's line names —, `null` for none. */
       doc?: string | null;
@@ -696,7 +683,7 @@ export interface ProjectSource {
   specs(id: string): Promise<ProjectSpecs | undefined>;
   /**
    * One of a spec's documents as it is written, read through the project's Jig for a spec Jig itself lists — anything
-   * else is `null`, Jig not run. Below Jig 0.48.0 `unsupported`. `undefined` when no project has that id.
+   * else is `null`, Jig not run. `undefined` when no project has that id.
    */
   specText(id: string, spec: string, kind: SpecDocument): Promise<SpecText | undefined>;
   /** A project's finished tasks, read through Jig at each call and kept nowhere; a failure stays this read's. */
@@ -715,17 +702,15 @@ export interface ProjectSource {
   /**
    * Adds an item with `text` at the bottom of a numbered phase of a spec's roadmap, as `move` writes: the spec and the
    * phase must be in the last read — the roadmap waiting on the spec's branch when there is one. Jig commits it on the
-   * spec's branch and goes as far as `agent.git` allows; its note comes back. Below Jig 0.40.0 refused `unsupported`.
+   * spec's branch and goes as far as `agent.git` allows; its note comes back.
    */
   addItem(id: string, specId: string, phase: number, text: string, revision: number): Promise<Written | undefined>;
   /** Moves a roadmap item, and `place.after` names another, both in the last read; as `addItem` writes. */
   moveItem(id: string, specId: string, item: string, place: ItemPlace, revision: number): Promise<Written | undefined>;
   /**
    * Names a task on an unchecked roadmap item that names none, as `addItem` writes. A live task is named as it is, with
-   * `revision`; any other id is filed with `goal` (`null`: refused `usage`) and named. From Jig 0.41.0 that is one write
-   * with `revision`, and a refusal files nothing. On Jig 0.40.0 the task is filed first, then named with the revision read
-   * after it — refused at once as `git-not-allowed` when the clone's `agent.git` is `none`, so nothing is filed that Jig
-   * could not name — and a refusal after the filing comes back `filed`.
+   * `revision`; any other id is filed with `goal` (`null`: refused `usage`) and named: one write with `revision`, and a
+   * refusal files nothing.
    */
   fileItem(id: string, specId: string, item: string, taskId: string, goal: string | null, revision: number): Promise<Written | undefined>;
   /** Sets a live task's priority, `null` for none, as `move` writes. */
@@ -749,10 +734,11 @@ export interface ProjectSource {
    */
   fileTask(id: string, taskId: string, goal: string): Promise<Written | undefined>;
   /**
-   * A person's write on a task, as `move` writes, from Jig 0.46.0 (below it `unsupported`): Jig runs only when the last
+   * A person's write on a task, as `move` writes: Jig runs only when the last
    * read offers it — the board's for a live task (`approve-gate`, `answer-gate`, `abandon`, `archive`), the last finished read for one
    * that is not (`archive`, `unarchive`, `drop-item`) —, else `not-found`. `reason` goes with `abandon` (its reason) and `answer-gate` (the
-   * answer to the design, a line; Jig offers it from 0.48.0) only. For `approve-gate` and `answer-gate` the revision is the design's read: a design rewritten since is refused `stale-revision`.
+   * answer to the design, a line) only. For `approve-gate` and `answer-gate` the revision is the design's read: a design
+   * rewritten since is refused `stale-revision`.
    */
   act(id: string, taskId: string, write: TaskWrite, reason: string | null, revision: number): Promise<Written | undefined>;
   /**
@@ -771,7 +757,7 @@ export interface ProjectSource {
   /**
    * Whom the forge offers to review a pull request into the project's staging branch, read through its Jig at each call —
    * it asks the forge, so only when a person is about to choose; the logins are kept in memory for `requestReview`.
-   * Below Jig 0.46.0 `unsupported`. `undefined` when no project has that id.
+   * `undefined` when no project has that id.
    */
   reviewers(id: string): Promise<ProjectReviewers | undefined>;
   /**
@@ -783,7 +769,7 @@ export interface ProjectSource {
   /**
    * Where a live task's pull request stands on the forge, read through its Jig at each call — it asks the forge, so only
    * when a person presses —, for a task Jig offered `pr-status` on in the last read; any other `not-found` without Jig.
-   * Below Jig 0.46.0 `unsupported`. `undefined` when no project has that id.
+   * `undefined` when no project has that id.
    */
   prStatus(id: string, taskId: string): Promise<ProjectPrStatus | undefined>;
   /** Makes a live task wait for another live task or an open epic (`task:<id>`, `epic:<spec>`) with a reason, as `move` writes. */
@@ -798,16 +784,16 @@ export interface ProjectSource {
    */
   housekeeping(id: string): Promise<Written | undefined>;
   /**
-   * Brings the clone up to origin through Jig (`jig refresh`, Jig 0.45.0): a fetch, a fast-forward of the base that never
+   * Brings the clone up to origin through Jig (`jig refresh`): a fetch, a fast-forward of the base that never
    * moves the person's checkout, and Jig's own writes that are over closed; then reads it again, answering what it did.
-   * No revision and no live id, as housekeeping: it changes nothing the person decided. Refused `unsupported` below
-   * 0.45.0 and `upgrading` while the project's upgrade runs. `undefined` when no project has that id.
+   * No revision and no live id, as housekeeping: it changes nothing the person decided. Refused `upgrading` while the
+   * project's upgrade runs. `undefined` when no project has that id.
    */
   refresh(id: string): Promise<Written | undefined>;
   /**
-   * Marks the person's own commits on staging as known (`jig staging ack`, Jig 0.46.0) — those of the `staging-unowned`
+   * Marks the person's own commits on staging as known (`jig staging ack`) — those of the `staging-unowned`
    * item they were shown, its count `expect` and the shas it listed; then reads the project again. No revision: refused
-   * `stale-revision` when the count or the list has moved since, nothing marked. Refused `unsupported` below 0.46.0 and
+   * `stale-revision` when the count or the list has moved since, nothing marked. Refused
    * `upgrading` while the project's upgrade runs. `undefined` when no project has that id.
    */
   ackStaging(id: string, expect: number, shas: string[]): Promise<Written | undefined>;
@@ -815,8 +801,7 @@ export interface ProjectSource {
   settings(id: string): Promise<ProjectSettings | undefined>;
   /**
    * Sets one of the person's own settings in the project's clone, never the project's file, against the revision of the
-   * settings read, then reads the project again. A project whose Jig is older than 0.40.0 is refused `unsupported`, Jig
-   * not run. `undefined` when no project has that id.
+   * settings read, then reads the project again. `undefined` when no project has that id.
    */
   setSetting(id: string, key: string, value: string, revision: number): Promise<Written | undefined>;
   /** Takes one of the person's own settings out of the clone's file, so the project's value or Jig's default answers, as `setSetting` writes. */
@@ -830,19 +815,17 @@ export interface ProjectSource {
   knowledgeDiff(id: string, docId: string): Promise<SourceChange | undefined>;
   /**
    * A proposed document's text, read through the project's Jig for a document a knowledge read just before lists as
-   * proposed — anything else is `null`, Jig not run. Below Jig 0.41.0 `unsupported`. `undefined` when no project has that id.
+   * proposed — anything else is `null`, Jig not run. `undefined` when no project has that id.
    */
   knowledgeText(id: string, docId: string): Promise<KnowledgeText | undefined>;
   /**
    * Decides documents against the revision of the knowledge read they were based on, as one write: `accept` or `reject` a
-   * proposal, `reviewed` keeps a stub's changed or unrecorded file, and from Jig 0.41.0 `reject` drops the link of a stub
-   * whose file changed, has no approved text or is gone. Several only from Jig 0.44.0 (`canDecideMany`); below it more
-   * than one is `refused: usage`. Jig runs only when a knowledge read just before lists every one of them as open to its
-   * decision — else `refused: not-found` naming it —, commits them on `knowledge/decisions` and goes as far as
-   * `agent.git` allows; its note comes back. Any refusal refuses them all, with `doc` the document it names, or `null`. A
-   * document not yet where the decision is judged is `refused: not-on-base` or `not-on-branch` by Jig 0.41.0; Jig 0.40.0
-   * does not find it, as the branch starts from origin's base, and that is `refused: not-on-branch` too. Below Jig 0.40.0
-   * refused `unsupported`. `undefined` when no project has that id.
+   * proposal, `reviewed` keeps a stub's changed or unrecorded file, and `reject` drops the link of a stub whose file
+   * changed, has no approved text or is gone. Jig runs only when a knowledge read just before lists every one of them as
+   * open to its decision — else `refused: not-found` naming it —, commits them on `knowledge/decisions` and goes as far
+   * as `agent.git` allows; its note comes back. Any refusal refuses them all, with `doc` the document it names, or
+   * `null`. A document not yet where the decision is judged is `refused: not-on-base` or `not-on-branch`. `undefined`
+   * when no project has that id.
    */
   decideKnowledge(id: string, decisions: DocumentDecision[], revision: number): Promise<Written | undefined>;
   /**

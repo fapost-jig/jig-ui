@@ -80,3 +80,6 @@ The maintainer asked for a button on that item, from a screenshot of it (2026-11
 - Undo: revert the merge; nothing is stored. A fast-forward is undone with `base.from`, which the answer keeps.
 - *(Amended by adr-20261120-a-projects-page-has-refresh-housekeeping-and-read-again-beside-its-name, 2026-11-20: at the maintainer's request Refresh is also beside the project's name on its
   page, always, still only when pressed; below Jig 0.45.0 and during an upgrade the server refuses it there.)*
+
+*(Amended by task `jig-min-0-48`, 2026-11-26: Jig UI needs Jig 0.48.0, so the 0.45.0 gate (`REFRESH_JIG_VERSION`) and
+its `unsupported` refusal no longer apply: Refresh is offered on every supported project.)*

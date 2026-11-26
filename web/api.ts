@@ -63,7 +63,7 @@ export type Proposal = ReadyKnowledge['proposals'][number];
 export type LinkedSource = ReadyKnowledge['sources'][number];
 /** How a stub's linked file changed since it was approved, or why the project's Jig cannot say. */
 export type SourceDiff = Ok<KnowledgeApi[':doc']['diff']['$get']>['diff'];
-/** A proposed document's text and the file a stub links (Jig 0.41.0), or why the project's Jig cannot give them. */
+/** A proposed document's text and the file a stub links, or why the project cannot be read. */
 export type DocumentText = Ok<KnowledgeApi[':doc']['text']['$get']>['text'];
 /** Documents and how each was decided, as the route takes them: each document once. */
 export type DocumentDecision = NonNullable<InferRequestType<KnowledgeApi['decide']['$post']>['json']['decisions']>[number];
@@ -91,7 +91,7 @@ export type FoundProjects = Ok<Api['scan']['$post']>;
 /** What Check all merges came to: the projects landed, still waiting for a merge, and stopped. */
 export type LandedAll = Ok<Api['upgrade']['land-all']['$post']>['landed'];
 
-/** How a ready project's clone stands against origin as of its last fetch; `null` from a Jig before 0.45.0. */
+/** How a ready project's clone stands against origin as of its last fetch; `null` while it cannot be told. */
 export type Origin = Extract<Project, { state: 'ready' }>['origin'];
 
 /** What bringing a project's clone up to origin did (`jig refresh`), without git's messages or a path. */

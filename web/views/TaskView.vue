@@ -374,7 +374,7 @@
           <template #head><h2 id="details" class="px-4 pt-3 pb-2 text-[15px] font-semibold">Details</h2></template>
           <div class="mx-2 mb-2 rounded-lg bg-card px-3 py-2 ring-1 ring-border">
             <TaskFacts :details="details" :stop="false">
-              <template v-if="details.writes" #waits>
+              <template #waits>
                 <DependsEditor
                   v-model:adding="adding"
                   :task="task"
