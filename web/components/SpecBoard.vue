@@ -24,6 +24,7 @@
     type SpecDocumentRead,
   } from '@/lib/specs';
   import { laneAccent, toneText } from '@/lib/tones';
+  import CopyButton from './CopyButton.vue';
   import CopyCommand from './CopyCommand.vue';
   import DocumentDialog from './DocumentDialog.vue';
   import GroupPanel from './GroupPanel.vue';
@@ -112,7 +113,10 @@
 <template>
   <section class="flex flex-col gap-5" :aria-labelledby="`spec-${spec.id}`">
     <header class="flex flex-col gap-2">
-      <h2 :id="`spec-${spec.id}`" class="text-[17px] leading-snug font-semibold">{{ spec.title ?? spec.id }}</h2>
+      <div class="flex items-start gap-1.5">
+        <h2 :id="`spec-${spec.id}`" class="text-[17px] leading-snug font-semibold">{{ spec.title ?? spec.id }}</h2>
+        <CopyButton :text="spec.id" icon class="mt-0.5 shrink-0 text-muted-foreground" />
+      </div>
       <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <code v-if="spec.title">{{ spec.id }}</code>
         <ProgressBar v-if="roadmap.progress" :done="roadmap.progress.done" :total="roadmap.progress.total" />
