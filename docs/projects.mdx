@@ -65,7 +65,8 @@ readable project's card shows:
 
 - **Its live tasks counted** — `active`, `paused` and `ready` (finished tasks are not counted).
 - **What needs you** — the same items `jig status` lists under "Needs you", most urgent first: a
-  design waiting at its gate, a stopped autopilot run, a pull request waiting for review, a task to
+  design waiting at its gate (only where Jig lets you approve it: under an unattended autopilot run that is on, the agent
+  approves the design itself, and that item is left out), a stopped autopilot run, a pull request waiting for review, a task to
   close. Each says what happened and what to do; a pull request comes with a link to it, says
   where it stands and who merges it, with **Merge…** and **Status…** where Jig offers them
   ([Merging a task's pull request](#merging-a-tasks-pull-request)) —,
@@ -200,7 +201,7 @@ fits wins:
 | --- | --- |
 | Paused | it is paused (`jig task pause`) |
 | Backlog | it is filed but not started (`jig task start` not run yet) |
-| Needs you | its design waits at its gate, or changed after approval, or its autopilot run stopped with a question |
+| Needs you | its design waits at its gate, or changed after approval, where Jig lets you approve it (not under an unattended autopilot run that is on: there the agent approves it, and the task stays In progress), or its autopilot run stopped with a question |
 | Review | on Jig's staging flow: its pull request into the staging branch waits for a review, or for you to land it |
 | On staging | on Jig's staging flow: its work is on the staging branch and waits for "prepare for prod" |
 | Ready | its work is done (`status ready`); the card says whether a pull request is open, its CI, or merged — on Jig's staging flow, whether its fix is on staging yet, or its promotion's state ([Tasks on staging](#tasks-on-staging)) |
@@ -659,7 +660,9 @@ A click on a card's goal, or on a row in the list, opens the task's page, at `/p
 you can keep. (Addresses used to start with `#/`; those links still work.) The page has two columns. On the left is the
 task — its id, spec, goal and status, its design at its gate with **Approve the design**, what needs you, and its
 documents. On the right are what Jig offers, the details, **Ask your agent** with sentences to copy — after you
-answer the gate, for one, a request to tell your agent to continue —, and a timeline of the task. The list of Jig
+answer the gate, for one, a request to tell your agent to continue —, and a timeline of the task. Where an unattended
+autopilot run that is on holds the gate, a line under the goal says the agent approves the design itself, and **Ask your agent**
+offers a sentence asking it to stop the run and hand the task over to you, so that you can answer the gate. The list of Jig
 commands at the foot of the page is gone. The details are:
 
 - **Its place in the queue** — its priority, its place among the live tasks and open epics of its

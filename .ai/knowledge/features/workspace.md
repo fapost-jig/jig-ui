@@ -34,7 +34,8 @@ The page at `/` (`web/views/WorkspaceView.vue`): a list of the connected project
 that needs the person — not readable, or with an attention item — else the first
 (`web/lib/projects.ts`); a click in the list sets `?project=`, and a project just connected is
 shown. The card has its Jig version, its live tasks counted, what needs the person there — Jig's
-attention items as `jig status --json` lists them, `knowledge-proposed` and `sources-changed` with a link to the
+attention items as `jig status --json` lists them, less a `gate-waiting` or `gate-changed` item of a gate Jig does not offer
+the person (an unattended autopilot run that is on approves it; `personsAttention` in `server/source/attention.ts`), `knowledge-proposed` and `sources-changed` with a link to the
 project's Knowledge view (`AttentionItem.vue`, feature-knowledge), and `needs-consolidation` ("Merged: the task can be
 closed") with **Close task** for a task the board's card could close (`closableTask` in `web/lib/projects.ts`, the task it
 gives being the item's `closes`;

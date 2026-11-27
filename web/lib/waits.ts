@@ -21,8 +21,9 @@ export function waits(task: Omit<Task, 'resumesTo'>):
       more?: number;
     }
   | undefined {
-  if (task.gate === 'waiting') return { text: 'Design waits at its gate', tone: 'attention', icon: 'gate' };
-  if (task.gate === 'changed') return { text: 'Design changed after approval', tone: 'attention', icon: 'gate' };
+  // Only a gate the person may approve is theirs to wait on; under an unattended run the agent approves it.
+  if (task.gate === 'waiting' && task.gateApprovable) return { text: 'Design waits at its gate', tone: 'attention', icon: 'gate' };
+  if (task.gate === 'changed' && task.gateApprovable) return { text: 'Design changed after approval', tone: 'attention', icon: 'gate' };
   // Answered from the board: the agent reworks the design when it resumes the task, and comes back to the gate.
   if (task.gate === 'answered') return { text: 'Gate answered; waits for the design to be reworked', tone: 'quiet', icon: 'gate' };
   if (task.autopilot === 'stopped') return { text: 'Autopilot stopped with a question', tone: 'attention', icon: 'ask' };

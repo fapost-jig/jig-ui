@@ -31,6 +31,10 @@ which is where the facts are: a card no longer expands and the List has no side 
 button, spec, goal, status line, gate, what needs the person, documents — and one third what is known of it: the writes
 Jig offers (running some of them itself, below), the facts (`web/components/TaskFacts.vue`),
 **Ask your agent** (`web/lib/agent-prompts.ts`, `web/components/AgentPrompts.vue`) and a timeline from the times Jig keeps (`web/lib/timeline.ts`, with what needs the person).
+Where an unattended autopilot run that is on holds a waiting or changed gate (Jig does not offer the person
+`approve-gate`; `agentHoldsGate` in `web/lib/timeline.ts`), a quiet line under the goal says the agent approves the design
+itself, Jig's gate items are left out of what needs the person, and Ask your agent offers to stop the run and hand the task
+over — the only way the gate becomes the person's (task `gate-not-yours`).
 It is served by
 `GET /api/projects/:id/tasks/:task` from `ProjectSource.task`: the task's row from Jig's task list
 in full — column (the board's rule), status, class, branch and base, worktree's uncommitted count,

@@ -14,6 +14,7 @@ const task = (id: string, more: Partial<Task> = {}): Task => ({
   resumable: false,
   closable: false,
   landable: false,
+  gateApprovable: false,
   reviewRequestable: false,
   promotable: false,
   mergeable: false,

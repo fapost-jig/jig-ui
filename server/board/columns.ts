@@ -34,7 +34,8 @@ const COLUMNS: {
 export function columnOf(task: Task): ColumnId {
   if (task.paused) return 'paused';
   if (!task.started) return 'backlog';
-  if (task.gate === 'waiting' || task.gate === 'changed' || task.autopilot === 'stopped') return 'needs-you';
+  // A gate is the person's only where Jig offers them the approval; under an unattended run that is on it is the agent's.
+  if (((task.gate === 'waiting' || task.gate === 'changed') && task.gateApprovable) || task.autopilot === 'stopped') return 'needs-you';
   if (task.parked?.reason === 'review') return 'review';
   if (task.parked?.reason === 'signal') return 'on-staging';
   if (task.status === 'ready') return 'ready';

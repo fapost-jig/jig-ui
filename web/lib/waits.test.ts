@@ -14,6 +14,7 @@ const task = (more: Partial<Task> = {}): Task => ({
   resumable: false,
   closable: false,
   landable: false,
+  gateApprovable: true,
   reviewRequestable: false,
   promotable: false,
   mergeable: false,
@@ -55,6 +56,16 @@ describe('waits', () => {
     ['nothing to say', {}, undefined],
     ['a design waiting at its gate', { gate: 'waiting' }, { text: 'Design waits at its gate', tone: 'attention', icon: 'gate' }],
     ['a design changed after approval', { gate: 'changed' }, { text: 'Design changed after approval', tone: 'attention', icon: 'gate' }],
+    [
+      'a design waiting where Jig offers the person no approval, under a running autopilot',
+      { gate: 'waiting', gateApprovable: false, autopilot: 'on', stage: 'implement' },
+      { text: 'Autopilot · implement', tone: 'quiet', icon: 'bot' },
+    ],
+    [
+      'a design changed where Jig offers the person no approval, under a running autopilot',
+      { gate: 'changed', gateApprovable: false, autopilot: 'on' },
+      { text: 'On autopilot', tone: 'quiet', icon: 'bot' },
+    ],
     [
       'a gate answered from the board',
       { gate: 'answered' },

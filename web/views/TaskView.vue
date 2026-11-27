@@ -38,7 +38,7 @@
   import { agentPrompts } from '@/lib/agent-prompts';
   import { ago } from '@/lib/ago';
   import { minute } from '@/lib/clock';
-  import { needsYou, timeline } from '@/lib/timeline';
+  import { agentHoldsGate, needsYou, timeline } from '@/lib/timeline';
   import { waits } from '@/lib/waits';
   import { dependCandidates, DOING, gateDocuments, pageWrites } from '@/lib/writes';
 
@@ -317,6 +317,10 @@
           <SpecMark v-if="details.spec" :spec="details.spec" />
           <p v-if="details.goal" class="text-base leading-relaxed text-foreground/80">{{ details.goal }}</p>
           <TaskNote v-if="note" :project="project" :note="note" link />
+          <p v-if="agentHoldsGate(details)" class="text-[13px] text-muted-foreground" role="note">
+            The autopilot runs unattended, so the agent approves the design itself. To answer it yourself, ask the agent to stop the run and
+            hand the task over to you — the sentence is under Ask your agent.
+          </p>
         </div>
 
         <GateApproval

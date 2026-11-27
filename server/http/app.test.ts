@@ -409,7 +409,12 @@ describe('/api/projects and /api/workspace', () => {
     const tree = join(realpathSync.native(webRoot), 'tree-of-busy').replace(/\\/g, '/');
     const busy = project('busy', '0.48.0', false, [
       row('a', { branch: null }),
-      row('b', { worktree: { path: tree, uncommitted: 1 }, gate: { state: 'waiting', by: null } }),
+      row('b', {
+        worktree: { path: tree, uncommitted: 1 },
+        gate: { state: 'waiting', by: null },
+        // Jig offers the person the gate: it needs them.
+        actions: [{ id: 'approve-gate', command: 'jig task gate b approved', offered: true, reason: null }],
+      }),
       row('c', { status: 'ready' }),
     ]);
     await call('POST', '/api/projects', { path: busy });

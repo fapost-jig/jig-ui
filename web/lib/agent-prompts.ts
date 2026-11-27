@@ -1,4 +1,5 @@
 import type { ReadyDetails } from '../api';
+import { agentHoldsGate } from './timeline';
 
 /** A sentence to paste to the person's agent, and when it is the one to use. */
 export interface AgentPrompt {
@@ -11,10 +12,17 @@ export interface AgentPrompt {
  * answer or an approval at the gate waits in the task's state until an agent resumes it, and an agent waiting in a chat
  * does not see it. These say so to it. Jig's actions the page has no button for are asked for in words too.
  */
-export function agentPrompts(details: Pick<ReadyDetails, 'id' | 'gate' | 'autopilot' | 'actions' | 'class' | 'status'>): AgentPrompt[] {
+export function agentPrompts(
+  details: Pick<ReadyDetails, 'id' | 'gate' | 'gateApprovable' | 'autopilot' | 'actions' | 'class' | 'status'>,
+): AgentPrompt[] {
   const id = details.id;
   const prompts: AgentPrompt[] = [];
-  if (details.gate === 'waiting' || details.gate === 'changed' || details.gate === 'answered') {
+  if (agentHoldsGate(details)) {
+    prompts.push({
+      text: `Stop the autopilot run of ${id} and hand the task over to me: I want to answer its design gate myself.`,
+      when: 'the agent approves the design while the run is on',
+    });
+  } else if (((details.gate === 'waiting' || details.gate === 'changed') && details.gateApprovable) || details.gate === 'answered') {
     prompts.push(
       {
         text: `I answered the gate of ${id} on the board. Read my answer with \`jig task show ${id}\` and rework the design.`,
