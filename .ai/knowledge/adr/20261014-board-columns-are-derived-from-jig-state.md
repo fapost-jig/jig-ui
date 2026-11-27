@@ -21,6 +21,7 @@ page is open. Spec `jig-ui`, decided with the maintainer on 2026-10-14.
 ## Decision
 
 - A card's column is computed from Jig's state on every read and never stored.
+  *(Amended by task `gate-not-yours`, 2026-11-27: a waiting or changed design gate puts a task in Needs you only where Jig offers the person `approve-gate`; under an unattended autopilot run that is on, the gate is the agent's and the task stays where its run puts it; Jig's `gate-waiting` and `gate-changed` attention items for such a gate are left out of the project's attention, `server/source/attention.ts`.)*
 - A drop on another column is a request, not a state change: the card stays where Jig says it is,
   shows "requested" with its age and a cancel, and moves only when Jig's state changes.
   *(Amended four times: a drop out of Paused resumes at once, adr-20261026-a-drop-out-of-paused-resumes-at-once;

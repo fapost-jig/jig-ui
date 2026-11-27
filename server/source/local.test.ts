@@ -399,8 +399,11 @@ describe('localSource', () => {
         task('b', 'active', false, {
           pause_request: { requested_at: '2026-10-22T09:01:58Z', reason: 'lunch' },
           worktree: { path: '/secret/tree-of-b', uncommitted: 3 },
+          // Its design waits at the gate, which Jig offers the person: its gate item is theirs.
+          gate: { state: 'waiting', by: null },
           actions: [
             { id: 'pause', command: 'jig task pause b', offered: true, reason: null },
+            { id: 'approve-gate', command: 'jig task gate b approved', offered: true, reason: null },
             { id: 'start', command: 'jig task start b', offered: false, reason: 'checked out in /secret/tree-of-b' },
           ],
         }),
@@ -785,6 +788,7 @@ describe('localSource', () => {
           resumable: false,
           closable: false,
           landable: false,
+          gateApprovable: false,
           reviewRequestable: false,
           promotable: false,
           mergeable: false,
@@ -861,7 +865,10 @@ describe('localSource', () => {
         id: 'b',
         baseBranch: 'main',
         worktree: { uncommitted: 3 },
-        actions: [{ id: 'pause', command: 'jig task pause b' }],
+        actions: [
+          { id: 'pause', command: 'jig task pause b' },
+          { id: 'approve-gate', command: 'jig task gate b approved' },
+        ],
         attention: [{ ...attention, versions: null }],
         // First at the top: no spec has an open epic e, so the page does not count it.
         place: { rank: 1, of: 1 },

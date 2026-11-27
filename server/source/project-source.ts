@@ -273,6 +273,11 @@ export interface Task {
    * `land`) — approved or not, Jig says which when it runs.
    */
   landable: boolean;
+  /**
+   * The design gate is the person's: Jig offers `approve-gate`. It does not while an unattended autopilot run is on — the
+   * approval is then the agent's — so a waiting or changed gate is the person's move only where this is true.
+   */
+  gateApprovable: boolean;
   /** Parked at staging for a review, from Jig 0.46.0, and Jig offers to ask the forge for reviewers (`request-review`). */
   reviewRequestable: boolean;
   /** Tested on staging, from Jig 0.46.0, and Jig offers to prepare it for prod (`promote`): its pull request into the base. */

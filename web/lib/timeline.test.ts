@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { needsYou, timeline } from './timeline';
+import { agentHoldsGate, needsYou, timeline } from './timeline';
 
-type NeedsDetails = Parameters<typeof needsYou>[0];
+type NeedsDetails = Parameters<typeof needsYou>[0] & Parameters<typeof agentHoldsGate>[0];
 type TimelineDetails = Parameters<typeof timeline>[0];
 
 const run = (over: Partial<NonNullable<NeedsDetails['run']>> = {}): NonNullable<NeedsDetails['run']> => ({
@@ -15,7 +15,7 @@ const run = (over: Partial<NonNullable<NeedsDetails['run']>> = {}): NonNullable<
 });
 
 describe('needsYou', () => {
-  const quiet: NeedsDetails = { autopilot: null, run: null, attention: [], housekeepingFlags: [] };
+  const quiet: NeedsDetails = { autopilot: null, run: null, attention: [], housekeepingFlags: [], gate: null, gateApprovable: true };
 
   it('is false where nothing waits for the person', () => {
     expect(needsYou(quiet)).toBe(false);
@@ -61,5 +61,30 @@ describe('timeline', () => {
       createdAt: null,
     });
     expect(events).toEqual([{ at: '2026-11-05T10:00:00Z', text: 'Pull request heard by housekeeping' }]);
+  });
+});
+
+describe("the gate that is the agent's", () => {
+  const item = (kind: string) => ({ kind }) as unknown as NeedsDetails['attention'][number];
+  const held: NeedsDetails = {
+    autopilot: 'on',
+    run: null,
+    attention: [item('gate-changed'), item('started-out-of-order')],
+    housekeepingFlags: [],
+    gate: 'changed',
+    gateApprovable: false,
+  };
+
+  it("is the agent's only for a waiting or changed gate Jig does not offer, under a run that is on", () => {
+    expect(agentHoldsGate(held)).toBe(true);
+    expect(agentHoldsGate({ ...held, gate: 'waiting' })).toBe(true);
+    expect(agentHoldsGate({ ...held, gateApprovable: true })).toBe(false);
+    expect(agentHoldsGate({ ...held, autopilot: 'stopped' })).toBe(false);
+    expect(agentHoldsGate({ ...held, gate: 'approved' })).toBe(false);
+  });
+
+  it('is not by itself something that needs the person: the quiet line stands beside the panel', () => {
+    expect(needsYou({ ...held, attention: [] })).toBe(false);
+    expect(needsYou(held)).toBe(true);
   });
 });

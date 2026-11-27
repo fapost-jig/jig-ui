@@ -11,6 +11,15 @@ export function needsYou(d: Pick<ReadyDetails, 'autopilot' | 'run' | 'attention'
   return (d.autopilot === 'stopped' && !!d.run?.stopReason) || d.attention.length > 0 || d.housekeepingFlags.length > 0;
 }
 
+/**
+ * The design waits or changed at its gate, but Jig does not offer the person its approval and the autopilot run is on:
+ * the run is unattended and the agent approves the design itself. The server leaves Jig's gate item out of the
+ * attention then (server/source/attention.ts); the page says whose the gate is instead.
+ */
+export function agentHoldsGate(d: Pick<ReadyDetails, 'autopilot' | 'gate' | 'gateApprovable'>): boolean {
+  return (d.gate === 'waiting' || d.gate === 'changed') && !d.gateApprovable && d.autopilot === 'on';
+}
+
 /** What happened to the task, the latest first, from the times Jig keeps. */
 export function timeline(d: Pick<ReadyDetails, 'run' | 'promotion' | 'pullRequest' | 'createdAt'>): TimelineEvent[] {
   const pr = d.promotion ?? d.pullRequest;

@@ -176,7 +176,14 @@
 
   /** What a person may ask their agent, by where a task stands: at its gate, stopped on a question, ready, going on. */
   const promptSets = [
-    { note: 'at its gate', prompts: agentPrompts({ ...details[0]!, gate: 'waiting', autopilot: null, status: 'active' }) },
+    {
+      note: 'at its gate',
+      prompts: agentPrompts({ ...details[0]!, gate: 'waiting', gateApprovable: true, autopilot: null, status: 'active' }),
+    },
+    {
+      note: 'at its gate, held by an unattended autopilot run',
+      prompts: agentPrompts({ ...details[0]!, gate: 'changed', gateApprovable: false, autopilot: 'on', status: 'active' }),
+    },
     { note: 'its autopilot stopped', prompts: agentPrompts({ ...details[0]!, gate: null, autopilot: 'stopped', status: 'active' }) },
     {
       note: 'ready, with the class to check',

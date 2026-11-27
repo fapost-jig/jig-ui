@@ -60,6 +60,7 @@ import {
   watchDir,
   writtenByReads,
 } from '../jig/client.js';
+import { personsAttention } from './attention.js';
 import { addProject, type Project, readProjects, removeProject } from '../registry/projects.js';
 import { type Watch, watchTree } from '../watch/watch.js';
 import { mainCheckout } from './checkout.js';
@@ -199,6 +200,8 @@ const card = (t: Live, q: QueueItem | undefined, waiting: Waiting): Task => ({
   resumable: offers(t, 'resume'),
   closable: closable(t),
   landable: offers(t, 'land'),
+  // The gate is the person's only where Jig offers them `approve-gate`; under an unattended autopilot run it is the agent's.
+  gateApprovable: offers(t, 'approve-gate'),
   // Jig offers it on every open pull request; on the board only a Review card's, the one into staging, asks.
   reviewRequestable: t.parked?.reason === 'review' && offers(t, 'request-review'),
   promotable: offers(t, 'promote'),
@@ -334,13 +337,15 @@ async function readProject(project: Project): Promise<Read> {
   };
   // The oldest of the reads the board is made of: a write against it is refused if anything was written after any of them.
   const revision = Math.min(status.revision, list.revision, queue.revision);
+  // A gate Jig lists but does not offer the person is the agent's: neither the count nor the task's page shows it.
+  const attention = personsAttention(status.attention, (id) => live.some((t) => t.id === id && offers(t, 'approve-gate')));
   return {
     view: {
       id: project.id,
       state: 'ready',
       jigVersion,
       counts: count(live),
-      attention: status.attention,
+      attention,
       housekeepingStale: status.housekeepingStale,
       origin: status.origin,
       stagingFlow,
@@ -357,7 +362,7 @@ async function readProject(project: Project): Promise<Read> {
       stagingFlow,
       revision,
     },
-    details: live.map((t) => details(t, queued.get(t.id), shownQueue, status.attention, waiting)),
+    details: live.map((t) => details(t, queued.get(t.id), shownQueue, attention, waiting)),
     // The specs are read beside the queue: a write of an epic carries the older of the two reads, or of the board's.
     specs: {
       state: 'ready',

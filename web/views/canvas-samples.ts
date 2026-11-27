@@ -38,6 +38,7 @@ const task = (id: string, more: Partial<Task>): Task => ({
   resumable: false,
   closable: false,
   landable: false,
+  gateApprovable: false,
   reviewRequestable: false,
   promotable: false,
   mergeable: false,
@@ -89,6 +90,7 @@ export const tasks: Task[] = [
   task('design-system', {
     class: 'T3',
     gate: 'waiting',
+    gateApprovable: true,
     priority: 0,
     queue: { level: null, position: 100 },
     spec: { id: 'jig-ui', title: 'Jig UI — a local control center for Jig projects', phase: 2, epic: false },
@@ -96,6 +98,7 @@ export const tasks: Task[] = [
   }),
   task('registry-schema', {
     gate: 'changed',
+    gateApprovable: true,
     priority: 3,
     queue: { level: null, position: 200 },
     goal: 'Version the registry file so a newer Jig UI can read an older one.',

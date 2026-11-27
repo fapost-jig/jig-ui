@@ -80,7 +80,10 @@ done, or moving.
 
 - Columns are derived and never stored (adr-20261014-board-columns-are-derived-from-jig-state);
   ProjectSource hands typed tasks and computes no column (convention-project-source).
-- "Needs you" is read from the task's own state — a gate waiting or changed, an autopilot run
+- "Needs you" is read from the task's own state — a gate waiting or changed where Jig offers the
+  person `approve-gate` (`gateApprovable`; under an unattended autopilot run that is on the gate is the agent's, so the task
+  stays in In progress; Jig's gate attention items for it are left out on the server, its page says whose the gate is and offers to ask the
+  agent to stop the run and hand the task over), an autopilot run
   stopped — so a task's column does not depend on the clone's `agent.git` or on housekeeping.
 - Order inside a column is Jig's queue (`jig queue list`): queued tasks first, the top level
   before epics' levels, by position; then the unqueued in Jig's list order. The queue starts

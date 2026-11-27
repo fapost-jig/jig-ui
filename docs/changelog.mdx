@@ -8,6 +8,10 @@ Stable releases run with `npx @fapost/jig-ui`; what is under **Unreleased** is o
 
 ## Unreleased
 
+- A task whose design gate waits or changed under an unattended autopilot run no longer sits in **Needs you**: Jig refuses you the
+  approval there, so the agent decides the gate, and the task stays in **In progress**. Jig's "approve it again" items for that
+  gate are no longer counted or shown; the task's page says the agent approves the design itself, and offers a sentence asking your
+  agent to stop the run and hand the task over to you.
 - Jig UI now needs Jig 0.48.0 or later in each project; a project on an older Jig is not read and asks for `jig upgrade` in it. The
   per-feature version notes are gone from the page and the docs. ([Requirements](/requirements))
 - On **Specs**, a copy icon beside the chosen spec's title copies its id. ([Specs](/projects#specs))
